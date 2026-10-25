@@ -941,14 +941,16 @@
     onlineMyRole = 'player1';
     window.gameState.mode = "online";
 
-    const myHand = window.userProfile.deck.slice(0, 5);
+    const fullDeck = buildDeckFromIds(window.userProfile.deck);
+    window.gameState.my.hand = fullDeck.slice(0, 5);
+    window.gameState.my.deck = fullDeck.slice(5);
 
     const { error } = await supabaseClient.from('rooms').insert([{
       id: onlineRoomId,
       status: 'waiting',
       current_turn: 'player1',
       p1_name: window.userProfile.name,
-      p1_hand: myHand,
+      p1_hand: window.gameState.my.hand.map(c => c.id),
       p1_hp: 50,
       p2_hp: 50,
       log: [`部屋作成成功！合言葉: ${onlineRoomId}`]
@@ -974,12 +976,14 @@
     onlineMyRole = 'player2';
     window.gameState.mode = "online";
 
-    const myHand = window.userProfile.deck.slice(0, 5);
+    const fullDeck = buildDeckFromIds(window.userProfile.deck);
+    window.gameState.my.hand = fullDeck.slice(0, 5);
+    window.gameState.my.deck = fullDeck.slice(5);
 
     await supabaseClient.from('rooms').update({
       status: 'playing',
       p2_name: window.userProfile.name,
-      p2_hand: myHand,
+      p2_hand: window.gameState.my.hand.map(c => c.id),
       p2_hp: 50,
       log: [...(room.log || []), `${window.userProfile.name} が参加しました！対戦開始！`]
     }).eq('id', onlineRoomId);
@@ -1015,6 +1019,9 @@
     const mePrefix = isP1 ? 'p1' : 'p2';
     const oppPrefix = isP1 ? 'p2' : 'p1';
 
+    const previousTurn = window.gameState.turn;
+    const isMyTurnNow = roomData.current_turn === onlineMyRole;
+
     window.gameState.my.hp = roomData[`${mePrefix}_hp`];
     window.gameState.my.monsters = roomData[`${mePrefix}_field`] || [];
     window.gameState.my.hand = (roomData[`${mePrefix}_hand`] || []).map(id => CARD_DATABASE.find(c => c.id === id));
@@ -1023,7 +1030,19 @@
     window.gameState.opp.hp = roomData[`${oppPrefix}_hp`];
     window.gameState.opp.monsters = roomData[`${oppPrefix}_field`] || [];
 
-    window.gameState.turn = (roomData.current_turn === onlineMyRole) ? "player" : "opponent";
+    window.gameState.turn = isMyTurnNow ? "player" : "opponent";
+
+    // ⚔️ オンライン時：自分のターンになった瞬間に召喚酔いを自動解除
+    if (isMyTurnNow && previousTurn !== "player") {
+      window.gameState.my.monsters.forEach(m => {
+        if (m.isStunned) {
+          m.isStunned = false;
+          m.canAttack = false;
+        } else {
+          m.canAttack = true; // 召喚酔い解除
+        }
+      });
+    }
 
     updateUI();
 
@@ -1241,11 +1260,10 @@
     oppElemElem.className = `element-badge ${eInfo.class}`;
     oppElemElem.textContent = `${eInfo.icon} ${eInfo.name}`;
 
-    // 山札の正常生成（破壊的変更の防止）
+    // 山札の正常生成
     const fullMyDeck = buildDeckFromIds(window.userProfile.deck);
     const fullOppDeck = buildDeckFromIds(cpuPreset.deck);
 
-    // 初期手札5枚、残りを山札に（山札枚数バグを解消）
     window.gameState.my.hand = fullMyDeck.slice(0, 5);
     window.gameState.my.deck = fullMyDeck.slice(5);
 
@@ -1266,7 +1284,6 @@
 
     updateUI();
 
-    // CPUが先攻の場合はCPUターンを開始
     if (!isPlayerFirst) {
       setTimeout(cpuTurn, 1200);
     }
@@ -1281,7 +1298,6 @@
     logContainer.scrollTop = logContainer.scrollHeight;
   }
 
-  // ノーマル（3属性）ダメージ計算関数
   function calcDamage(atk, cardElem, targetElem) {
     const eData = ELEMENTS[cardElem];
     if (eData && eData.strongTo === targetElem) {
