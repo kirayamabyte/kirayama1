@@ -987,7 +987,10 @@
 
   // --- Supabase オンライン対戦処理 ---
   async function createOnlineRoom() {
-    if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
+    if (!supabaseClient) {
+      alert("Supabaseの初期化に失敗しています。APIキーやURLを確認してください。");
+      return;
+    }
 
     onlineRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
     onlineMyRole = 'player1';
@@ -999,23 +1002,33 @@
     window.gameState.my.hand = fullDeck.slice(0, 5);
     window.gameState.my.deck = fullDeck.slice(5);
 
-    const { error } = await supabaseClient.from('rooms').insert([{
-      id: onlineRoomId,
-      status: 'waiting',
-      current_turn: 'player1',
-      p1_name: window.userProfile.name,
-      p1_hand: window.gameState.my.hand.map(c => c.id),
-      p1_hp: 50,
-      p1_deck_count: 15,
-      p2_hp: 50,
-      p2_deck_count: 15,
-      log: [`部屋作成成功！合言葉: ${onlineRoomId}`]
-    }]);
+    try {
+      const { data, error } = await supabaseClient.from('rooms').insert([{
+        id: onlineRoomId,
+        status: 'waiting',
+        current_turn: 'player1',
+        p1_name: window.userProfile.name || 'プレイヤー1',
+        p1_hand: window.gameState.my.hand.map(c => c.id),
+        p1_hp: 50,
+        p1_deck_count: 15,
+        p2_hp: 50,
+        p2_deck_count: 15,
+        log: [`部屋作成成功！合言葉: ${onlineRoomId}`]
+      }]).select();
 
-    if (error) return alert("部屋作成に失敗しました: " + error.message);
+      if (error) {
+        console.error("Supabase Error:", error);
+        alert(`部屋作成エラー: ${error.message}\n(詳細: ${error.details || error.hint || 'なし'})`);
+        return;
+      }
 
-    document.getElementById("onlineStatusText").textContent = `対戦相手を待っています... 合言葉: ${onlineRoomId}`;
-    subscribeRoomUpdates();
+      document.getElementById("onlineStatusText").textContent = `対戦相手を待っています... 合言葉: ${onlineRoomId}`;
+      subscribeRoomUpdates();
+
+    } catch (err) {
+      console.error("予期せぬエラー:", err);
+      alert("通信エラーが発生しました。ネットワーク接続を確認してください。");
+    }
   }
 
   async function joinOnlineRoom() {
@@ -1234,19 +1247,18 @@
     let isLongPressAction = false;
 
     if (clickHandler) {
-      // 📱 タッチ操作（スマホ）
       cardDiv.addEventListener("touchstart", (e) => {
         isLongPressAction = false;
         longPressTimer = setTimeout(() => {
           isLongPressAction = true;
           openCardZoomModal(cardData);
-        }, 400); // 0.4秒長押しで拡大
+        }, 400);
       }, { passive: true });
 
       cardDiv.addEventListener("touchend", (e) => {
         clearTimeout(longPressTimer);
         if (isLongPressAction) {
-          e.preventDefault(); // 拡大起動時はタップ動作を防止
+          e.preventDefault();
         } else {
           clickHandler(e);
         }
@@ -1256,7 +1268,6 @@
         clearTimeout(longPressTimer);
       }, { passive: true });
 
-      // 💻 マウス操作（PC）
       cardDiv.addEventListener("click", (e) => {
         if (!isLongPressAction) {
           clickHandler(e);
