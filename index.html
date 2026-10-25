@@ -780,7 +780,8 @@
 
   let onlineMyRole = null;
   let onlineRoomId = null;
-  let hasDrawnThisTurn = false; // ターンごとの一重ドロー制御フラグ
+  let hasDrawnThisTurn = false;
+  let onlineOppDeckCount = 15; // 相手の山札枚数データ保持用
 
   // --- BGM & ボイス 設定 ---
   const bgmTitle = new Audio('bgm_title.mp3');
@@ -941,7 +942,8 @@
     onlineRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
     onlineMyRole = 'player1';
     window.gameState.mode = "online";
-    hasDrawnThisTurn = true; // 先攻手札保持
+    hasDrawnThisTurn = true;
+    onlineOppDeckCount = 15;
 
     const fullDeck = buildDeckFromIds(window.userProfile.deck);
     window.gameState.my.hand = fullDeck.slice(0, 5);
@@ -954,7 +956,9 @@
       p1_name: window.userProfile.name,
       p1_hand: window.gameState.my.hand.map(c => c.id),
       p1_hp: 50,
+      p1_deck_count: 15,
       p2_hp: 50,
+      p2_deck_count: 15,
       log: [`部屋作成成功！合言葉: ${onlineRoomId}`]
     }]);
 
@@ -978,6 +982,7 @@
     onlineMyRole = 'player2';
     window.gameState.mode = "online";
     hasDrawnThisTurn = false;
+    onlineOppDeckCount = 15;
 
     const fullDeck = buildDeckFromIds(window.userProfile.deck);
     window.gameState.my.hand = fullDeck.slice(0, 5);
@@ -988,6 +993,7 @@
       p2_name: window.userProfile.name,
       p2_hand: window.gameState.my.hand.map(c => c.id),
       p2_hp: 50,
+      p2_deck_count: 15,
       log: [...(room.log || []), `${window.userProfile.name} が参加しました！対戦開始！`]
     }).eq('id', onlineRoomId);
 
@@ -1032,9 +1038,14 @@
     window.gameState.opp.hp = roomData[`${oppPrefix}_hp`];
     window.gameState.opp.monsters = roomData[`${oppPrefix}_field`] || [];
 
+    // 🌐 相手の山札枚数を取得
+    if (roomData[`${oppPrefix}_deck_count`] !== undefined) {
+      onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`];
+    }
+
     window.gameState.turn = isMyTurnNow ? "player" : "opponent";
 
-    // ⚔️ 自分のターン開始処理 (重複ドローを防止)
+    // ⚔️ 自分のターン開始処理
     if (isMyTurnNow && previousTurn !== "player") {
       hasDrawnThisTurn = false;
 
@@ -1048,7 +1059,7 @@
         }
       });
 
-      // ターン開始ドロー (安全な一重制御)
+      // ターン開始ドロー
       if (!hasDrawnThisTurn && window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
         hasDrawnThisTurn = true;
         const drawnCard = window.gameState.my.deck.shift();
@@ -1082,13 +1093,13 @@
     const mePrefix = isP1 ? 'p1' : 'p2';
     const oppPrefix = isP1 ? 'p2' : 'p1';
 
-    // ID形式でSupabaseへ安全に送信
     const handIds = window.gameState.my.hand.map(c => typeof c === 'object' ? c.id : c);
 
     const updateObj = {
       [`${mePrefix}_hp`]: window.gameState.my.hp,
       [`${mePrefix}_field`]: window.gameState.my.monsters,
       [`${mePrefix}_hand`]: handIds,
+      [`${mePrefix}_deck_count`]: window.gameState.my.deck.length, // 自分の山札枚数を送信
       [`${oppPrefix}_hp`]: window.gameState.opp.hp,
       [`${oppPrefix}_field`]: window.gameState.opp.monsters
     };
@@ -1259,7 +1270,6 @@
     playBGM('battle');
     const cpuPreset = CPU_PRESETS[window.gameState.currentDifficulty];
 
-    // 🪙 先攻後攻の判定 (50%の確率)
     const isPlayerFirst = Math.random() < 0.5;
     window.gameState.turn = isPlayerFirst ? "player" : "cpu";
     window.gameState.turnCount = 1;
@@ -1279,7 +1289,6 @@
     oppElemElem.className = `element-badge ${eInfo.class}`;
     oppElemElem.textContent = `${eInfo.icon} ${eInfo.name}`;
 
-    // 山札の正常生成
     const fullMyDeck = buildDeckFromIds(window.userProfile.deck);
     const fullOppDeck = buildDeckFromIds(cpuPreset.deck);
 
@@ -1818,8 +1827,14 @@
     document.getElementById("oppMpBar").style.width = `${(window.gameState.opp.mp / window.gameState.opp.maxMp) * 100}%`;
     document.getElementById("oppMpText").textContent = `MP ${window.gameState.opp.mp}/${window.gameState.opp.maxMp}`;
 
+    // 山札枚数表示（オンライン対戦時は取得した相手の山札数をセット）
     document.getElementById("myDeckCount").textContent = `🎴 山札: ${window.gameState.my.deck.length}`;
-    document.getElementById("oppDeckCount").textContent = `🎴 山札: ${window.gameState.opp.deck.length}`;
+    
+    if (window.gameState.mode === "online") {
+      document.getElementById("oppDeckCount").textContent = `🎴 山札: ${onlineOppDeckCount}`;
+    } else {
+      document.getElementById("oppDeckCount").textContent = `🎴 山札: ${window.gameState.opp.deck.length}`;
+    }
 
     const oppPlayerInfo = document.getElementById("oppPlayerInfo");
     if (window.gameState.selectedAttackerIdx !== null && window.gameState.opp.monsters.length === 0) {
