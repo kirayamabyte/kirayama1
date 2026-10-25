@@ -19,6 +19,8 @@
       margin: 0;
       padding: 0;
       user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
     }
 
     html, body {
@@ -558,6 +560,29 @@
       z-index: 5;
     }
 
+    /* 🔍 拡大カード専用スタイル */
+    .card.zoom-card {
+      width: 250px !important;
+      height: 350px !important;
+      padding: 12px !important;
+      border-width: 3px !important;
+      box-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
+      transform: none !important;
+      cursor: default !important;
+      background: #1f1f2e !important;
+    }
+    .card.zoom-card .card-top-row { font-size: 1rem; }
+    .card.zoom-card .card-elem { font-size: 0.95rem; }
+    .card.zoom-card .card-rarity { font-size: 1.1rem; }
+    .card.zoom-card .card-title { font-size: 1.2rem; line-height: 1.3; font-weight: bold; white-space: normal; }
+    .card.zoom-card .card-img-container { height: 120px !important; margin: 8px 0 !important; }
+    .card.zoom-card .card-img-container .icon-fallback { font-size: 3.5rem; }
+    .card.zoom-card .card-cost { font-size: 1rem; }
+    .card.zoom-card .card-stats-badge { font-size: 1.1rem; }
+    .card.zoom-card .card-desc { font-size: 0.9rem; height: auto; max-height: 80px; line-height: 1.4; overflow-y: auto; color: #eee; }
+    .card.zoom-card .card-flavor { font-size: 0.8rem; height: auto; line-height: 1.3; margin-top: 8px; padding-top: 6px; color: #bbb; }
+    .card.zoom-card .card-type { font-size: 0.9rem; padding: 3px 8px; }
+
     .controls { display: flex; gap: 8px; margin-top: 4px; flex-shrink: 0; }
 
     button.btn {
@@ -584,18 +609,18 @@
     .modal {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.85);
+      background: rgba(0,0,0,0.88);
       display: none;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       gap: 14px;
-      z-index: 100;
+      z-index: 1000;
       border-radius: 12px;
-      pointer-events: none;
+      pointer-events: auto;
     }
 
-    .modal.active { display: flex; pointer-events: auto; }
+    .modal.active { display: flex; }
     .modal h2 { font-size: 1.8rem; color: var(--gold-color); }
 
     .target-selector { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
@@ -645,7 +670,7 @@
         <li><b>自動保存</b>：プレイヤー名・戦績・連戦記録・カスタマイズしたデッキデータは自動保存されます！</li>
         <li><b>枚数制限</b>：⭐1は最大4枚、⭐2と⭐3は最大2枚までデッキに入れられます。</li>
         <li><b>属性相性</b>：火 ➔ 木 ➔ 水 ➔ 火 の3すくみ（有利属性に1.5倍ダメージ）。</li>
-        <li><b>召喚酔い・状態異常</b>：通常召喚ターンや【行動不能】状態のモンスターは攻撃・行動が制限されます。</li>
+        <li><b>カード拡大</b>：カードを長押し（または右クリック）すると大きく拡大表示できます！</li>
         <li><b>オンライン対戦</b>：Supabaseのリアルタイム通信で全国のプレイヤーと対戦できます！</li>
       </ul>
     </details>
@@ -684,10 +709,10 @@
     </div>
 
     <div class="deck-body">
-      <div class="section-title">あなたのデッキ (タップで外す)</div>
+      <div class="section-title">あなたのデッキ (タップで外す / 長押しで拡大)</div>
       <div id="currentDeckContainer" class="card-grid"></div>
 
-      <div class="section-title">カードカタログ (タップで追加 - ⭐1:4枚 / ⭐2・⭐3:2枚)</div>
+      <div class="section-title">カードカタログ (タップで追加 - ⭐1:4枚 / ⭐2・⭐3:2枚 / 長押しで拡大)</div>
       <div id="cardCatalogContainer" class="card-grid"></div>
     </div>
 
@@ -750,6 +775,12 @@
     </div>
   </section>
 
+  <!-- 🔍 カード拡大表示用モーダル -->
+  <div id="cardZoomModal" class="modal" onclick="closeCardZoomModal(event)">
+    <div id="zoomCardContainer" style="pointer-events:none;"></div>
+    <button type="button" class="btn primary" style="margin-top:16px; width:140px; pointer-events:auto;" onclick="closeCardZoomModal(event)">閉じる</button>
+  </div>
+
   <!-- 装備対象選択モーダル -->
   <div id="equipModal" class="modal">
     <h3 style="color:var(--gold-color);">どのモンスターに装備させますか？</h3>
@@ -765,6 +796,25 @@
 </div>
 
 <script>
+  // 🔍 カード拡大表示処理 (最優先定義)
+  function openCardZoomModal(cardData) {
+    if (!cardData) return;
+    const container = document.getElementById("zoomCardContainer");
+    container.innerHTML = "";
+
+    const cardDiv = renderCardDOM(cardData, "", null);
+    cardDiv.classList.add("zoom-card");
+    container.appendChild(cardDiv);
+
+    document.getElementById("cardZoomModal").classList.add("active");
+  }
+
+  function closeCardZoomModal(e) {
+    if (e) e.stopPropagation();
+    document.getElementById("cardZoomModal").classList.remove("active");
+  }
+  window.closeCardZoomModal = closeCardZoomModal;
+
   // --- Supabase 設定 ---
   const SUPABASE_URL = "https://ytpxddoiinqmugoqpfqi.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0cHhkZG9paW5xbXVnb3FwZnFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4NTEwMzQsImV4cCI6MjEwODQyNzAzNH0.uhQuslASZ6TjMihJuaLm81RU7tlophYglEjMNqJ6ChY";
@@ -781,7 +831,7 @@
   let onlineMyRole = null;
   let onlineRoomId = null;
   let hasDrawnThisTurn = false;
-  let onlineOppDeckCount = 15; // 相手の山札枚数データ保持用
+  let onlineOppDeckCount = 15;
 
   // --- BGM & ボイス 設定 ---
   const bgmTitle = new Audio('bgm_title.mp3');
@@ -1038,18 +1088,15 @@
     window.gameState.opp.hp = roomData[`${oppPrefix}_hp`];
     window.gameState.opp.monsters = roomData[`${oppPrefix}_field`] || [];
 
-    // 🌐 相手の山札枚数を取得
     if (roomData[`${oppPrefix}_deck_count`] !== undefined) {
       onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`];
     }
 
     window.gameState.turn = isMyTurnNow ? "player" : "opponent";
 
-    // ⚔️ 自分のターン開始処理
     if (isMyTurnNow && previousTurn !== "player") {
       hasDrawnThisTurn = false;
 
-      // 召喚酔い解除
       window.gameState.my.monsters.forEach(m => {
         if (m.isStunned) {
           m.isStunned = false;
@@ -1059,7 +1106,6 @@
         }
       });
 
-      // ターン開始ドロー
       if (!hasDrawnThisTurn && window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
         hasDrawnThisTurn = true;
         const drawnCard = window.gameState.my.deck.shift();
@@ -1099,7 +1145,7 @@
       [`${mePrefix}_hp`]: window.gameState.my.hp,
       [`${mePrefix}_field`]: window.gameState.my.monsters,
       [`${mePrefix}_hand`]: handIds,
-      [`${mePrefix}_deck_count`]: window.gameState.my.deck.length, // 自分の山札枚数を送信
+      [`${mePrefix}_deck_count`]: window.gameState.my.deck.length,
       [`${oppPrefix}_hp`]: window.gameState.opp.hp,
       [`${oppPrefix}_field`]: window.gameState.opp.monsters
     };
@@ -1157,7 +1203,7 @@
     Object.keys(deckCounts).forEach(id => {
       const cardData = CARD_DATABASE.find(c => c.id === id);
       if (cardData) {
-        const cardDiv = createCardElement(cardData, `${deckCounts[id]}枚`, () => removeCardFromDeck(id));
+        const cardDiv = renderCardDOM(cardData, `${deckCounts[id]}枚`, () => removeCardFromDeck(id));
         deckContainer.appendChild(cardDiv);
       }
     });
@@ -1169,21 +1215,59 @@
         const countInDeck = currentDeck.filter(id => id === cardData.id).length;
         const rarity = cardData.rarity || 1;
         const maxLimit = (rarity === 2 || rarity === 3) ? 2 : 4;
-        const cardDiv = createCardElement(cardData, `${countInDeck}/${maxLimit}`, () => addCardToDeck(cardData.id));
+        const cardDiv = renderCardDOM(cardData, `${countInDeck}/${maxLimit}`, () => addCardToDeck(cardData.id));
         catalogContainer.appendChild(cardDiv);
       });
     }
   }
 
-  // ⭐ カード描画関数
-  function createCardElement(cardData, badgeText, clickHandler) {
+  // ⭐ カードDOM生成関数 (完全イベント制御版)
+  function renderCardDOM(cardData, badgeText, clickHandler) {
     const elemInfo = (typeof ELEMENTS !== 'undefined' && ELEMENTS[cardData.elem]) 
       ? ELEMENTS[cardData.elem] 
       : { name: "無", icon: "⚪", class: "" };
       
     const cardDiv = document.createElement("div");
     cardDiv.className = `card ${cardData.type}`;
-    cardDiv.onclick = clickHandler;
+
+    let longPressTimer = null;
+    let isLongPressAction = false;
+
+    if (clickHandler) {
+      // 📱 タッチ操作（スマホ）
+      cardDiv.addEventListener("touchstart", (e) => {
+        isLongPressAction = false;
+        longPressTimer = setTimeout(() => {
+          isLongPressAction = true;
+          openCardZoomModal(cardData);
+        }, 400); // 0.4秒長押しで拡大
+      }, { passive: true });
+
+      cardDiv.addEventListener("touchend", (e) => {
+        clearTimeout(longPressTimer);
+        if (isLongPressAction) {
+          e.preventDefault(); // 拡大起動時はタップ動作を防止
+        } else {
+          clickHandler(e);
+        }
+      });
+
+      cardDiv.addEventListener("touchmove", () => {
+        clearTimeout(longPressTimer);
+      }, { passive: true });
+
+      // 💻 マウス操作（PC）
+      cardDiv.addEventListener("click", (e) => {
+        if (!isLongPressAction) {
+          clickHandler(e);
+        }
+      });
+
+      cardDiv.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        openCardZoomModal(cardData);
+      });
+    }
 
     let statsText = '';
     if (cardData.type === 'monster') {
@@ -1199,9 +1283,10 @@
     const flavorHTML = cardData.flavor ? `<div class="card-flavor">${cardData.flavor}</div>` : '';
     const rarityNum = cardData.rarity || 1;
     const rarityStars = "★".repeat(rarityNum);
+    const badgeHTML = badgeText ? `<div class="card-count-badge">${badgeText}</div>` : '';
 
     cardDiv.innerHTML = `
-      <div class="card-count-badge">${badgeText}</div>
+      ${badgeHTML}
       <div class="card-top-row">
         <div class="card-elem ${elemInfo.class}">${elemInfo.icon} ${elemInfo.name}</div>
         <div class="card-rarity">${rarityStars}</div>
@@ -1215,6 +1300,10 @@
       <div class="card-type">${cardData.type === 'monster' ? '召喚' : cardData.type === 'weapon' ? '装備' : '魔法'}</div>
     `;
     return cardDiv;
+  }
+
+  function createCardElement(cardData, badgeText, clickHandler) {
+    return renderCardDOM(cardData, badgeText, clickHandler);
   }
 
   function addCardToDeck(id) {
@@ -1728,7 +1817,6 @@
 
     window.gameState.turnCount++;
 
-    // ⚔️ 自分のターン開始処理：召喚酔い解除
     window.gameState.my.monsters.forEach(m => {
       if (m.isStunned) {
         m.isStunned = false;
@@ -1827,7 +1915,6 @@
     document.getElementById("oppMpBar").style.width = `${(window.gameState.opp.mp / window.gameState.opp.maxMp) * 100}%`;
     document.getElementById("oppMpText").textContent = `MP ${window.gameState.opp.mp}/${window.gameState.opp.maxMp}`;
 
-    // 山札枚数表示（オンライン対戦時は取得した相手の山札数をセット）
     document.getElementById("myDeckCount").textContent = `🎴 山札: ${window.gameState.my.deck.length}`;
     
     if (window.gameState.mode === "online") {
@@ -1927,7 +2014,7 @@
     const handContainer = document.getElementById("myHand");
     handContainer.innerHTML = "";
     window.gameState.my.hand.forEach((card, idx) => {
-      const cardDiv = createCardElement(card, "", () => playCard(idx));
+      const cardDiv = renderCardDOM(card, "", () => playCard(idx));
       handContainer.appendChild(cardDiv);
     });
   }
