@@ -780,10 +780,11 @@
 
   let onlineMyRole = null;
   let onlineRoomId = null;
+  let hasDrawnThisTurn = false; // ターンごとの一重ドロー制御フラグ
 
   // --- BGM & ボイス 設定 ---
-  const bgmTitle = new Audio('Moning.mp3');
-  const bgmBattle = new Audio('atorie.mp3');
+  const bgmTitle = new Audio('bgm_title.mp3');
+  const bgmBattle = new Audio('bgm_battle.mp3');
   bgmTitle.loop = true;
   bgmBattle.loop = true;
   bgmTitle.volume = 0.3;
@@ -940,6 +941,7 @@
     onlineRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
     onlineMyRole = 'player1';
     window.gameState.mode = "online";
+    hasDrawnThisTurn = true; // 先攻手札保持
 
     const fullDeck = buildDeckFromIds(window.userProfile.deck);
     window.gameState.my.hand = fullDeck.slice(0, 5);
@@ -975,6 +977,7 @@
     onlineRoomId = code;
     onlineMyRole = 'player2';
     window.gameState.mode = "online";
+    hasDrawnThisTurn = false;
 
     const fullDeck = buildDeckFromIds(window.userProfile.deck);
     window.gameState.my.hand = fullDeck.slice(0, 5);
@@ -1024,7 +1027,6 @@
 
     window.gameState.my.hp = roomData[`${mePrefix}_hp`];
     window.gameState.my.monsters = roomData[`${mePrefix}_field`] || [];
-    window.gameState.my.hand = (roomData[`${mePrefix}_hand`] || []).map(id => CARD_DATABASE.find(c => c.id === id));
 
     window.gameState.opp.name = roomData[`${oppPrefix}_name`] || "対戦相手待ち...";
     window.gameState.opp.hp = roomData[`${oppPrefix}_hp`];
@@ -1032,16 +1034,30 @@
 
     window.gameState.turn = isMyTurnNow ? "player" : "opponent";
 
-    // ⚔️ オンライン時：自分のターンになった瞬間に召喚酔いを自動解除
+    // ⚔️ 自分のターン開始処理 (重複ドローを防止)
     if (isMyTurnNow && previousTurn !== "player") {
+      hasDrawnThisTurn = false;
+
+      // 召喚酔い解除
       window.gameState.my.monsters.forEach(m => {
         if (m.isStunned) {
           m.isStunned = false;
           m.canAttack = false;
         } else {
-          m.canAttack = true; // 召喚酔い解除
+          m.canAttack = true;
         }
       });
+
+      // ターン開始ドロー (安全な一重制御)
+      if (!hasDrawnThisTurn && window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
+        hasDrawnThisTurn = true;
+        const drawnCard = window.gameState.my.deck.shift();
+        window.gameState.my.hand.push(drawnCard);
+        addLog(`山札からカードを1枚引きました。（残山札:${window.gameState.my.deck.length}枚）`);
+        syncOnlineAction();
+      }
+
+      window.gameState.my.mp = Math.min(window.gameState.my.maxHp, window.gameState.my.mp + 2);
     }
 
     updateUI();
@@ -1066,10 +1082,13 @@
     const mePrefix = isP1 ? 'p1' : 'p2';
     const oppPrefix = isP1 ? 'p2' : 'p1';
 
+    // ID形式でSupabaseへ安全に送信
+    const handIds = window.gameState.my.hand.map(c => typeof c === 'object' ? c.id : c);
+
     const updateObj = {
       [`${mePrefix}_hp`]: window.gameState.my.hp,
       [`${mePrefix}_field`]: window.gameState.my.monsters,
-      [`${mePrefix}_hand`]: window.gameState.my.hand.map(c => c.id),
+      [`${mePrefix}_hand`]: handIds,
       [`${oppPrefix}_hp`]: window.gameState.opp.hp,
       [`${oppPrefix}_field`]: window.gameState.opp.monsters
     };
@@ -1707,7 +1726,7 @@
         m.canAttack = false;
         addLog(`🌀 あなたの【${m.name}】は行動不能から回復したが、このターンは行動できない！`);
       } else {
-        m.canAttack = true; // 召喚酔いを解除
+        m.canAttack = true;
       }
     });
 
@@ -1715,7 +1734,7 @@
 
     if (window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
       window.gameState.my.hand.push(window.gameState.my.deck.shift());
-      addLog(`山札からカードを1枚引きました。`);
+      addLog(`山札からカードを1枚引きました。（残山札:${window.gameState.my.deck.length}枚）`);
     }
 
     window.gameState.turn = "player";
