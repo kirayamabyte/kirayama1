@@ -1295,7 +1295,7 @@
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
-  // --- 🏆 ランクマッチ自動検索処理（決定版） ---
+  // --- 🏆 ランクマッチ自動検索処理（自分除外ロジック完全実装） ---
   async function searchRankedMatch() {
     if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
 
@@ -1307,21 +1307,22 @@
     addLog("🔍 ランクマッチ待機部屋を検索中...", "important");
 
     try {
+      const myName = window.userProfile.name;
+
       const { data: waitingRooms, error: selectErr } = await supabaseClient
         .from('rooms')
         .select('*')
         .eq('status', 'waiting')
         .eq('is_ranked', true)
-        .order('updated_at', { ascending: true })
-        .limit(1);
+        .order('updated_at', { ascending: true });
 
-      if (selectErr) {
-        console.error("部屋検索エラー:", selectErr);
-      }
+      if (selectErr) console.error("部屋検索エラー:", selectErr);
 
-      if (waitingRooms && waitingRooms.length > 0) {
-        const targetRoom = waitingRooms[0];
-        onlineRoomId = targetRoom.id;
+      // 自分以外のホストが作成した待機部屋を抽出
+      const validOpponentRoom = (waitingRooms || []).find(room => room.p1_name !== myName);
+
+      if (validOpponentRoom) {
+        onlineRoomId = validOpponentRoom.id;
         onlineMyRole = 'player2';
         hasDrawnThisTurn = false;
 
@@ -1331,13 +1332,13 @@
 
         const { error: updateErr } = await supabaseClient.from('rooms').update({
           status: 'playing',
-          p2_name: window.userProfile.name,
+          p2_name: myName,
           p2_rate: window.userProfile.rate || 1000,
           p2_hand: window.gameState.my.hand.map(c => c.id),
           p2_hp: 50,
           p2_deck_count: 15,
           updated_at: new Date().toISOString(),
-          log: [...(targetRoom.log || []), `${window.userProfile.name} (Rate:${window.userProfile.rate}) が参戦！対戦開始！`]
+          log: [...(validOpponentRoom.log || []), `${myName} (Rate:${window.userProfile.rate}) が参戦！対戦開始！`]
         }).eq('id', onlineRoomId);
 
         if (updateErr) console.error("部屋更新エラー:", updateErr);
@@ -1357,14 +1358,14 @@
           status: 'waiting',
           is_ranked: true,
           current_turn: 'player1',
-          p1_name: window.userProfile.name,
+          p1_name: myName,
           p1_rate: window.userProfile.rate || 1000,
           p1_hand: window.gameState.my.hand.map(c => c.id),
           p1_hp: 50,
           p1_deck_count: 15,
           p2_hp: 50,
           p2_deck_count: 15,
-          log: [`ランクマッチ対戦相手を募集中... (ホスト:${window.userProfile.name})`]
+          log: [`ランクマッチ対戦相手を募集中... (ホスト:${myName})`]
         }]);
 
         if (insertErr) console.error("部屋作成エラー:", insertErr);
