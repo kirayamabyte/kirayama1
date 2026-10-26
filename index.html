@@ -664,12 +664,12 @@
     button.btn.primary:hover { background: #ff2e63; }
     button.btn.big { padding: 12px; font-size: 0.95rem; }
 
-    /* 🛠️ モーダルの完全非表示・クリック判定透過修正 */
+    /* 🛠️ モーダルの完全非表示・クリック判定透過修正（!important 削除・競合解決） */
     .modal {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.88);
-      display: none !important; /* 初期状態では完全に除去 */
+      display: none; /* 基本状態は完全非表示 */
       flex-direction: column;
       justify-content: center;
       align-items: center;
@@ -681,8 +681,8 @@
     }
 
     .modal.active {
-      display: flex !important; /* activeクラス付与時のみ表示 */
-      pointer-events: auto !important; /* 表示時は操作可能 */
+      display: flex !important; /* active付与時のみ表示 */
+      pointer-events: auto !important; /* 表示時のみ操作を有効化 */
     }
 
     .modal h2 { font-size: 1.5rem; color: var(--gold-color); }
@@ -1179,7 +1179,7 @@
     playBGM('title');
   });
 
-  // 🛠️ 画面遷移（全モーダルを確実にクリアする処理を追加）
+  // 🛠️ 画面遷移（すべてのモーダルの active クラスを確実にクリア）
   function showTitle() {
     document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
 
