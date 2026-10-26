@@ -11,11 +11,12 @@
  *  - voice : 使用時・攻撃時のボイス音声ファイルパス (例: "audio/voices/m1.mp3")
  */
 
-const ELEMENTS = {
-  fire: { name: "火", icon: "🔥", class: "elem-fire", strongTo: "wood" },
-  water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
-  wood:  { name: "木", icon: "🍃", class: "elem-wood", strongTo: "water" }
-};
+// ⭕ const / let / var を付けずに直接プロパティを設定・上書きします
+ELEMENTS.fire = { name: "火", icon: "🔥", class: "elem-fire", strongTo: "wood" };
+ELEMENTS.water = { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" };
+ELEMENTS.wood = { name: "木", icon: "🌿", class: "elem-wood", strongTo: "water" };
+ELEMENTS.light = { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" };
+ELEMENTS.dark = { name: "闇", icon: "💀", class: "elem-dark", strongTo: "light" };
 
 const CARD_DATABASE = [
   // --- モンスターカード ---
@@ -76,7 +77,63 @@ const CARD_DATABASE = [
     halfDamage: true, // 🛡️ 追加能力: 被ダメージ半減
     image: "", 
     voice: "" 
+
   },
+  {
+  id: "m5",
+  name: "でぃあぼろす",
+  type: "monster",      // もしくは魔法カード(magic)でも可
+  elem: "water",
+  rarity: 2,
+  costMp: 6,
+  atk: 5,
+  hp: 20,
+  icon: "🧙‍♂️",
+  buffAtk: 5,           // 召喚時に味方全体（または自分以外）のATKを+5する値
+  desc: "召喚時、味方全員の攻撃力を+5する。",
+flavor: "「お前の青春応援するぜ！...俺も青春したかったな！」", 
+ image: "M_diaseisyunn.png", 
+voice: "",
+  },
+// cards1.js の CARD_DATABASE に追加
+
+// ① 特殊能力を持つモンスター
+{
+  id: "m6",
+  name: "アシンメトリーユタ",
+  type: "monster",
+  elem: "wood",
+  rarity: 3,
+  costMp: 10,
+  atk: 10,
+  hp: 20,
+  icon: "🧙‍♂️",
+  desc: "召喚時:相手の場に[拘束体]を2体出す。相手の場に[拘束体]がいる数×5 ATKアップ。3ターン後[拘束体]は消滅。",
+  
+  // フラグ設定
+  spawnEnemyTokens: true // トークン生成フラグ
+},
+
+// ② 相手の場に生成される攻撃不能トークン
+{
+  id: "token_blocker",
+  name: "拘束体",
+  type: "monster",
+  elem: "wood",
+  rarity: 1,
+  costMp: 0,
+  atk: 0,
+  hp: 10,
+  icon: "🗿",
+  desc: "攻撃不可。発生から3ターン後に消滅する。",
+  
+  // フラグ設定
+  cannotAttack: true, // 攻撃不可フラグ
+  tokenLifetime: 3     // 生存ターン数（3ターン）
+},
+
+
+
   // --- 武器カード ---
   { 
     id: "w1", 
@@ -180,7 +237,16 @@ const CARD_DATABASE = [
     voice: ""
   }
 ];
-
+// userProfile の初期化部分またはロジックで ownedCards を持たせます
+window.userProfile = {
+  name: "あなた",
+  wins: 0,
+  losses: 0,
+  bestGauntletStage: 0,
+  points: 1000, // 🪙 ガチャ用ポイント（初期1000pt）
+  deck: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : [],
+  ownedCards: [] // 🎴 所持カードIDリスト
+};
 // 初期デッキ定義 (20枚)
 function getDefault20CardDeck() {
   return [
@@ -188,4 +254,5 @@ function getDefault20CardDeck() {
     "w1", "w1", "w2", "w2", "w3", "w3", "w4", "w4",
     "h1", "h1", "h2", "h2"
   ];
+  
 }
