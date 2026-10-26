@@ -2124,6 +2124,7 @@
   window.closeGachaResultModal = closeGachaResultModal;
 
   // --- 🏆 ランクマッチ自動検索（古い部屋の自動クリーンアップ付き） ---
+  // --- 🏆 ランクマッチ自動検索（放置部屋・ゴースト自動排除版） ---
   async function searchRankedMatch(isEvent = false) {
     if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
 
@@ -2139,29 +2140,30 @@
     try {
       const myName = window.userProfile.name;
 
-      // ----------------------------------------------------
-      // ⬇️【追加】残っている自分の古い部屋（p1またはp2）を消去・リセット
-      // ----------------------------------------------------
+      // 1. 自分が過去に作って残ってしまっている古い部屋をクリーンアップ
       await supabaseClient.from('rooms').delete().eq('p1_name', myName);
       await supabaseClient.from('rooms').delete().eq('p2_name', myName);
-      // ----------------------------------------------------
 
-      // 待機中の部屋を検索（自分以外の部屋）
+      // 2. 15分以上更新のない放置部屋（ゴースト部屋）を自動削除
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+      await supabaseClient.from('rooms').delete().eq('status', 'waiting').lt('updated_at', fifteenMinutesAgo);
+
+      // 3. 自分以外のプレイヤーが待機している最新の有効な部屋を検索
       let query = supabaseClient
         .from('rooms')
         .select('*')
         .eq('status', 'waiting')
         .eq('is_ranked', true)
-        .neq('p1_name', myName)
-        .order('updated_at', { ascending: true });
+        .neq('p1_name', myName) // 自分自身の部屋は除外
+        .order('updated_at', { ascending: false }); // 最新の部屋を優先
 
       const { data: waitingRooms, error: selectErr } = await query;
       if (selectErr) console.error("部屋検索エラー:", selectErr);
 
-      const validOpponentRoom = (waitingRooms || []).find(room => room.p1_name !== myName);
+      const validOpponentRoom = (waitingRooms || [])[0]; // 最も最近作られた有効な待機部屋を取得
 
       if (validOpponentRoom) {
-        // 他人の待機部屋に入室
+        // 他人のアクティブな待機部屋に入室
         onlineRoomId = validOpponentRoom.id;
         onlineMyRole = 'player2';
         hasDrawnThisTurn = false;
@@ -2183,7 +2185,7 @@
 
         subscribeRoomUpdates();
       } else {
-        // 新しい待機部屋を作成
+        // 相手がいない場合は新規待機部屋を作成して待つ
         onlineRoomId = "RANK_" + Math.random().toString(36).substring(2, 8).toUpperCase();
         onlineMyRole = 'player1';
         hasDrawnThisTurn = true;
@@ -2204,6 +2206,7 @@
           p1_deck_count: 15,
           p2_hp: 60,
           p2_deck_count: 15,
+          updated_at: new Date().toISOString(),
           log: [`対戦相手を募集中... (ホスト:${myName})`]
         }]);
 
@@ -2377,7 +2380,37 @@
       if (roomData[`${oppPrefix}_deck_count`] !== undefined) {
         onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`];
       }
+// ====================================================
+      // ⬇️ 【ここに挿入します】切断・途中離脱の判定処理
+      // ====================================================
+      const oppUpdatedAt = roomData.updated_at ? new Date(roomData.updated_at).getTime() : Date.now();
+      const now = Date.now();
+      
+      // 対戦中（playing）かつ相手が15秒以上通信更新していない場合
+      if (roomData.status === 'playing') {
+        const isOpponentDisconnected = (now - oppUpdatedAt) > 15000; // 15秒以上音沙汰なし
+        const isOpponentSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
 
+        if (isOpponentDisconnected || isOpponentSurrendered) {
+          addLog(`⚠️ 相手プレイヤー（${window.gameState.opp.name}）が退出または切断しました。`, "important");
+          
+          // 自分の勝利として処理
+          window.gameState.opp.hp = 0;
+          checkWinLoss();
+          return;
+        }
+      }
+      // ====================================================
+
+      window.gameState.turn = isMyTurnNow ? "player" : "opponent";
+
+      // 画面要素の更新
+      const oppNameEl = document.getElementById("oppNameDisplay");
+      const myNameEl = document.getElementById("myNameDisplay");
+      if (oppNameEl) oppNameEl.textContent = window.gameState.opp.name;
+      if (myNameEl) myNameEl.textContent = window.gameState.my.name;
+
+      updateUI();
       window.gameState.turn = isMyTurnNow ? "player" : "opponent";
 
       if (isMyTurnNow && previousTurn !== "player") {
@@ -2406,8 +2439,7 @@
       }
 
       // 双方のプレイヤー名を要素に確実反映
-      const oppNameEl = document.getElementById("oppNameDisplay");
-      const myNameEl = document.getElementById("myNameDisplay");
+      
       if (oppNameEl) oppNameEl.textContent = window.gameState.opp.name;
       if (myNameEl) myNameEl.textContent = window.gameState.my.name;
 
