@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>赤城ユタカードバトル - 管理者イベント管理拡張版</title>
+  <title>赤城ユタカードバトル - 光・闇属性＆弱点倍率拡張版</title>
   <style>
     :root {
       --bg-color: #1a1a24;
@@ -419,6 +419,7 @@
       border: 1px solid #555;
     }
 
+    /* 5属性デザインバッジ */
     .element-badge {
       font-size: 0.65rem;
       padding: 2px 5px;
@@ -428,6 +429,8 @@
     .elem-fire { background: #800000; color: #ff9999; border: 1px solid #ff4444; }
     .elem-water { background: #003366; color: #99ccff; border: 1px solid #3388ff; }
     .elem-wood { background: #004d1a; color: #99ff99; border: 1px solid #33cc33; }
+    .elem-light { background: #665200; color: #fff3a0; border: 1px solid #ffd700; }
+    .elem-dark { background: #2b003b; color: #e2a0ff; border: 1px solid #b100e8; }
 
     .bar {
       flex: 1;
@@ -860,11 +863,11 @@
     </div>
 
     <details class="rules">
-      <summary>ランクマッチ＆イベント仕様</summary>
+      <summary>属性相性＆弱点ダメージ仕様</summary>
       <ul>
-        <li><b>レート管理</b>：Supabaseでリアルタイム一括管理されます。勝敗に応じてRP（レート）が変動！</li>
-        <li><b>イベントマッチ</b>：開催期間中に専用ランクマッチで勝利を重ねると、イベント終了時に限定コイン報酬を獲得可能！</li>
-        <li><b>自動集計＆獲得</b>：イベント期間終了後にアプリを起動すると自動で戦績が集計され、報酬が付与されます。</li>
+        <li><b>3すくみ相性</b>：🔥火 ➔ 🌿木 ➔ 💧水 ➔ 🔥火 （弱点属性へ1.5倍ダメージ！）</li>
+        <li><b>光・闇相関</b>：✨光 ⇄ 💀闇 （お互いの弱点を突き合う1.5倍の特効関係！）</li>
+        <li><b>戦略ポイント</b>：敵モンスターの属性を見極めて弱点特攻で一気に撃破しよう！</li>
       </ul>
     </details>
 
@@ -1063,6 +1066,15 @@
 </div>
 
 <script>
+  // 🌟 5属性の定義と弱点設定（光と闇を追加）
+  const ELEMENTS = {
+    fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
+    water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
+    wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
+    light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
+    dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
+  };
+
   // 🔍 カード拡大表示処理
   function openCardZoomModal(cardData) {
     if (!cardData) return;
@@ -1102,9 +1114,9 @@
   let onlineOppRate = 1000;
   let roomPollingInterval = null;
   let currentEvent = null;
-  let editingEventId = null; // 編集中のイベントID
+  let editingEventId = null;
 
-  const ADMIN_PASSCODE = "Sinn0626"; // 管理者用パスコード
+  const ADMIN_PASSCODE = "admin123";
 
   // --- BGM & ボイス 設定 ---
   const bgmTitle = new Audio('bgm_title.mp3');
@@ -1186,7 +1198,7 @@
               id: dbCard.id,
               name: dbCard.name,
               type: dbCard.type,
-              elem: dbCard.elem,
+              elem: dbCard.elem || "light",
               rarity: dbCard.rarity,
               costMp: dbCard.cost_mp,
               atk: dbCard.atk,
@@ -2135,9 +2147,7 @@
 
   // ⭐ カードDOM生成関数
   function renderCardDOM(cardData, badgeText, clickHandler) {
-    const elemInfo = (typeof ELEMENTS !== 'undefined' && ELEMENTS[cardData.elem]) 
-      ? ELEMENTS[cardData.elem] 
-      : { name: "無", icon: "⚪", class: "" };
+    const elemInfo = ELEMENTS[cardData.elem] || { name: "無", icon: "⚪", class: "" };
       
     const cardDiv = document.createElement("div");
     cardDiv.className = `card ${cardData.type}`;
@@ -2295,7 +2305,7 @@
     document.getElementById("oppNameDisplay").textContent = window.gameState.opp.name;
 
     const oppElemElem = document.getElementById("oppElem");
-    const eInfo = (typeof ELEMENTS !== 'undefined' && ELEMENTS[cpuPreset.elem]) ? ELEMENTS[cpuPreset.elem] : { name: "無", icon: "⚪", class: "" };
+    const eInfo = ELEMENTS[cpuPreset.elem] || { name: "無", icon: "⚪", class: "" };
     oppElemElem.className = `element-badge ${eInfo.class}`;
     oppElemElem.textContent = `${eInfo.icon} ${eInfo.name}`;
 
@@ -2342,10 +2352,11 @@
     }
   }
 
+  // 🧮 弱点ダメージ（1.5倍）計算関数
   function calcDamage(atk, cardElem, targetElem) {
-    const eData = typeof ELEMENTS !== 'undefined' ? ELEMENTS[cardElem] : null;
+    const eData = ELEMENTS[cardElem];
     if (eData && eData.strongTo === targetElem) {
-      return { damage: Math.floor(atk * 1.5), effective: true };
+      return { damage: Math.ceil(atk * 1.5), effective: true };
     }
     return { damage: atk, effective: false };
   }
@@ -2566,7 +2577,8 @@
     target.currentHp -= finalDamage;
     attacker.canAttack = false;
 
-    addLog(`【攻撃】${attacker.name} (ATK:${totalAtk}) ➔ 敵【${target.name}】に ${finalDamage} ダメージ！`, calc.effective ? "effective" : "important");
+    const effLabel = calc.effective ? " 🔥【弱点特効！】" : "";
+    addLog(`【攻撃】${attacker.name} (ATK:${totalAtk}) ➔ 敵【${target.name}】に ${finalDamage} ダメージ！${effLabel}`, calc.effective ? "effective" : "important");
 
     if (attacker.applyStun && target.currentHp > 0) {
       target.isStunned = true;
@@ -2628,7 +2640,8 @@
     window.gameState.opp.hp = Math.max(0, window.gameState.opp.hp - calc.damage);
     attacker.canAttack = false;
 
-    addLog(`【ダイレクトアタック】${attacker.name} ➔ ${window.gameState.opp.name}に ${calc.damage} ダメージ！`, calc.effective ? "effective" : "important");
+    const effLabel = calc.effective ? " 🔥【弱点特効！】" : "";
+    addLog(`【ダイレクトアタック】${attacker.name} ➔ ${window.gameState.opp.name}に ${calc.damage} ダメージ！${effLabel}`, calc.effective ? "effective" : "important");
 
     window.gameState.selectedAttackerIdx = null;
 
@@ -2816,7 +2829,8 @@
 
         target.currentHp -= finalDamage;
         m.canAttack = false;
-        addLog(`【敵攻撃】${m.name} ➔ 【${target.name}】に ${finalDamage} ダメージ！`, "damage");
+        const effLabel = calc.effective ? " ⚡【弱点被弾！】" : "";
+        addLog(`【敵攻撃】${m.name} ➔ 【${target.name}】に ${finalDamage} ダメージ！${effLabel}`, "damage");
 
         if (m.applyStun && target.currentHp > 0) {
           target.isStunned = true;
@@ -2850,7 +2864,8 @@
         const calc = calcDamage(totalAtk, attackElem, window.gameState.my.elem);
         window.gameState.my.hp = Math.max(0, window.gameState.my.hp - calc.damage);
         m.canAttack = false;
-        addLog(`【敵ダイレクト攻撃】${m.name} ➔ あなたは ${calc.damage} ダメージを受けた！`, "damage");
+        const effLabel = calc.effective ? " ⚡【弱点被弾！】" : "";
+        addLog(`【敵ダイレクト攻撃】${m.name} ➔ あなたは ${calc.damage} ダメージを受けた！${effLabel}`, "damage");
       }
     });
 
