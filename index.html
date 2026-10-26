@@ -149,7 +149,7 @@
 
     .stats-panel strong { color: var(--gold-color); }
 
-    /* 📢 お知らせ枠 (見やすさ改善版) */
+    /* 📢 お知らせ枠 (視認性向上CSS) */
     .notice-panel {
       background: #111827;
       border: 1px solid #00fff5;
@@ -1333,16 +1333,58 @@
 </div>
 
 <script>
- // ⭕ var, let, const を一切使わずに既存の ELEMENTS を更新します
-if (window.ELEMENTS) {
-  Object.assign(window.ELEMENTS, {
-    fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
-    water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
-    wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
-    light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
-    dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
-  });
-}
+  // 🌟 1. 画面遷移用関数の定義（グローバル登録）
+  window.openMarketScreen = function() {
+    var titleEl = document.getElementById("titleScreen");
+    var marketEl = document.getElementById("marketScreen");
+    if (titleEl) titleEl.classList.add("hidden");
+    if (marketEl) marketEl.classList.remove("hidden");
+    var coinEl = document.getElementById("marketCoinDisplay");
+    if (coinEl && window.userProfile) coinEl.textContent = window.userProfile.coins || 1000;
+  };
+
+  window.openTradeScreen = function() {
+    var titleEl = document.getElementById("titleScreen");
+    var tradeEl = document.getElementById("tradeScreen");
+    if (titleEl) titleEl.classList.add("hidden");
+    if (tradeEl) tradeEl.classList.remove("hidden");
+  };
+
+  window.openProfileCustomScreen = function() {
+    var titleEl = document.getElementById("titleScreen");
+    var customEl = document.getElementById("customScreen");
+    if (titleEl) titleEl.classList.add("hidden");
+    if (customEl) customEl.classList.remove("hidden");
+  };
+
+  window.openRulesModal = function() {
+    var rulesModal = document.getElementById("rulesModal");
+    if (rulesModal) rulesModal.classList.add("active");
+  };
+
+  window.closeRulesModal = function() {
+    var rulesModal = document.getElementById("rulesModal");
+    if (rulesModal) rulesModal.classList.remove("active");
+  };
+
+  // 🌟 2. ELEMENTS オブジェクトのマージ（SyntaxError防止）
+  if (typeof window.ELEMENTS !== 'undefined') {
+    Object.assign(window.ELEMENTS, {
+      fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
+      water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
+      wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
+      light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
+      dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
+    });
+  } else {
+    window.ELEMENTS = {
+      fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
+      water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
+      wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
+      light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
+      dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
+    };
+  }
 
   // 🔍 カード拡大表示処理
   function openCardZoomModal(cardData) {
@@ -1387,7 +1429,7 @@ if (window.ELEMENTS) {
 
   const ADMIN_PASSCODE = "admin123";
 
-  // --- BGM & ボイス 設定 ---
+  // --- BGM 設定 ---
   const bgmTitle = new Audio('bgm_title.mp3');
   const bgmBattle = new Audio('bgm_battle.mp3');
   bgmTitle.loop = true;
@@ -1404,18 +1446,15 @@ if (window.ELEMENTS) {
     bgmBattle.pause();
 
     let targetAudio = null;
-    if (type === 'title') {
-      targetAudio = bgmTitle;
-    } else if (type === 'battle') {
-      targetAudio = bgmBattle;
-    }
+    if (type === 'title') targetAudio = bgmTitle;
+    else if (type === 'battle') targetAudio = bgmBattle;
 
     if (targetAudio) {
       targetAudio.currentTime = 0;
       targetAudio.play().then(() => {
         currentBgmType = type;
       }).catch(e => {
-        console.log(`BGM [${type}] の再生がスキップされました:`, e.message);
+        console.log(`BGM [${type}] スキップ:`, e.message);
       });
     } else {
       currentBgmType = null;
@@ -1576,35 +1615,19 @@ if (window.ELEMENTS) {
   }
   window.saveNoticeFromAdmin = saveNoticeFromAdmin;
 
-  // --- 🏪 マーケット画面を開く ---
-window.openMarketScreen = function() {
-  document.getElementById("titleScreen").classList.add("hidden");
-  document.getElementById("marketScreen").classList.remove("hidden");
-  const coinEl = document.getElementById("marketCoinDisplay");
-  if (coinEl) coinEl.textContent = window.userProfile.coins;
-};
+  function switchMarketTab(tab) {
+    document.getElementById("tabMarketBuy").classList.toggle("active", tab === 'buy');
+    document.getElementById("tabMarketSell").classList.toggle("active", tab === 'sell');
+    document.getElementById("marketBuyArea").classList.toggle("hidden", tab !== 'buy');
+    document.getElementById("marketSellArea").classList.toggle("hidden", tab !== 'sell');
+  }
+  window.switchMarketTab = switchMarketTab;
 
-// --- 🤝 トレード画面を開く ---
-window.openTradeScreen = function() {
-  document.getElementById("titleScreen").classList.add("hidden");
-  document.getElementById("tradeScreen").classList.remove("hidden");
-};
-
-// --- 🏷️ プロフィール設定画面を開く ---
-window.openProfileCustomScreen = function() {
-  document.getElementById("titleScreen").classList.add("hidden");
-  document.getElementById("customScreen").classList.remove("hidden");
-};
   function saveProfileCustomization() {
     saveUserProfile();
     showTitle();
   }
   window.saveProfileCustomization = saveProfileCustomization;
-
-  function openRulesModal() { document.getElementById("rulesModal").classList.add("active"); }
-  function closeRulesModal() { document.getElementById("rulesModal").classList.remove("active"); }
-  window.openRulesModal = openRulesModal;
-  window.closeRulesModal = closeRulesModal;
 
   async function openAdminScreen() {
     const inputPass = prompt("管理者用パスコードを入力してください:");
@@ -2305,6 +2328,7 @@ window.openProfileCustomScreen = function() {
     }
   }
 
+  // 🌟 3. 通信データ（相手カードの復元・名前反映）処理
   function applyRoomData(roomData) {
     if (!roomData) return;
 
@@ -2321,46 +2345,26 @@ window.openProfileCustomScreen = function() {
       window.gameState.my.rate = roomData[`${mePrefix}_rate`] || window.userProfile.rate || 1000;
 
       const fetchedOppName = roomData[`${oppPrefix}_name`];
-      window.gameState.opp.name = fetchedOppName ? fetchedOppName : (isP1 ? "対戦相手を待っています..." : "プレイヤー1");
+      window.gameState.opp.name = fetchedOppName ? fetchedOppName : "対戦相手";
       window.gameState.opp.hp = roomData[`${oppPrefix}_hp`] ?? 60;
-      window.gameState.opp.monsters = roomData[`${oppPrefix}_field`] || [];
       
+      // 相手のカード情報を CARD_DATABASE とマージして完全復元
+      const rawOppMonsters = roomData[`${oppPrefix}_field`] || [];
+      window.gameState.opp.monsters = rawOppMonsters.map(m => {
+        if (!m) return null;
+        const baseCard = typeof CARD_DATABASE !== 'undefined' ? CARD_DATABASE.find(c => c.id === m.id) : null;
+        return {
+          ...(baseCard || {}),
+          ...m
+        };
+      }).filter(Boolean);
+
       onlineOppRate = roomData[`${oppPrefix}_rate`] || 1000;
       window.gameState.opp.rate = onlineOppRate;
-
-      const oppNameEl = document.getElementById("oppNameDisplay");
-      const myNameEl = document.getElementById("myNameDisplay");
-      
-      if (oppNameEl) oppNameEl.textContent = window.gameState.opp.name;
-      if (myNameEl) myNameEl.textContent = window.gameState.my.name;
 
       if (roomData[`${oppPrefix}_deck_count`] !== undefined) {
         onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`];
       }
-
-      // ----------------------------------------------------
-      // ⬇️ 【ここから追加】相手のモンスターカード情報を正しく復元する処理
-      // ----------------------------------------------------
-      const rawOppMonsters = roomData[`${oppPrefix}_field`] || [];
-      window.gameState.opp.monsters = rawOppMonsters.map(m => {
-        if (!m) return null;
-        // CARD_DATABASE から元のカード情報を取得
-        const baseCard = typeof CARD_DATABASE !== 'undefined' ? CARD_DATABASE.find(c => c.id === m.id) : null;
-        return {
-          ...(baseCard || {}), // 画像や属性、説明文などの基本情報
-          ...m                 // 現在のHPや攻撃力などのステータス
-        };
-      }).filter(Boolean); // nullや不要なデータを除外
-      // ----------------------------------------------------
-      // ⬆️ 【ここまで追加】
-      // ----------------------------------------------------
-
-      window.gameState.turn = isMyTurnNow ? "player" : "opponent";
-
-      // UIを更新して相手のカードを描画
-      document.getElementById("oppNameDisplay").textContent = window.gameState.opp.name;
-      document.getElementById("myNameDisplay").textContent = window.gameState.my.name;
-      updateUI();
 
       window.gameState.turn = isMyTurnNow ? "player" : "opponent";
 
@@ -2389,8 +2393,12 @@ window.openProfileCustomScreen = function() {
         window.gameState.my.mp = Math.min(window.gameState.my.maxHp, window.gameState.my.mp + 2);
       }
 
-      document.getElementById("oppNameDisplay").textContent = window.gameState.opp.name;
-      document.getElementById("myNameDisplay").textContent = window.gameState.my.name;
+      // 双方のプレイヤー名を要素に確実反映
+      const oppNameEl = document.getElementById("oppNameDisplay");
+      const myNameEl = document.getElementById("myNameDisplay");
+      if (oppNameEl) oppNameEl.textContent = window.gameState.opp.name;
+      if (myNameEl) myNameEl.textContent = window.gameState.my.name;
+
       updateUI();
 
       const logArea = document.getElementById("logArea");
@@ -2504,7 +2512,7 @@ window.openProfileCustomScreen = function() {
   }
 
   function renderCardDOM(cardData, badgeText, clickHandler) {
-    const elemInfo = ELEMENTS[cardData.elem] || { name: "無", icon: "⚪", class: "" };
+    const elemInfo = window.ELEMENTS[cardData.elem] || { name: "無", icon: "⚪", class: "" };
       
     const cardDiv = document.createElement("div");
     cardDiv.className = `card ${cardData.type}`;
@@ -2659,7 +2667,7 @@ window.openProfileCustomScreen = function() {
     document.getElementById("oppNameDisplay").textContent = window.gameState.opp.name;
 
     const oppElemElem = document.getElementById("oppElem");
-    const eInfo = ELEMENTS[cpuPreset.elem] || { name: "無", icon: "⚪", class: "" };
+    const eInfo = window.ELEMENTS[cpuPreset.elem] || { name: "無", icon: "⚪", class: "" };
     oppElemElem.className = `element-badge ${eInfo.class}`;
     oppElemElem.textContent = `${eInfo.icon} ${eInfo.name}`;
 
@@ -2707,7 +2715,7 @@ window.openProfileCustomScreen = function() {
   }
 
   function calcDamage(atk, cardElem, targetElem) {
-    const eData = ELEMENTS[cardElem];
+    const eData = window.ELEMENTS[cardElem];
     if (eData && eData.strongTo === targetElem) {
       return { damage: Math.ceil(atk * 1.5), effective: true };
     }
@@ -3162,7 +3170,7 @@ window.openProfileCustomScreen = function() {
         let target = window.gameState.my.monsters[0];
 
         if (window.gameState.currentDifficulty === "hard") {
-          const effectiveTarget = window.gameState.my.monsters.find(tm => ELEMENTS[attackElem] && ELEMENTS[attackElem].strongTo === tm.elem);
+          const effectiveTarget = window.gameState.my.monsters.find(tm => window.ELEMENTS[attackElem] && window.ELEMENTS[attackElem].strongTo === tm.elem);
           if (effectiveTarget) {
             target = effectiveTarget;
           } else {
@@ -3462,3 +3470,6 @@ window.openProfileCustomScreen = function() {
       handContainer.appendChild(cardDiv);
     });
   }
+</script>
+</body>
+</html>
