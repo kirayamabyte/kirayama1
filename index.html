@@ -2340,6 +2340,30 @@ if (window.ELEMENTS) {
         onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`];
       }
 
+      // ----------------------------------------------------
+      // ⬇️ 【ここから追加】相手のモンスターカード情報を正しく復元する処理
+      // ----------------------------------------------------
+      const rawOppMonsters = roomData[`${oppPrefix}_field`] || [];
+      window.gameState.opp.monsters = rawOppMonsters.map(m => {
+        if (!m) return null;
+        // CARD_DATABASE から元のカード情報を取得
+        const baseCard = typeof CARD_DATABASE !== 'undefined' ? CARD_DATABASE.find(c => c.id === m.id) : null;
+        return {
+          ...(baseCard || {}), // 画像や属性、説明文などの基本情報
+          ...m                 // 現在のHPや攻撃力などのステータス
+        };
+      }).filter(Boolean); // nullや不要なデータを除外
+      // ----------------------------------------------------
+      // ⬆️ 【ここまで追加】
+      // ----------------------------------------------------
+
+      window.gameState.turn = isMyTurnNow ? "player" : "opponent";
+
+      // UIを更新して相手のカードを描画
+      document.getElementById("oppNameDisplay").textContent = window.gameState.opp.name;
+      document.getElementById("myNameDisplay").textContent = window.gameState.my.name;
+      updateUI();
+
       window.gameState.turn = isMyTurnNow ? "player" : "opponent";
 
       if (isMyTurnNow && previousTurn !== "player") {
