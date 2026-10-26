@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>赤城ユタカードバトル - ボタンタップ判定完全修正版</title>
+  <title>赤城ユタカードバトル - 完全修正版</title>
   <style>
     :root {
       --bg-color: #1a1a24;
@@ -664,12 +664,12 @@
     button.btn.primary:hover { background: #ff2e63; }
     button.btn.big { padding: 12px; font-size: 0.95rem; }
 
-    /* 🛠️ モーダルの完全非表示・クリック判定透過修正（!important 削除・競合解決） */
+    /* モーダルの非表示・クリック透過制御 */
     .modal {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.88);
-      display: none; /* 基本状態は完全非表示 */
+      display: none;
       flex-direction: column;
       justify-content: center;
       align-items: center;
@@ -677,12 +677,12 @@
       z-index: 1000;
       border-radius: 12px;
       padding: 16px;
-      pointer-events: none; /* 非表示時はクリックを通過させる */
+      pointer-events: none;
     }
 
     .modal.active {
-      display: flex !important; /* active付与時のみ表示 */
-      pointer-events: auto !important; /* 表示時のみ操作を有効化 */
+      display: flex !important;
+      pointer-events: auto !important;
     }
 
     .modal h2 { font-size: 1.5rem; color: var(--gold-color); }
@@ -732,6 +732,9 @@
       </div>
       <div class="stats-row">
         <span>戦績: <strong id="statWins">0</strong>勝 <strong id="statLosses">0</strong>敗</span>
+        <span>連戦最高: <strong id="statGauntlet" style="color:#ffd700;">0</strong> ステージ</span>
+      </div>
+      <div class="stats-row">
         <span>コイン: 🪙 <strong id="statCoins" style="color:#ffd700;">1000</strong>pt</span>
       </div>
     </div>
@@ -970,7 +973,8 @@
       targetAudio.play().then(() => {
         currentBgmType = type;
       }).catch(e => {
-        console.log(`BGM [${type}] の再生がブロックされました:`, e);
+        // 音声ファイルがなくてもゲームが止まらないようにエラーログのみ表示
+        console.log(`BGM [${type}] の再生がスキップされました:`, e.message);
       });
     } else {
       currentBgmType = null;
@@ -1017,7 +1021,7 @@
 
       if (data && data.length > 0) {
         data.forEach(dbCard => {
-          if (!CARD_DATABASE.some(c => c.id === dbCard.id)) {
+          if (typeof CARD_DATABASE !== 'undefined' && !CARD_DATABASE.some(c => c.id === dbCard.id)) {
             CARD_DATABASE.push({
               id: dbCard.id,
               name: dbCard.name,
@@ -1115,17 +1119,32 @@
     syncProfileToSupabase();
   }
 
+  // 🛠️ ヌルチェック安全対策版の updateTitleStatsUI
   function updateTitleStatsUI() {
-    document.getElementById("nameInput").value = window.userProfile.name;
-    document.getElementById("statWins").textContent = window.userProfile.wins;
-    document.getElementById("statLosses").textContent = window.userProfile.losses;
-    document.getElementById("statGauntlet").textContent = window.userProfile.bestGauntletStage;
-    document.getElementById("statCoins").textContent = window.userProfile.coins;
-    document.getElementById("gachaCoinDisplay").textContent = window.userProfile.coins;
+    const nameInput = document.getElementById("nameInput");
+    if (nameInput) nameInput.value = window.userProfile.name;
+
+    const statWins = document.getElementById("statWins");
+    if (statWins) statWins.textContent = window.userProfile.wins;
+
+    const statLosses = document.getElementById("statLosses");
+    if (statLosses) statLosses.textContent = window.userProfile.losses;
+
+    const statGauntlet = document.getElementById("statGauntlet");
+    if (statGauntlet) statGauntlet.textContent = window.userProfile.bestGauntletStage;
+
+    const statCoins = document.getElementById("statCoins");
+    if (statCoins) statCoins.textContent = window.userProfile.coins;
+
+    const gachaCoinDisplay = document.getElementById("gachaCoinDisplay");
+    if (gachaCoinDisplay) gachaCoinDisplay.textContent = window.userProfile.coins;
 
     const rate = window.userProfile.rate || 1000;
-    document.getElementById("statRate").textContent = rate;
-    document.getElementById("statRank").textContent = getRankName(rate);
+    const statRate = document.getElementById("statRate");
+    if (statRate) statRate.textContent = rate;
+
+    const statRank = document.getElementById("statRank");
+    if (statRank) statRank.textContent = getRankName(rate);
   }
 
   // ゲーム状態管理
@@ -1147,39 +1166,49 @@
     await syncProfileFromSupabase();
 
     const unlockAudio = () => {
-      if (document.getElementById("gameScreen").classList.contains("hidden")) {
-        playBGM('title');
-      }
+      try {
+        if (document.getElementById("gameScreen").classList.contains("hidden")) {
+          playBGM('title');
+        }
+      } catch(e){}
       document.removeEventListener("click", unlockAudio);
       document.removeEventListener("touchstart", unlockAudio);
     };
     document.addEventListener("click", unlockAudio);
     document.addEventListener("touchstart", unlockAudio);
 
-    document.getElementById("nameInput").addEventListener("change", async (e) => {
-      window.userProfile.name = e.target.value.trim() || "あなた";
-      saveUserProfile();
-      await syncProfileFromSupabase();
-    });
+    const nameInput = document.getElementById("nameInput");
+    if (nameInput) {
+      nameInput.addEventListener("change", async (e) => {
+        window.userProfile.name = e.target.value.trim() || "あなた";
+        saveUserProfile();
+        await syncProfileToSupabase();
+      });
+    }
 
-    document.getElementById("btnSearchRanked").addEventListener("click", searchRankedMatch);
-    document.getElementById("btnGacha").addEventListener("click", openGachaScreen);
-    document.getElementById("btnOnline").addEventListener("click", openOnlineLobby);
-    document.getElementById("btnCreateOnlineRoom").addEventListener("click", createOnlineRoom);
-    document.getElementById("btnJoinOnlineRoom").addEventListener("click", joinOnlineRoom);
-    document.getElementById("btnGauntlet").addEventListener("click", startGauntletMode);
-    document.getElementById("btnCasual").addEventListener("click", openCasualSelect);
+    const bindEvent = (id, fn) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("click", fn);
+    };
 
-    document.getElementById("btnDeckEdit").addEventListener("click", openDeckEditor);
-    document.getElementById("btnSaveDeck").addEventListener("click", saveDeckAndReturn);
-    document.getElementById("btnResetDeck").addEventListener("click", resetDeckToDefault);
-    document.getElementById("btnPass").addEventListener("click", passTurn);
-    document.getElementById("btnModalNext").addEventListener("click", handleModalNext);
+    bindEvent("btnSearchRanked", searchRankedMatch);
+    bindEvent("btnGacha", openGachaScreen);
+    bindEvent("btnOnline", openOnlineLobby);
+    bindEvent("btnCreateOnlineRoom", createOnlineRoom);
+    bindEvent("btnJoinOnlineRoom", joinOnlineRoom);
+    bindEvent("btnGauntlet", startGauntletMode);
+    bindEvent("btnCasual", openCasualSelect);
 
-    playBGM('title');
+    bindEvent("btnDeckEdit", openDeckEditor);
+    bindEvent("btnSaveDeck", saveDeckAndReturn);
+    bindEvent("btnResetDeck", resetDeckToDefault);
+    bindEvent("btnPass", passTurn);
+    bindEvent("btnModalNext", handleModalNext);
+
+    try { playBGM('title'); } catch(e){}
   });
 
-  // 🛠️ 画面遷移（すべてのモーダルの active クラスを確実にクリア）
+  // 🛠️ 画面遷移（全モーダルの active クラスをクリア）
   function showTitle() {
     document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
 
@@ -1190,7 +1219,7 @@
     document.getElementById("gachaScreen").classList.add("hidden");
     document.getElementById("titleScreen").classList.remove("hidden");
     updateTitleStatsUI();
-    playBGM('title');
+    try { playBGM('title'); } catch(e){}
   }
   window.showTitle = showTitle;
 
@@ -1412,7 +1441,7 @@
     const modeName = window.gameState.mode === "ranked" ? "🏆 ランクマッチ" : "🌐 フリー対戦";
     document.getElementById("modeBanner").textContent = `${modeName} - 部屋ID: ${onlineRoomId}`;
 
-    playBGM('battle');
+    try { playBGM('battle'); } catch(e){}
     fetchRoomData();
 
     supabaseClient
@@ -1537,8 +1566,10 @@
   }
 
   function startGauntletStage() {
-    const stageInfo = GAUNTLET_STAGES[window.gameState.gauntletStage];
-    window.gameState.currentDifficulty = stageInfo.diff;
+    if (typeof GAUNTLET_STAGES !== 'undefined' && GAUNTLET_STAGES[window.gameState.gauntletStage]) {
+      const stageInfo = GAUNTLET_STAGES[window.gameState.gauntletStage];
+      window.gameState.currentDifficulty = stageInfo.diff;
+    }
 
     initGame();
   }
@@ -1729,8 +1760,10 @@
   }
 
   function initGame() {
-    playBGM('battle');
-    const cpuPreset = CPU_PRESETS[window.gameState.currentDifficulty];
+    try { playBGM('battle'); } catch(e){}
+    const cpuPreset = (typeof CPU_PRESETS !== 'undefined' && CPU_PRESETS[window.gameState.currentDifficulty]) 
+      ? CPU_PRESETS[window.gameState.currentDifficulty] 
+      : { name: "CPU", rate: 1200, elem: "fire", deck: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : [] };
 
     const isPlayerFirst = Math.random() < 0.5;
     window.gameState.turn = isPlayerFirst ? "player" : "cpu";
@@ -1749,7 +1782,7 @@
     document.getElementById("oppNameDisplay").textContent = window.gameState.opp.name;
 
     const oppElemElem = document.getElementById("oppElem");
-    const eInfo = ELEMENTS[cpuPreset.elem] || { name: "無", icon: "⚪", class: "" };
+    const eInfo = (typeof ELEMENTS !== 'undefined' && ELEMENTS[cpuPreset.elem]) ? ELEMENTS[cpuPreset.elem] : { name: "無", icon: "⚪", class: "" };
     oppElemElem.className = `element-badge ${eInfo.class}`;
     oppElemElem.textContent = `${eInfo.icon} ${eInfo.name}`;
 
@@ -1765,8 +1798,12 @@
     document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
     document.getElementById("logArea").innerHTML = "";
 
+    const gauntletStageText = (typeof GAUNTLET_STAGES !== 'undefined' && GAUNTLET_STAGES[window.gameState.gauntletStage])
+      ? GAUNTLET_STAGES[window.gameState.gauntletStage].stage
+      : 1;
+
     const bannerText = window.gameState.mode === "gauntlet" 
-      ? `🔥 連戦モード ステージ ${GAUNTLET_STAGES[window.gameState.gauntletStage].stage}/3 : VS ${cpuPreset.name}`
+      ? `🔥 連戦モード ステージ ${gauntletStageText}/3 : VS ${cpuPreset.name}`
       : `カジュアルモード [${window.gameState.currentDifficulty.toUpperCase()}] VS ${cpuPreset.name}`;
       
     document.getElementById("modeBanner").textContent = `${bannerText} (${isPlayerFirst ? '先攻' : '後攻'})`;
@@ -1786,12 +1823,14 @@
     logArea.className = `log-entry ${type}`;
     logArea.textContent = msg;
     const logContainer = document.getElementById("logArea");
-    logContainer.appendChild(logArea);
-    logContainer.scrollTop = logContainer.scrollHeight;
+    if (logContainer) {
+      logContainer.appendChild(logArea);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
   }
 
   function calcDamage(atk, cardElem, targetElem) {
-    const eData = ELEMENTS[cardElem];
+    const eData = typeof ELEMENTS !== 'undefined' ? ELEMENTS[cardElem] : null;
     if (eData && eData.strongTo === targetElem) {
       return { damage: Math.floor(atk * 1.5), effective: true };
     }
@@ -2211,7 +2250,7 @@
         if (monsterCard.buffAtk) {
           let buffedCount = 0;
           window.gameState.opp.monsters.forEach(m => {
-            m.atk += monsterCard.buffAtk;
+            m.atk += card.buffAtk;
             buffedCount++;
           });
           addLog(`✨ 敵の【${monsterCard.name}】の能力発動！ 敵モンスター ${buffedCount} 体の攻撃力が +${monsterCard.buffAtk} 上昇！`, "damage");
@@ -2363,7 +2402,9 @@
           }
           saveUserProfile();
 
-          if (window.gameState.gauntletStage < GAUNTLET_STAGES.length - 1) {
+          const maxGauntletLength = typeof GAUNTLET_STAGES !== 'undefined' ? GAUNTLET_STAGES.length : 3;
+
+          if (window.gameState.gauntletStage < maxGauntletLength - 1) {
             showEndModal(`ステージ ${currentStageNum} 突破！ (+${rewardCoins} pt獲得)`, "次戦へ進む");
           } else {
             showEndModal(`🎉 連戦モード完全覇者！ (+${rewardCoins} pt獲得)`, "タイトルへ戻る");
@@ -2404,7 +2445,9 @@
       }
     }
 
-    if (window.gameState.mode === "gauntlet" && window.gameState.my.hp > 0 && window.gameState.gauntletStage < GAUNTLET_STAGES.length - 1) {
+    const maxGauntletLength = typeof GAUNTLET_STAGES !== 'undefined' ? GAUNTLET_STAGES.length : 3;
+
+    if (window.gameState.mode === "gauntlet" && window.gameState.my.hp > 0 && window.gameState.gauntletStage < maxGauntletLength - 1) {
       window.gameState.gauntletStage++;
       startGauntletStage();
     } else {
