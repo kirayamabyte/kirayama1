@@ -1339,14 +1339,24 @@
 </div>
 
 <script>
-  // 🌟 5属性の定義と弱点設定（光と闇を追加）
-  const ELEMENTS = {
-    fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
-    water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
-    wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
-    light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
-    dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
-  };
+  // 🌟 5属性の定義と弱点設定（二重宣言エラー回避のため既存のものを利用・無ければ定義）
+  if (typeof ELEMENTS === 'undefined') {
+    var ELEMENTS = {
+      fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
+      water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
+      wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
+      light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
+      dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
+    };
+  } else {
+    Object.assign(ELEMENTS, {
+      fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
+      water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
+      wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
+      light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
+      dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
+    });
+  }
 
   // 🔍 カード拡大表示処理
   function openCardZoomModal(cardData) {
