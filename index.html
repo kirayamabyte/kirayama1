@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>赤城ユタカードバトル - 完全機能統合版</title>
+  <title>赤城ユタカードバトル - 完全機能統合版（ボタン修正）</title>
   <style>
     :root {
       --bg-color: #1a1a24;
@@ -2542,9 +2542,7 @@
 
       cardDiv.addEventListener("touchend", (e) => {
         clearTimeout(longPressTimer);
-        if (isLongPressAction) {
-          e.preventDefault();
-        } else {
+        if (!isLongPressAction) {
           clickHandler(e);
         }
       });
