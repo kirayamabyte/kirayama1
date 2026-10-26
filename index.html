@@ -973,7 +973,6 @@
       targetAudio.play().then(() => {
         currentBgmType = type;
       }).catch(e => {
-        // 音声ファイルがなくてもゲームが止まらないようにエラーログのみ表示
         console.log(`BGM [${type}] の再生がスキップされました:`, e.message);
       });
     } else {
@@ -1062,12 +1061,13 @@
     if (!supabaseClient) return;
     try {
       const myName = window.userProfile.name;
-      const { data, error } = await supabaseClient.from('profiles').select('*').eq('id', myName).single();
+      const { data, error } = await supabaseClient.from('profiles').select('*').eq('id', myName);
       
-      if (data) {
-        window.userProfile.rate = data.rate ?? 1000;
-        window.userProfile.wins = data.wins ?? 0;
-        window.userProfile.losses = data.losses ?? 0;
+      if (data && data.length > 0) {
+        const user = data[0];
+        window.userProfile.rate = user.rate ?? 1000;
+        window.userProfile.wins = user.wins ?? 0;
+        window.userProfile.losses = user.losses ?? 0;
       } else {
         await supabaseClient.from('profiles').upsert({
           id: myName,
@@ -1119,7 +1119,6 @@
     syncProfileToSupabase();
   }
 
-  // 🛠️ ヌルチェック安全対策版の updateTitleStatsUI
   function updateTitleStatsUI() {
     const nameInput = document.getElementById("nameInput");
     if (nameInput) nameInput.value = window.userProfile.name;
@@ -1208,7 +1207,6 @@
     try { playBGM('title'); } catch(e){}
   });
 
-  // 🛠️ 画面遷移（全モーダルの active クラスをクリア）
   function showTitle() {
     document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
 
@@ -1403,14 +1401,20 @@
     }
   }
 
+  // 🛠️ 406エラー修正版 joinOnlineRoom
   async function joinOnlineRoom() {
     if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
 
     const code = document.getElementById("onlineRoomCodeInput").value.trim().toUpperCase();
     if (!code) return alert("合言葉を入力してください");
 
-    const { data: room, error } = await supabaseClient.from('rooms').select('*').eq('id', code).single();
-    if (error || !room) return alert("部屋が見つかりません");
+    const { data, error } = await supabaseClient
+      .from('rooms')
+      .select('*')
+      .eq('id', code);
+
+    if (error || !data || data.length === 0) return alert("部屋が見つかりません");
+    const room = data[0];
     if (room.status !== 'waiting') return alert("満員か対戦中の部屋です");
 
     onlineRoomId = code;
@@ -1452,9 +1456,26 @@
       .subscribe();
   }
 
+  // 🛠️ 406エラー修正版 fetchRoomData
   async function fetchRoomData() {
-    const { data } = await supabaseClient.from('rooms').select('*').eq('id', onlineRoomId).single();
-    if (data) applyRoomData(data);
+    if (!onlineRoomId || !supabaseClient) return;
+    try {
+      const { data, error } = await supabaseClient
+        .from('rooms')
+        .select('*')
+        .eq('id', onlineRoomId);
+
+      if (error) {
+        console.warn("部屋データ取得エラー:", error.message);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        applyRoomData(data[0]);
+      }
+    } catch(e) {
+      console.error("fetchRoomData 例外:", e);
+    }
   }
 
   function applyRoomData(roomData) {
