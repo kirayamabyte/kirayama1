@@ -944,6 +944,7 @@
   let hasDrawnThisTurn = false;
   let onlineOppDeckCount = 15;
   let onlineOppRate = 1000;
+  let roomPollingInterval = null;
 
   // --- BGM & ボイス 設定 ---
   const bgmTitle = new Audio('bgm_title.mp3');
@@ -1208,6 +1209,7 @@
   });
 
   function showTitle() {
+    if (roomPollingInterval) clearInterval(roomPollingInterval);
     document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
 
     document.getElementById("gameScreen").classList.add("hidden");
@@ -1293,7 +1295,7 @@
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
-  // --- 🏆 ランクマッチ自動検索処理 ---
+  // --- 🏆 ランクマッチ自動検索処理（決定版） ---
   async function searchRankedMatch() {
     if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
 
@@ -1304,58 +1306,73 @@
 
     addLog("🔍 ランクマッチ待機部屋を検索中...", "important");
 
-    const { data: waitingRooms } = await supabaseClient
-      .from('rooms')
-      .select('*')
-      .eq('status', 'waiting')
-      .eq('is_ranked', true)
-      .limit(1);
+    try {
+      const { data: waitingRooms, error: selectErr } = await supabaseClient
+        .from('rooms')
+        .select('*')
+        .eq('status', 'waiting')
+        .eq('is_ranked', true)
+        .order('updated_at', { ascending: true })
+        .limit(1);
 
-    if (waitingRooms && waitingRooms.length > 0) {
-      onlineRoomId = waitingRooms[0].id;
-      onlineMyRole = 'player2';
-      hasDrawnThisTurn = false;
+      if (selectErr) {
+        console.error("部屋検索エラー:", selectErr);
+      }
 
-      const fullDeck = buildDeckFromIds(window.userProfile.deck);
-      window.gameState.my.hand = fullDeck.slice(0, 5);
-      window.gameState.my.deck = fullDeck.slice(5);
+      if (waitingRooms && waitingRooms.length > 0) {
+        const targetRoom = waitingRooms[0];
+        onlineRoomId = targetRoom.id;
+        onlineMyRole = 'player2';
+        hasDrawnThisTurn = false;
 
-      await supabaseClient.from('rooms').update({
-        status: 'playing',
-        p2_name: window.userProfile.name,
-        p2_rate: window.userProfile.rate || 1000,
-        p2_hand: window.gameState.my.hand.map(c => c.id),
-        p2_hp: 50,
-        p2_deck_count: 15,
-        log: [...(waitingRooms[0].log || []), `${window.userProfile.name} (Rate:${window.userProfile.rate}) が参戦！対戦開始！`]
-      }).eq('id', onlineRoomId);
+        const fullDeck = buildDeckFromIds(window.userProfile.deck);
+        window.gameState.my.hand = fullDeck.slice(0, 5);
+        window.gameState.my.deck = fullDeck.slice(5);
 
-      subscribeRoomUpdates();
-    } else {
-      onlineRoomId = "RANK_" + Math.random().toString(36).substring(2, 8).toUpperCase();
-      onlineMyRole = 'player1';
-      hasDrawnThisTurn = true;
+        const { error: updateErr } = await supabaseClient.from('rooms').update({
+          status: 'playing',
+          p2_name: window.userProfile.name,
+          p2_rate: window.userProfile.rate || 1000,
+          p2_hand: window.gameState.my.hand.map(c => c.id),
+          p2_hp: 50,
+          p2_deck_count: 15,
+          updated_at: new Date().toISOString(),
+          log: [...(targetRoom.log || []), `${window.userProfile.name} (Rate:${window.userProfile.rate}) が参戦！対戦開始！`]
+        }).eq('id', onlineRoomId);
 
-      const fullDeck = buildDeckFromIds(window.userProfile.deck);
-      window.gameState.my.hand = fullDeck.slice(0, 5);
-      window.gameState.my.deck = fullDeck.slice(5);
+        if (updateErr) console.error("部屋更新エラー:", updateErr);
 
-      await supabaseClient.from('rooms').insert([{
-        id: onlineRoomId,
-        status: 'waiting',
-        is_ranked: true,
-        current_turn: 'player1',
-        p1_name: window.userProfile.name,
-        p1_rate: window.userProfile.rate || 1000,
-        p1_hand: window.gameState.my.hand.map(c => c.id),
-        p1_hp: 50,
-        p1_deck_count: 15,
-        p2_hp: 50,
-        p2_deck_count: 15,
-        log: [`ランクマッチ対戦相手を募集中... (ホスト:${window.userProfile.name})`]
-      }]);
+        subscribeRoomUpdates();
+      } else {
+        onlineRoomId = "RANK_" + Math.random().toString(36).substring(2, 8).toUpperCase();
+        onlineMyRole = 'player1';
+        hasDrawnThisTurn = true;
 
-      subscribeRoomUpdates();
+        const fullDeck = buildDeckFromIds(window.userProfile.deck);
+        window.gameState.my.hand = fullDeck.slice(0, 5);
+        window.gameState.my.deck = fullDeck.slice(5);
+
+        const { error: insertErr } = await supabaseClient.from('rooms').insert([{
+          id: onlineRoomId,
+          status: 'waiting',
+          is_ranked: true,
+          current_turn: 'player1',
+          p1_name: window.userProfile.name,
+          p1_rate: window.userProfile.rate || 1000,
+          p1_hand: window.gameState.my.hand.map(c => c.id),
+          p1_hp: 50,
+          p1_deck_count: 15,
+          p2_hp: 50,
+          p2_deck_count: 15,
+          log: [`ランクマッチ対戦相手を募集中... (ホスト:${window.userProfile.name})`]
+        }]);
+
+        if (insertErr) console.error("部屋作成エラー:", insertErr);
+
+        subscribeRoomUpdates();
+      }
+    } catch (err) {
+      console.error("searchRankedMatch 例外:", err);
     }
   }
 
@@ -1447,12 +1464,19 @@
     try { playBGM('battle'); } catch(e){}
     fetchRoomData();
 
-    supabaseClient
-      .channel(`room:${onlineRoomId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${onlineRoomId}` }, (payload) => {
-        applyRoomData(payload.new);
-      })
-      .subscribe();
+    if (roomPollingInterval) clearInterval(roomPollingInterval);
+    roomPollingInterval = setInterval(() => {
+      fetchRoomData();
+    }, 1500);
+
+    if (supabaseClient) {
+      supabaseClient
+        .channel(`room:${onlineRoomId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${onlineRoomId}` }, (payload) => {
+          applyRoomData(payload.new);
+        })
+        .subscribe();
+    }
   }
 
   async function fetchRoomData() {
@@ -1476,7 +1500,7 @@
     }
   }
 
-  // 🛠️ リアルタイム同期・相手の名前・フィールド表示を安全に反映する修正版
+  // 🛠️ リアルタイム同期・相手の名前・フィールド表示を完全反映
   function applyRoomData(roomData) {
     if (!roomData) return;
 
@@ -2413,6 +2437,7 @@
     const isLoss = window.gameState.my.hp <= 0;
 
     if (isWin || isLoss) {
+      if (roomPollingInterval) clearInterval(roomPollingInterval);
       let rateLogMsg = "";
 
       if (window.gameState.mode === "ranked") {
@@ -2467,6 +2492,7 @@
   }
 
   async function handleModalNext() {
+    if (roomPollingInterval) clearInterval(roomPollingInterval);
     document.getElementById("endModal").classList.remove("active");
 
     if ((window.gameState.mode === "online" || window.gameState.mode === "ranked") && onlineRoomId && supabaseClient) {
