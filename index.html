@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>赤城ユタカードバトル - 管理者用イベント作成機能版</title>
+  <title>赤城ユタカードバトル - 管理者イベント管理拡張版</title>
   <style>
     :root {
       --bg-color: #1a1a24;
@@ -179,7 +179,7 @@
       justify-content: flex-start;
       align-items: center;
       gap: 12px;
-      padding: 20px;
+      padding: 16px;
       overflow-y: auto;
     }
 
@@ -187,21 +187,63 @@
       background: rgba(255,255,255,0.05);
       border: 1px solid #444;
       border-radius: 8px;
-      padding: 16px;
+      padding: 14px;
       width: 100%;
-      max-width: 380px;
+      max-width: 400px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
       text-align: left;
+      flex-shrink: 0;
     }
 
     .admin-form label {
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: #aaa;
       display: flex;
       flex-direction: column;
+      gap: 3px;
+    }
+
+    .admin-list-container {
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .admin-event-item {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 8px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+    }
+
+    .admin-event-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      text-align: left;
+    }
+
+    .admin-event-actions {
+      display: flex;
       gap: 4px;
+    }
+
+    .admin-btn-sm {
+      padding: 4px 8px;
+      font-size: 0.7rem;
+      border-radius: 4px;
+      border: 1px solid #555;
+      background: #222;
+      color: #fff;
+      cursor: pointer;
     }
 
     /* --- ガチャ画面 --- */
@@ -834,6 +876,7 @@
     <h2 style="color:var(--gold-color);">⚙️ イベント作成・管理画面</h2>
     
     <div class="admin-form">
+      <div id="adminFormHeader" style="font-weight:bold; color:var(--gold-color); font-size:0.85rem;">新規イベント作成</div>
       <label>イベントID (英数字)
         <input id="adminEvtId" class="field-input" placeholder="例: EVT_SEASON_02">
       </label>
@@ -854,10 +897,19 @@
         <input id="adminEvtCoins" type="number" class="field-input" value="1000">
       </label>
 
-      <button type="button" class="btn primary" onclick="createEventFromAdmin()" style="margin-top:10px; background:#ff8c00; border-color:#ffd700;">
-        🚀 イベントを作成・公開する
-      </button>
+      <div style="display:flex; gap:6px; margin-top:4px;">
+        <button id="btnSaveAdminEvent" type="button" class="btn primary" onclick="saveEventFromAdmin()" style="background:#ff8c00; border-color:#ffd700;">
+          🚀 イベントを作成・公開
+        </button>
+        <button id="btnCancelAdminEdit" type="button" class="btn hidden" onclick="resetAdminForm()">
+          キャンセル
+        </button>
+      </div>
     </div>
+
+    <!-- 過去・開催中イベント一覧 -->
+    <div style="font-size:0.8rem; color:#aaa; width:100%; max-width:400px; text-align:left; margin-top:6px;">登録済みイベント一覧</div>
+    <div id="adminEventList" class="admin-list-container"></div>
 
     <button type="button" class="btn" onclick="showTitle()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
   </section>
@@ -1050,8 +1102,9 @@
   let onlineOppRate = 1000;
   let roomPollingInterval = null;
   let currentEvent = null;
+  let editingEventId = null; // 編集中のイベントID
 
-  const ADMIN_PASSCODE = "Sinn0626"; // 管理者用パスコード（必要に応じて変更可能）
+  const ADMIN_PASSCODE = "admin123"; // 管理者用パスコード
 
   // --- BGM & ボイス 設定 ---
   const bgmTitle = new Audio('bgm_title.mp3');
@@ -1206,27 +1259,110 @@
   }
 
   // ⚙️ 管理者画面へのパスワード認証・遷移
-  function openAdminScreen() {
+  async function openAdminScreen() {
     const inputPass = prompt("管理者用パスコードを入力してください:");
     if (inputPass === ADMIN_PASSCODE) {
       document.getElementById("titleScreen").classList.add("hidden");
       document.getElementById("adminScreen").classList.remove("hidden");
-
-      // 日時フォームのデフォルト値を初期設定（現在時刻〜7日後）
-      const now = new Date();
-      const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-      document.getElementById("adminEvtId").value = "EVT_" + Math.random().toString(36).substring(2, 6).toUpperCase();
-      document.getElementById("adminEvtStart").value = now.toISOString().slice(0, 16);
-      document.getElementById("adminEvtEnd").value = nextWeek.toISOString().slice(0, 16);
+      resetAdminForm();
+      await fetchAdminEventList();
     } else if (inputPass !== null) {
       alert("パスコードが正しくありません。");
     }
   }
   window.openAdminScreen = openAdminScreen;
 
-  // ⚙️ ゲーム画面上からのイベント作成処理
-  async function createEventFromAdmin() {
+  function resetAdminForm() {
+    editingEventId = null;
+    document.getElementById("adminFormHeader").textContent = "新規イベント作成";
+    document.getElementById("adminEvtId").disabled = false;
+
+    const now = new Date();
+    const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    document.getElementById("adminEvtId").value = "EVT_" + Math.random().toString(36).substring(2, 6).toUpperCase();
+    document.getElementById("adminEvtTitle").value = "";
+    document.getElementById("adminEvtStart").value = now.toISOString().slice(0, 16);
+    document.getElementById("adminEvtEnd").value = nextWeek.toISOString().slice(0, 16);
+    document.getElementById("adminEvtCoins").value = 1000;
+
+    document.getElementById("btnSaveAdminEvent").textContent = "🚀 イベントを作成・公開";
+    document.getElementById("btnCancelAdminEdit").classList.add("hidden");
+  }
+  window.resetAdminForm = resetAdminForm;
+
+  // ⚙️ 管理者用イベントリスト取得
+  async function fetchAdminEventList() {
+    if (!supabaseClient) return;
+    const { data } = await supabaseClient.from('events').select('*').order('start_at', { ascending: false });
+    const listContainer = document.getElementById("adminEventList");
+    listContainer.innerHTML = "";
+
+    if (data && data.length > 0) {
+      data.forEach(evt => {
+        const item = document.createElement("div");
+        item.className = "admin-event-item";
+
+        const startStr = new Date(evt.start_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const endStr = new Date(evt.end_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+        item.innerHTML = `
+          <div class="admin-event-info">
+            <strong style="color:var(--gold-color);">${evt.title}</strong>
+            <span style="color:#aaa; font-size:0.68rem;">ID: ${evt.id} | 報酬: 🪙${evt.reward_coins}pt</span>
+            <span style="color:#888; font-size:0.65rem;">${startStr} 〜 ${endStr}</span>
+          </div>
+          <div class="admin-event-actions">
+            <button type="button" class="admin-btn-sm" onclick="editAdminEvent('${evt.id}')">✏️ 編集</button>
+            <button type="button" class="admin-btn-sm" style="border-color:#ff4444; color:#ff8888;" onclick="deleteAdminEvent('${evt.id}', '${evt.title}')">🗑️ 削除</button>
+          </div>
+        `;
+        listContainer.appendChild(item);
+      });
+    } else {
+      listContainer.innerHTML = `<div style="font-size:0.75rem; color:#666;">登録されたイベントはありません</div>`;
+    }
+  }
+
+  // ⚙️ イベント編集モード呼び出し
+  async function editAdminEvent(id) {
+    if (!supabaseClient) return;
+    const { data } = await supabaseClient.from('events').select('*').eq('id', id).single();
+    if (!data) return;
+
+    editingEventId = data.id;
+    document.getElementById("adminFormHeader").textContent = `イベント編集 (ID: ${data.id})`;
+    document.getElementById("adminEvtId").value = data.id;
+    document.getElementById("adminEvtId").disabled = true;
+
+    document.getElementById("adminEvtTitle").value = data.title;
+    document.getElementById("adminEvtStart").value = new Date(data.start_at).toISOString().slice(0, 16);
+    document.getElementById("adminEvtEnd").value = new Date(data.end_at).toISOString().slice(0, 16);
+    document.getElementById("adminEvtCoins").value = data.reward_coins || 1000;
+
+    document.getElementById("btnSaveAdminEvent").textContent = "💾 変更内容を更新保存";
+    document.getElementById("btnCancelAdminEdit").classList.remove("hidden");
+  }
+  window.editAdminEvent = editAdminEvent;
+
+  // ⚙️ イベント削除処理
+  async function deleteAdminEvent(id, title) {
+    if (!confirm(`本当にイベント【${title}】(ID:${id}) を削除しますか？`)) return;
+    if (!supabaseClient) return;
+
+    const { error } = await supabaseClient.from('events').delete().eq('id', id);
+    if (error) {
+      alert(`削除エラー: ${error.message}`);
+    } else {
+      alert(`イベント【${title}】を削除しました。`);
+      await fetchAdminEventList();
+      checkActiveEvent();
+    }
+  }
+  window.deleteAdminEvent = deleteAdminEvent;
+
+  // ⚙️ イベントの新規作成／更新保存
+  async function saveEventFromAdmin() {
     if (!supabaseClient) return alert("Supabaseの接続に問題があります。");
 
     const id = document.getElementById("adminEvtId").value.trim();
@@ -1243,26 +1379,37 @@
     const endAt = new Date(endVal).toISOString();
 
     try {
-      const { data, error } = await supabaseClient.from('events').insert([{
+      const payload = {
         id: id,
         title: title,
         start_at: startAt,
         end_at: endAt,
         is_active: true,
         reward_coins: coins
-      }]);
+      };
 
-      if (error) {
-        alert(`イベント作成エラー: ${error.message}`);
+      let resultError = null;
+      if (editingEventId) {
+        const { error } = await supabaseClient.from('events').update(payload).eq('id', editingEventId);
+        resultError = error;
       } else {
-        alert(`🎉 イベント【${title}】を正常に作成・公開しました！`);
-        showTitle();
+        const { error } = await supabaseClient.from('events').insert([payload]);
+        resultError = error;
+      }
+
+      if (resultError) {
+        alert(`保存エラー: ${resultError.message}`);
+      } else {
+        alert(`🎉 イベント【${title}】を正常に保存しました！`);
+        resetAdminForm();
+        await fetchAdminEventList();
+        checkActiveEvent();
       }
     } catch (e) {
-      console.error("createEventFromAdmin 例外:", e);
+      console.error("saveEventFromAdmin 例外:", e);
     }
   }
-  window.createEventFromAdmin = createEventFromAdmin;
+  window.saveEventFromAdmin = saveEventFromAdmin;
 
   // 🔥 イベント機能：アクティブなイベント情報と戦績を取得
   async function checkActiveEvent() {
