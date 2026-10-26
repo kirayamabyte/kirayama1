@@ -2420,7 +2420,7 @@
       
       // 対戦中（playing）かつ相手が15秒以上通信更新していない場合
       if (roomData.status === 'playing') {
-        const isOpponentDisconnected = (now - oppUpdatedAt) > 15000; // 15秒以上音沙汰なし
+        const isOpponentDisconnected = (now - oppUpdatedAt) > 60000; // 60秒以上音沙汰なし
         const isOpponentSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
 
         if (isOpponentDisconnected || isOpponentSurrendered) {
@@ -2595,41 +2595,68 @@
 
     let longPressTimer = null;
     let isLongPressAction = false;
+    const LONG_PRESS_DURATION = 500; // 長押しと判定する時間（0.5秒）
 
     if (clickHandler) {
+      // --- 📱 スマホ用タッチイベント（長押し判定） ---
       cardDiv.addEventListener("touchstart", (e) => {
         isLongPressAction = false;
         longPressTimer = setTimeout(() => {
           isLongPressAction = true;
+          // 0.5秒以上長押しされたら拡大表示を開く
           openCardZoomModal(cardData);
-        }, 400);
+        }, LONG_PRESS_DURATION);
       }, { passive: true });
 
       cardDiv.addEventListener("touchend", (e) => {
         clearTimeout(longPressTimer);
+        // 長押しではなく通常の「短タップ」だった場合のみ、カード使用/選択の処理を実行
         if (!isLongPressAction) {
           clickHandler(e);
         }
       });
 
       cardDiv.addEventListener("touchmove", () => {
+        // 指を動かした（スクロールした）場合は長押しをキャンセル
         clearTimeout(longPressTimer);
       }, { passive: true });
 
-      cardDiv.addEventListener("click", (e) => {
+      // --- 💻 PC用マウスイベント ---
+      cardDiv.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return; // 左クリックのみ対象
+        isLongPressAction = false;
+        longPressTimer = setTimeout(() => {
+          isLongPressAction = true;
+          openCardZoomModal(cardData);
+        }, LONG_PRESS_DURATION);
+      });
+
+      cardDiv.addEventListener("mouseup", (e) => {
+        if (e.button !== 0) return;
+        clearTimeout(longPressTimer);
         if (!isLongPressAction) {
           clickHandler(e);
         }
       });
 
+      cardDiv.addEventListener("mouseleave", () => {
+        clearTimeout(longPressTimer);
+      });
+
+      // 右クリックでの拡大表示（PC補助用）
       cardDiv.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         openCardZoomModal(cardData);
       });
     } else {
-      cardDiv.addEventListener("click", () => openCardZoomModal(cardData));
+      // モーダル内などでクリックハンドラがない場合は直接長押し/右クリックで対応
+      cardDiv.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        openCardZoomModal(cardData);
+      });
     }
 
+    // ...（以下、カード要素のHTML構築処理は既存のまま）...
     let statsText = '';
     if (cardData.type === 'monster') {
       statsText = `<div class="card-stats-badge">ATK:${cardData.atk}|HP:${cardData.hp}</div>`;
