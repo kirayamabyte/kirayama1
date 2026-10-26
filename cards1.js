@@ -12,12 +12,14 @@
  */
 
 // ⭕ const / let / var を付けずに直接プロパティを設定・上書きします
-ELEMENTS.fire = { name: "火", icon: "🔥", class: "elem-fire", strongTo: "wood" };
-ELEMENTS.water = { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" };
-ELEMENTS.wood = { name: "木", icon: "🌿", class: "elem-wood", strongTo: "water" };
-ELEMENTS.light = { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" };
-ELEMENTS.dark = { name: "闇", icon: "💀", class: "elem-dark", strongTo: "light" };
-
+// cards1.js の一番上にこれを追加してください
+const ELEMENTS = {
+  fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
+  water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
+  wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
+  light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
+  dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
+};
 const CARD_DATABASE = [
   // --- モンスターカード ---
   { 
