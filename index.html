@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>赤城ユタカードバトル - イベントランクマッチ実装版</title>
+  <title>赤城ユタカードバトル - 管理者用イベント作成機能版</title>
   <style>
     :root {
       --bg-color: #1a1a24;
@@ -102,7 +102,7 @@
       max-width: 320px;
     }
 
-    .field input {
+    .field input, .field-input {
       padding: 8px 12px;
       border-radius: 6px;
       border: 1px solid #444;
@@ -110,6 +110,7 @@
       color: #fff;
       text-align: center;
       font-size: 0.95rem;
+      width: 100%;
     }
 
     .stats-panel {
@@ -135,7 +136,6 @@
 
     .stats-panel strong { color: var(--gold-color); }
 
-    /* 🔥 イベントバナー専用スタイル */
     .event-panel {
       background: rgba(255, 140, 0, 0.12);
       border: 2px solid #ff8c00;
@@ -173,6 +173,36 @@
 
     details.rules summary { cursor: pointer; font-weight: bold; color: var(--gold-color); }
     details.rules ul { margin-top: 6px; padding-left: 18px; line-height: 1.4; color: #ccc; }
+
+    /* --- 管理者画面 --- */
+    #adminScreen {
+      justify-content: flex-start;
+      align-items: center;
+      gap: 12px;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .admin-form {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 16px;
+      width: 100%;
+      max-width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      text-align: left;
+    }
+
+    .admin-form label {
+      font-size: 0.8rem;
+      color: #aaa;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
 
     /* --- ガチャ画面 --- */
     #gachaScreen {
@@ -377,7 +407,6 @@
       font-size: 0.65rem; color: #fff; text-shadow: 1px 1px 2px #000;
     }
 
-    /* 5枠対応フィールド */
     .monster-zone {
       display: flex;
       gap: 4px;
@@ -724,6 +753,19 @@
       cursor: pointer;
       font-size: 0.85rem;
     }
+
+    /* 右下管理者ボタン */
+    .admin-entry-btn {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      font-size: 0.75rem;
+      color: #777;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      z-index: 30;
+    }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -756,7 +798,7 @@
       </div>
     </div>
 
-    <!-- 🔥 期間限定イベントバナー表示エリア -->
+    <!-- 期間限定イベントバナー表示エリア -->
     <div id="eventBanner" class="event-panel hidden">
       <div style="font-weight: bold; color: var(--gold-color); font-size: 0.95rem;" id="eventTitle">🏆 開催中のイベント</div>
       <div style="font-size: 0.75rem; color: #ffeb3b;" id="eventTimer">残り時間: 計算中...</div>
@@ -783,6 +825,41 @@
         <li><b>自動集計＆獲得</b>：イベント期間終了後にアプリを起動すると自動で戦績が集計され、報酬が付与されます。</li>
       </ul>
     </details>
+
+    <button type="button" class="admin-entry-btn" onclick="openAdminScreen()">⚙️ 管理者</button>
+  </section>
+
+  <!-- ⚙️ 管理者専用画面 -->
+  <section id="adminScreen" class="screen hidden">
+    <h2 style="color:var(--gold-color);">⚙️ イベント作成・管理画面</h2>
+    
+    <div class="admin-form">
+      <label>イベントID (英数字)
+        <input id="adminEvtId" class="field-input" placeholder="例: EVT_SEASON_02">
+      </label>
+
+      <label>イベントタイトル
+        <input id="adminEvtTitle" class="field-input" placeholder="例: 🔥 炎属性限定バトルカップ">
+      </label>
+
+      <label>開始日時
+        <input id="adminEvtStart" type="datetime-local" class="field-input">
+      </label>
+
+      <label>終了日時
+        <input id="adminEvtEnd" type="datetime-local" class="field-input">
+      </label>
+
+      <label>達成・参加報酬コイン (pt)
+        <input id="adminEvtCoins" type="number" class="field-input" value="1000">
+      </label>
+
+      <button type="button" class="btn primary" onclick="createEventFromAdmin()" style="margin-top:10px; background:#ff8c00; border-color:#ffd700;">
+        🚀 イベントを作成・公開する
+      </button>
+    </div>
+
+    <button type="button" class="btn" onclick="showTitle()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
   </section>
 
   <!-- 🎰 ガチャ画面 -->
@@ -972,7 +1049,9 @@
   let onlineOppDeckCount = 15;
   let onlineOppRate = 1000;
   let roomPollingInterval = null;
-  let currentEvent = null; // 現在開催中のイベント保持用
+  let currentEvent = null;
+
+  const ADMIN_PASSCODE = "admin123"; // 管理者用パスコード（必要に応じて変更可能）
 
   // --- BGM & ボイス 設定 ---
   const bgmTitle = new Audio('bgm_title.mp3');
@@ -1126,6 +1205,65 @@
     }
   }
 
+  // ⚙️ 管理者画面へのパスワード認証・遷移
+  function openAdminScreen() {
+    const inputPass = prompt("管理者用パスコードを入力してください:");
+    if (inputPass === ADMIN_PASSCODE) {
+      document.getElementById("titleScreen").classList.add("hidden");
+      document.getElementById("adminScreen").classList.remove("hidden");
+
+      // 日時フォームのデフォルト値を初期設定（現在時刻〜7日後）
+      const now = new Date();
+      const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      document.getElementById("adminEvtId").value = "EVT_" + Math.random().toString(36).substring(2, 6).toUpperCase();
+      document.getElementById("adminEvtStart").value = now.toISOString().slice(0, 16);
+      document.getElementById("adminEvtEnd").value = nextWeek.toISOString().slice(0, 16);
+    } else if (inputPass !== null) {
+      alert("パスコードが正しくありません。");
+    }
+  }
+  window.openAdminScreen = openAdminScreen;
+
+  // ⚙️ ゲーム画面上からのイベント作成処理
+  async function createEventFromAdmin() {
+    if (!supabaseClient) return alert("Supabaseの接続に問題があります。");
+
+    const id = document.getElementById("adminEvtId").value.trim();
+    const title = document.getElementById("adminEvtTitle").value.trim();
+    const startVal = document.getElementById("adminEvtStart").value;
+    const endVal = document.getElementById("adminEvtEnd").value;
+    const coins = parseInt(document.getElementById("adminEvtCoins").value) || 1000;
+
+    if (!id || !title || !startVal || !endVal) {
+      return alert("すべての項目を入力してください。");
+    }
+
+    const startAt = new Date(startVal).toISOString();
+    const endAt = new Date(endVal).toISOString();
+
+    try {
+      const { data, error } = await supabaseClient.from('events').insert([{
+        id: id,
+        title: title,
+        start_at: startAt,
+        end_at: endAt,
+        is_active: true,
+        reward_coins: coins
+      }]);
+
+      if (error) {
+        alert(`イベント作成エラー: ${error.message}`);
+      } else {
+        alert(`🎉 イベント【${title}】を正常に作成・公開しました！`);
+        showTitle();
+      }
+    } catch (e) {
+      console.error("createEventFromAdmin 例外:", e);
+    }
+  }
+  window.createEventFromAdmin = createEventFromAdmin;
+
   // 🔥 イベント機能：アクティブなイベント情報と戦績を取得
   async function checkActiveEvent() {
     if (!supabaseClient) return;
@@ -1153,7 +1291,6 @@
         document.getElementById("btnEventRanked").classList.add("hidden");
       }
 
-      // 期間外イベントの報酬受取未完了チェック
       await checkClaimableEventRewards();
     } catch (err) {
       console.error("checkActiveEvent エラー:", err);
@@ -1213,7 +1350,6 @@
 
           const now = new Date();
           if (new Date(evt.end_at) < now) {
-            // 報酬計算: 基本報酬 + (勝利数 × 200pt)
             const baseCoins = evt.reward_coins || 1000;
             const winBonus = (record.wins || 0) * 200;
             const totalReward = baseCoins + winBonus;
@@ -1332,7 +1468,7 @@
     loadUserProfile();
     await loadSharedCustomCards();
     await syncProfileFromSupabase();
-    await checkActiveEvent(); // イベント機能の読み込み
+    await checkActiveEvent();
 
     const unlockAudio = () => {
       try {
@@ -1388,6 +1524,7 @@
     document.getElementById("onlineLobbyScreen").classList.add("hidden");
     document.getElementById("deckScreen").classList.add("hidden");
     document.getElementById("gachaScreen").classList.add("hidden");
+    document.getElementById("adminScreen").classList.add("hidden");
     document.getElementById("titleScreen").classList.remove("hidden");
     updateTitleStatsUI();
     checkActiveEvent();
@@ -2618,7 +2755,6 @@
         const sign = rateChange >= 0 ? "+" : "";
         rateLogMsg = ` [レート: ${myRate} ➔ ${window.userProfile.rate} (${sign}${rateChange})]`;
 
-        // 🔥 イベントモード時はイベント戦績も更新
         if (window.gameState.mode === "event_ranked") {
           updateEventParticipantStats(isWin);
         }
