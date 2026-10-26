@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>赤城ユタカードバトル - HP60 & 5枠拡張版</title>
+  <title>赤城ユタカードバトル - イベントランクマッチ実装版</title>
   <style>
     :root {
       --bg-color: #1a1a24;
@@ -134,6 +134,21 @@
     }
 
     .stats-panel strong { color: var(--gold-color); }
+
+    /* 🔥 イベントバナー専用スタイル */
+    .event-panel {
+      background: rgba(255, 140, 0, 0.12);
+      border: 2px solid #ff8c00;
+      border-radius: 8px;
+      padding: 10px 12px;
+      width: 100%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+      box-shadow: 0 0 12px rgba(255, 140, 0, 0.3);
+    }
 
     .menu {
       display: flex;
@@ -362,7 +377,7 @@
       font-size: 0.65rem; color: #fff; text-shadow: 1px 1px 2px #000;
     }
 
-    /* 🛠️ 5枠対応フィールド */
+    /* 5枠対応フィールド */
     .monster-zone {
       display: flex;
       gap: 4px;
@@ -741,8 +756,18 @@
       </div>
     </div>
 
+    <!-- 🔥 期間限定イベントバナー表示エリア -->
+    <div id="eventBanner" class="event-panel hidden">
+      <div style="font-weight: bold; color: var(--gold-color); font-size: 0.95rem;" id="eventTitle">🏆 開催中のイベント</div>
+      <div style="font-size: 0.75rem; color: #ffeb3b;" id="eventTimer">残り時間: 計算中...</div>
+      <div style="font-size: 0.72rem; color: #aaa;" id="eventMyStats">イベント戦績: 0勝 0敗</div>
+    </div>
+
     <div class="menu">
-      <button id="btnSearchRanked" type="button" class="btn primary big" style="background:#8a2be2; border-color:#a855f7;">🏆 ランクマッチ (自動対戦)</button>
+      <button id="btnEventRanked" type="button" class="btn primary big hidden" style="background: linear-gradient(45deg, #ff4500, #ff8c00); border-color: #ffd700;">
+        🔥 イベントランクマッチ参戦
+      </button>
+      <button id="btnSearchRanked" type="button" class="btn primary big" style="background:#8a2be2; border-color:#a855f7;">🏆 通常ランクマッチ</button>
       <button id="btnOnline" type="button" class="btn primary big" style="background:#00adb5; border-color:#00fff5;">🌐 ルーム対戦 (合言葉)</button>
       <button id="btnGacha" type="button" class="btn primary big" style="background:#ff9900; border-color:#ffcc00;">🎰 ガチャを引く</button>
       <button id="btnGauntlet" type="button" class="btn primary big">🔥 連戦モード (CPU)</button>
@@ -751,11 +776,11 @@
     </div>
 
     <details class="rules">
-      <summary>ランクマッチ＆レート仕様</summary>
+      <summary>ランクマッチ＆イベント仕様</summary>
       <ul>
         <li><b>レート管理</b>：Supabaseでリアルタイム一括管理されます。勝敗に応じてRP（レート）が変動！</li>
-        <li><b>ランク階級</b>：ビギナー(&lt;1000) / ブロンズ(1000〜) / シルバー(1500〜) / ゴールド(2000〜) / マスター(2500〜)</li>
-        <li><b>対戦相手のレート表示</b>：対戦画面で相手の正確なリアルタイムレートとランクが表示されます。</li>
+        <li><b>イベントマッチ</b>：開催期間中に専用ランクマッチで勝利を重ねると、イベント終了時に限定コイン報酬を獲得可能！</li>
+        <li><b>自動集計＆獲得</b>：イベント期間終了後にアプリを起動すると自動で戦績が集計され、報酬が付与されます。</li>
       </ul>
     </details>
   </section>
@@ -947,6 +972,7 @@
   let onlineOppDeckCount = 15;
   let onlineOppRate = 1000;
   let roomPollingInterval = null;
+  let currentEvent = null; // 現在開催中のイベント保持用
 
   // --- BGM & ボイス 設定 ---
   const bgmTitle = new Audio('bgm_title.mp3');
@@ -1100,6 +1126,146 @@
     }
   }
 
+  // 🔥 イベント機能：アクティブなイベント情報と戦績を取得
+  async function checkActiveEvent() {
+    if (!supabaseClient) return;
+    try {
+      const now = new Date().toISOString();
+      const { data, error } = await supabaseClient
+        .from('events')
+        .select('*')
+        .lte('start_at', now)
+        .gte('end_at', now)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (data) {
+        currentEvent = data;
+        document.getElementById("eventBanner").classList.remove("hidden");
+        document.getElementById("btnEventRanked").classList.remove("hidden");
+        document.getElementById("eventTitle").textContent = data.title;
+        
+        updateEventTimer();
+        setInterval(updateEventTimer, 10000);
+        await loadEventUserStats();
+      } else {
+        document.getElementById("eventBanner").classList.add("hidden");
+        document.getElementById("btnEventRanked").classList.add("hidden");
+      }
+
+      // 期間外イベントの報酬受取未完了チェック
+      await checkClaimableEventRewards();
+    } catch (err) {
+      console.error("checkActiveEvent エラー:", err);
+    }
+  }
+
+  function updateEventTimer() {
+    if (!currentEvent) return;
+    const end = new Date(currentEvent.end_at).getTime();
+    const now = new Date().getTime();
+    const diff = end - now;
+
+    if (diff <= 0) {
+      document.getElementById("eventTimer").textContent = "イベント終了（集計中）";
+      return;
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    document.getElementById("eventTimer").textContent = `残り時間: ${days}日 ${hours}時間 ${mins}分`;
+  }
+
+  async function loadEventUserStats() {
+    if (!currentEvent || !supabaseClient) return;
+    const myName = window.userProfile.name;
+    const { data } = await supabaseClient
+      .from('event_participants')
+      .select('*')
+      .eq('event_id', currentEvent.id)
+      .eq('user_name', myName)
+      .maybeSingle();
+
+    if (data) {
+      document.getElementById("eventMyStats").textContent = `イベント戦績: ${data.wins}勝 ${data.losses}敗 (レート:${data.rate})`;
+    } else {
+      document.getElementById("eventMyStats").textContent = `イベント戦績: 未参戦`;
+    }
+  }
+
+  // 🔥 終了したイベントの自動集計＆報酬付与
+  async function checkClaimableEventRewards() {
+    if (!supabaseClient) return;
+    const myName = window.userProfile.name;
+
+    try {
+      const { data: records } = await supabaseClient
+        .from('event_participants')
+        .select('*, events(*)')
+        .eq('user_name', myName)
+        .eq('reward_claimed', false);
+
+      if (records && records.length > 0) {
+        for (const record of records) {
+          const evt = record.events;
+          if (!evt) continue;
+
+          const now = new Date();
+          if (new Date(evt.end_at) < now) {
+            // 報酬計算: 基本報酬 + (勝利数 × 200pt)
+            const baseCoins = evt.reward_coins || 1000;
+            const winBonus = (record.wins || 0) * 200;
+            const totalReward = baseCoins + winBonus;
+
+            window.userProfile.coins = (window.userProfile.coins || 0) + totalReward;
+            saveUserProfile();
+
+            await supabaseClient
+              .from('event_participants')
+              .update({ reward_claimed: true })
+              .eq('event_id', evt.id)
+              .eq('user_name', myName);
+
+            alert(`🎉 期間限定イベント【${evt.title}】が終了しました！\n戦績: ${record.wins}勝 ${record.losses}敗\n\n🎁 イベント達成報酬として 🪙 ${totalReward} pt を獲得しました！`);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("checkClaimableEventRewards エラー:", e);
+    }
+  }
+
+  // 🔥 イベント用戦績の更新
+  async function updateEventParticipantStats(isWin) {
+    if (!currentEvent || !supabaseClient) return;
+    const myName = window.userProfile.name;
+
+    try {
+      const { data } = await supabaseClient
+        .from('event_participants')
+        .select('*')
+        .eq('event_id', currentEvent.id)
+        .eq('user_name', myName)
+        .maybeSingle();
+
+      const wins = (data ? data.wins : 0) + (isWin ? 1 : 0);
+      const losses = (data ? data.losses : 0) + (isWin ? 0 : 1);
+      const rate = window.userProfile.rate || 1000;
+
+      await supabaseClient.from('event_participants').upsert({
+        event_id: currentEvent.id,
+        user_name: myName,
+        wins: wins,
+        losses: losses,
+        rate: rate,
+        reward_claimed: false
+      });
+    } catch (e) {
+      console.error("イベント戦績更新エラー:", e);
+    }
+  }
+
   function loadUserProfile() {
     const saved = localStorage.getItem("akagi_user_profile");
     if (saved) {
@@ -1149,7 +1315,7 @@
     if (statRank) statRank.textContent = getRankName(rate);
   }
 
-  // ゲーム状態管理（HP: 60 に設定）
+  // ゲーム状態管理（HP: 60）
   window.gameState = {
     mode: "casual",
     gauntletStage: 0,
@@ -1166,6 +1332,7 @@
     loadUserProfile();
     await loadSharedCustomCards();
     await syncProfileFromSupabase();
+    await checkActiveEvent(); // イベント機能の読み込み
 
     const unlockAudio = () => {
       try {
@@ -1185,6 +1352,7 @@
         window.userProfile.name = e.target.value.trim() || "あなた";
         saveUserProfile();
         await syncProfileToSupabase();
+        await checkActiveEvent();
       });
     }
 
@@ -1193,7 +1361,8 @@
       if (el) el.addEventListener("click", fn);
     };
 
-    bindEvent("btnSearchRanked", searchRankedMatch);
+    bindEvent("btnEventRanked", () => searchRankedMatch(true));
+    bindEvent("btnSearchRanked", () => searchRankedMatch(false));
     bindEvent("btnGacha", openGachaScreen);
     bindEvent("btnOnline", openOnlineLobby);
     bindEvent("btnCreateOnlineRoom", createOnlineRoom);
@@ -1221,6 +1390,7 @@
     document.getElementById("gachaScreen").classList.add("hidden");
     document.getElementById("titleScreen").classList.remove("hidden");
     updateTitleStatsUI();
+    checkActiveEvent();
     try { playBGM('title'); } catch(e){}
   }
   window.showTitle = showTitle;
@@ -1297,27 +1467,30 @@
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
-  // --- 🏆 ランクマッチ自動検索処理 ---
-  async function searchRankedMatch() {
+  // --- 🏆 通常 / 🔥 イベント ランクマッチ自動検索処理 ---
+  async function searchRankedMatch(isEvent = false) {
     if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
 
-    window.gameState.mode = "ranked";
+    window.gameState.mode = isEvent ? "event_ranked" : "ranked";
     document.getElementById("titleScreen").classList.add("hidden");
     document.getElementById("gameScreen").classList.remove("hidden");
-    document.getElementById("modeBanner").textContent = "🏆 ランクマッチ - 対戦相手を検索中...";
+    
+    const modeTitle = isEvent ? `🔥 ${currentEvent ? currentEvent.title : 'イベントマッチ'}` : "🏆 通常ランクマッチ";
+    document.getElementById("modeBanner").textContent = `${modeTitle} - 対戦相手を検索中...`;
 
-    addLog("🔍 ランクマッチ待機部屋を検索中...", "important");
+    addLog(`🔍 ${modeTitle} の待機部屋を検索中...`, "important");
 
     try {
       const myName = window.userProfile.name;
 
-      const { data: waitingRooms, error: selectErr } = await supabaseClient
+      let query = supabaseClient
         .from('rooms')
         .select('*')
         .eq('status', 'waiting')
         .eq('is_ranked', true)
         .order('updated_at', { ascending: true });
 
+      const { data: waitingRooms, error: selectErr } = await query;
       if (selectErr) console.error("部屋検索エラー:", selectErr);
 
       const validOpponentRoom = (waitingRooms || []).find(room => room.p1_name !== myName);
@@ -1331,7 +1504,7 @@
         window.gameState.my.hand = fullDeck.slice(0, 5);
         window.gameState.my.deck = fullDeck.slice(5);
 
-        const { error: updateErr } = await supabaseClient.from('rooms').update({
+        await supabaseClient.from('rooms').update({
           status: 'playing',
           p2_name: myName,
           p2_rate: window.userProfile.rate || 1000,
@@ -1341,8 +1514,6 @@
           updated_at: new Date().toISOString(),
           log: [...(validOpponentRoom.log || []), `${myName} (Rate:${window.userProfile.rate}) が参戦！対戦開始！`]
         }).eq('id', onlineRoomId);
-
-        if (updateErr) console.error("部屋更新エラー:", updateErr);
 
         subscribeRoomUpdates();
       } else {
@@ -1354,7 +1525,7 @@
         window.gameState.my.hand = fullDeck.slice(0, 5);
         window.gameState.my.deck = fullDeck.slice(5);
 
-        const { error: insertErr } = await supabaseClient.from('rooms').insert([{
+        await supabaseClient.from('rooms').insert([{
           id: onlineRoomId,
           status: 'waiting',
           is_ranked: true,
@@ -1366,10 +1537,8 @@
           p1_deck_count: 15,
           p2_hp: 60,
           p2_deck_count: 15,
-          log: [`ランクマッチ対戦相手を募集中... (ホスト:${myName})`]
+          log: [`対戦相手を募集中... (ホスト:${myName})`]
         }]);
-
-        if (insertErr) console.error("部屋作成エラー:", insertErr);
 
         subscribeRoomUpdates();
       }
@@ -1460,7 +1629,11 @@
   function subscribeRoomUpdates() {
     document.getElementById("onlineLobbyScreen").classList.add("hidden");
     document.getElementById("gameScreen").classList.remove("hidden");
-    const modeName = window.gameState.mode === "ranked" ? "🏆 ランクマッチ" : "🌐 フリー対戦";
+    
+    let modeName = "🌐 フリー対戦";
+    if (window.gameState.mode === "ranked") modeName = "🏆 ランクマッチ";
+    if (window.gameState.mode === "event_ranked") modeName = `🔥 ${currentEvent ? currentEvent.title : 'イベントマッチ'}`;
+    
     document.getElementById("modeBanner").textContent = `${modeName} - 部屋ID: ${onlineRoomId}`;
 
     try { playBGM('battle'); } catch(e){}
@@ -1502,7 +1675,6 @@
     }
   }
 
-  // 🛠️ リアルタイム同期（HP: 60 反映）
   function applyRoomData(roomData) {
     if (!roomData) return;
 
@@ -1514,12 +1686,10 @@
       const previousTurn = window.gameState.turn;
       const isMyTurnNow = roomData.current_turn === onlineMyRole;
 
-      // 自分のステータス反映（初期HP: 60）
       window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 60;
       window.gameState.my.monsters = roomData[`${mePrefix}_field`] || [];
       window.gameState.my.rate = roomData[`${mePrefix}_rate`] || window.userProfile.rate || 1000;
 
-      // 相手のステータス反映（初期HP: 60）
       const fetchedOppName = roomData[`${oppPrefix}_name`];
       window.gameState.opp.name = fetchedOppName ? fetchedOppName : (isP1 ? "対戦相手を待っています..." : "プレイヤー1");
       window.gameState.opp.hp = roomData[`${oppPrefix}_hp`] ?? 60;
@@ -1532,7 +1702,6 @@
         onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`];
       }
 
-      // ターン管理
       window.gameState.turn = isMyTurnNow ? "player" : "opponent";
 
       if (isMyTurnNow && previousTurn !== "player") {
@@ -1560,12 +1729,10 @@
         window.gameState.my.mp = Math.min(window.gameState.my.maxHp, window.gameState.my.mp + 2);
       }
 
-      // UI描画の更新
       document.getElementById("oppNameDisplay").textContent = window.gameState.opp.name;
       document.getElementById("myNameDisplay").textContent = window.gameState.my.name;
       updateUI();
 
-      // ログ描画
       const logArea = document.getElementById("logArea");
       if (logArea) {
         logArea.innerHTML = "";
@@ -1832,7 +1999,6 @@
     window.gameState.turnCount = 1;
     window.gameState.selectedAttackerIdx = null;
     
-    // HP: 60 に修正
     window.gameState.my.hp = 60; window.gameState.my.maxHp = 60; window.gameState.my.mp = 20; window.gameState.my.monsters = []; window.gameState.my.elem = "water";
     window.gameState.my.name = window.userProfile.name;
     window.gameState.my.rate = window.userProfile.rate || 1000;
@@ -1913,7 +2079,6 @@
     }
   }
 
-  // 🛠️ 5体上限対応
   function playCard(index) {
     if (window.gameState.turn !== "player") return;
     const card = window.gameState.my.hand[index];
@@ -2054,7 +2219,7 @@
       }
     }
 
-    if (window.gameState.mode === "online" || window.gameState.mode === "ranked") syncOnlineAction();
+    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") syncOnlineAction();
     else updateUI();
 
     checkWinLoss();
@@ -2149,7 +2314,7 @@
 
     window.gameState.selectedAttackerIdx = null;
     
-    if (window.gameState.mode === "online" || window.gameState.mode === "ranked") syncOnlineAction();
+    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") syncOnlineAction();
     else updateUI();
 
     checkWinLoss();
@@ -2183,7 +2348,7 @@
 
     window.gameState.selectedAttackerIdx = null;
 
-    if (window.gameState.mode === "online" || window.gameState.mode === "ranked") syncOnlineAction();
+    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") syncOnlineAction();
     else updateUI();
 
     checkWinLoss();
@@ -2226,7 +2391,7 @@
 
     window.gameState.my.hand.splice(handIndex, 1);
 
-    if (window.gameState.mode === "online" || window.gameState.mode === "ranked") syncOnlineAction();
+    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") syncOnlineAction();
     else updateUI();
   }
 
@@ -2240,7 +2405,7 @@
 
     if (checkWinLoss()) return;
 
-    if (window.gameState.mode === "online" || window.gameState.mode === "ranked") {
+    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
       if (!supabaseClient) return;
       const nextRole = onlineMyRole === 'player1' ? 'player2' : 'player1';
       await supabaseClient.from('rooms').update({ current_turn: nextRole }).eq('id', onlineRoomId);
@@ -2252,7 +2417,6 @@
     setTimeout(cpuTurn, 1000);
   }
 
-  // 🛠️ CPUターン（5体上限対応）
   function cpuTurn() {
     addLog(`--- ${window.gameState.opp.name} のターン (${window.gameState.turnCount}ターン目) ---`);
 
@@ -2436,7 +2600,7 @@
     updateUI();
   }
 
-  // --- 勝敗判定 ＆ レート更新 ---
+  // --- 勝敗判定 ＆ レート・イベント戦績更新 ---
   function checkWinLoss() {
     const isWin = window.gameState.opp.hp <= 0;
     const isLoss = window.gameState.my.hp <= 0;
@@ -2445,7 +2609,7 @@
       if (roomPollingInterval) clearInterval(roomPollingInterval);
       let rateLogMsg = "";
 
-      if (window.gameState.mode === "ranked") {
+      if (window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
         const myRate = window.userProfile.rate || 1000;
         const oppRate = onlineOppRate || 1000;
         const rateChange = calculateRateChange(myRate, oppRate, isWin);
@@ -2453,6 +2617,11 @@
         window.userProfile.rate = Math.max(0, myRate + rateChange);
         const sign = rateChange >= 0 ? "+" : "";
         rateLogMsg = ` [レート: ${myRate} ➔ ${window.userProfile.rate} (${sign}${rateChange})]`;
+
+        // 🔥 イベントモード時はイベント戦績も更新
+        if (window.gameState.mode === "event_ranked") {
+          updateEventParticipantStats(isWin);
+        }
       }
 
       if (isWin) {
@@ -2500,7 +2669,7 @@
     if (roomPollingInterval) clearInterval(roomPollingInterval);
     document.getElementById("endModal").classList.remove("active");
 
-    if ((window.gameState.mode === "online" || window.gameState.mode === "ranked") && onlineRoomId && supabaseClient) {
+    if ((window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") && onlineRoomId && supabaseClient) {
       try {
         await supabaseClient.from('rooms').delete().eq('id', onlineRoomId);
         console.log(`部屋 (${onlineRoomId}) を自動クリーンアップしました。`);
@@ -2522,7 +2691,6 @@
     }
   }
 
-  // 🛠️ UI更新（5枠描画対応）
   function updateUI() {
     document.getElementById("myHpBar").style.width = `${(window.gameState.my.hp / window.gameState.my.maxHp) * 100}%`;
     document.getElementById("myHpText").textContent = `HP ${window.gameState.my.hp}/${window.gameState.my.maxHp}`;
@@ -2536,7 +2704,7 @@
 
     document.getElementById("myDeckCount").textContent = `🎴 山札: ${window.gameState.my.deck.length}`;
     
-    if (window.gameState.mode === "online" || window.gameState.mode === "ranked") {
+    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
       document.getElementById("oppDeckCount").textContent = `🎴 山札: ${onlineOppDeckCount}`;
       document.getElementById("myRateDisplay").textContent = `${window.userProfile.rate || 1000} RP`;
       document.getElementById("oppRateDisplay").textContent = `${onlineOppRate || 1000} RP`;
@@ -2555,7 +2723,6 @@
       oppPlayerInfo.onclick = null;
     }
 
-    // 自分のフィールド（5枠描画）
     const myMonstersContainer = document.getElementById("myMonsters");
     myMonstersContainer.innerHTML = "";
     for (let i = 0; i < 5; i++) {
@@ -2596,7 +2763,6 @@
       myMonstersContainer.appendChild(slot);
     }
 
-    // 相手のフィールド（5枠描画）
     const oppMonstersContainer = document.getElementById("oppMonsters");
     oppMonstersContainer.innerHTML = "";
     for (let i = 0; i < 5; i++) {
