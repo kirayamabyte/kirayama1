@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>赤城ユタカードバトル - 完全修正版</title>
+  <title>赤城ユタカードバトル - HP60 & 5枠拡張版</title>
   <style>
     :root {
       --bg-color: #1a1a24;
@@ -362,15 +362,17 @@
       font-size: 0.65rem; color: #fff; text-shadow: 1px 1px 2px #000;
     }
 
+    /* 🛠️ 5枠対応フィールド */
     .monster-zone {
       display: flex;
-      gap: 6px;
+      gap: 4px;
       min-height: 58px;
       justify-content: space-between;
     }
 
     .monster-slot {
       flex: 1;
+      min-width: 0;
       border: 2px dashed rgba(255,255,255,0.15);
       border-radius: 6px;
       display: flex;
@@ -404,7 +406,7 @@
       background: linear-gradient(135deg, #3d0000, #800000);
       border: 2px solid var(--gold-color);
       border-radius: 6px;
-      padding: 3px;
+      padding: 2px;
       display: flex;
       flex-direction: column;
       justify-content: space-around;
@@ -425,12 +427,12 @@
 
     .status-stunned-badge {
       position: absolute;
-      top: 2px;
-      right: 2px;
+      top: 1px;
+      right: 1px;
       background: #00adb5;
       color: #fff;
-      font-size: 0.55rem;
-      padding: 1px 3px;
+      font-size: 0.5rem;
+      padding: 1px 2px;
       border-radius: 3px;
       font-weight: bold;
       animation: flashStun 1s infinite alternate;
@@ -438,12 +440,12 @@
 
     .timer-badge {
       position: absolute;
-      bottom: 2px;
-      right: 2px;
+      bottom: 1px;
+      right: 1px;
       background: #e94560;
       color: #fff;
-      font-size: 0.55rem;
-      padding: 1px 3px;
+      font-size: 0.5rem;
+      padding: 1px 2px;
       border-radius: 3px;
       font-weight: bold;
     }
@@ -454,7 +456,7 @@
     }
 
     .monster-header {
-      font-size: 0.7rem;
+      font-size: 0.62rem;
       font-weight: bold;
       display: flex;
       align-items: center;
@@ -465,13 +467,13 @@
       max-width: 100%;
     }
 
-    .monster-stats { font-size: 0.65rem; color: #ffd700; font-weight: bold; display: flex; gap: 4px; }
+    .monster-stats { font-size: 0.58rem; color: #ffd700; font-weight: bold; display: flex; gap: 2px; }
 
     .equipped-weapon {
-      font-size: 0.55rem;
+      font-size: 0.5rem;
       color: #ff9999;
       background: rgba(0,0,0,0.5);
-      padding: 1px 3px;
+      padding: 1px 2px;
       border-radius: 3px;
       white-space: nowrap;
       overflow: hidden;
@@ -837,7 +839,7 @@
         <span id="oppDeckCount" class="deck-badge">🎴 山札: 15</span>
         <div class="bar hp">
           <div id="oppHpBar" class="bar-fill" style="width: 100%;"></div>
-          <div id="oppHpText" class="bar-text">HP 50/50</div>
+          <div id="oppHpText" class="bar-text">HP 60/60</div>
         </div>
         <div class="bar mp">
           <div id="oppMpBar" class="bar-fill" style="width: 100%;"></div>
@@ -863,7 +865,7 @@
         <span id="myDeckCount" class="deck-badge">🎴 山札: 15</span>
         <div class="bar hp">
           <div id="myHpBar" class="bar-fill" style="width: 100%;"></div>
-          <div id="myHpText" class="bar-text">HP 50/50</div>
+          <div id="myHpText" class="bar-text">HP 60/60</div>
         </div>
         <div class="bar mp">
           <div id="myMpBar" class="bar-fill" style="width: 100%;"></div>
@@ -1147,7 +1149,7 @@
     if (statRank) statRank.textContent = getRankName(rate);
   }
 
-  // ゲーム状態管理
+  // ゲーム状態管理（HP: 60 に設定）
   window.gameState = {
     mode: "casual",
     gauntletStage: 0,
@@ -1156,8 +1158,8 @@
     turnCount: 1,
     selectedAttackerIdx: null,
     pendingWeaponIndex: null,
-    my: { name: "あなた", rate: 1000, elem: "water", hp: 50, maxHp: 50, mp: 20, maxMp: 20, monsters: [], deck: [], hand: [] },
-    opp: { name: "CPU", rate: 1000, elem: "fire", hp: 50, maxHp: 50, mp: 20, maxMp: 20, monsters: [], deck: [], hand: [] }
+    my: { name: "あなた", rate: 1000, elem: "water", hp: 60, maxHp: 60, mp: 20, maxMp: 20, monsters: [], deck: [], hand: [] },
+    opp: { name: "CPU", rate: 1000, elem: "fire", hp: 60, maxHp: 60, mp: 20, maxMp: 20, monsters: [], deck: [], hand: [] }
   };
 
   document.addEventListener("DOMContentLoaded", async () => {
@@ -1295,7 +1297,7 @@
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
-  // --- 🏆 ランクマッチ自動検索処理（自分除外ロジック完全実装） ---
+  // --- 🏆 ランクマッチ自動検索処理 ---
   async function searchRankedMatch() {
     if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
 
@@ -1318,7 +1320,6 @@
 
       if (selectErr) console.error("部屋検索エラー:", selectErr);
 
-      // 自分以外のホストが作成した待機部屋を抽出
       const validOpponentRoom = (waitingRooms || []).find(room => room.p1_name !== myName);
 
       if (validOpponentRoom) {
@@ -1335,7 +1336,7 @@
           p2_name: myName,
           p2_rate: window.userProfile.rate || 1000,
           p2_hand: window.gameState.my.hand.map(c => c.id),
-          p2_hp: 50,
+          p2_hp: 60,
           p2_deck_count: 15,
           updated_at: new Date().toISOString(),
           log: [...(validOpponentRoom.log || []), `${myName} (Rate:${window.userProfile.rate}) が参戦！対戦開始！`]
@@ -1361,9 +1362,9 @@
           p1_name: myName,
           p1_rate: window.userProfile.rate || 1000,
           p1_hand: window.gameState.my.hand.map(c => c.id),
-          p1_hp: 50,
+          p1_hp: 60,
           p1_deck_count: 15,
-          p2_hp: 50,
+          p2_hp: 60,
           p2_deck_count: 15,
           log: [`ランクマッチ対戦相手を募集中... (ホスト:${myName})`]
         }]);
@@ -1399,9 +1400,9 @@
         p1_name: window.userProfile.name || 'プレイヤー1',
         p1_rate: window.userProfile.rate || 1000,
         p1_hand: window.gameState.my.hand.map(c => c.id),
-        p1_hp: 50,
+        p1_hp: 60,
         p1_deck_count: 15,
-        p2_hp: 50,
+        p2_hp: 60,
         p2_deck_count: 15,
         log: [`部屋作成成功！合言葉: ${onlineRoomId}`]
       }]).select();
@@ -1448,7 +1449,7 @@
       p2_name: window.userProfile.name,
       p2_rate: window.userProfile.rate || 1000,
       p2_hand: window.gameState.my.hand.map(c => c.id),
-      p2_hp: 50,
+      p2_hp: 60,
       p2_deck_count: 15,
       log: [...(room.log || []), `${window.userProfile.name} が参加しました！対戦開始！`]
     }).eq('id', onlineRoomId);
@@ -1501,7 +1502,7 @@
     }
   }
 
-  // 🛠️ リアルタイム同期・相手の名前・フィールド表示を完全反映
+  // 🛠️ リアルタイム同期（HP: 60 反映）
   function applyRoomData(roomData) {
     if (!roomData) return;
 
@@ -1513,15 +1514,15 @@
       const previousTurn = window.gameState.turn;
       const isMyTurnNow = roomData.current_turn === onlineMyRole;
 
-      // 自分のステータス反映
-      window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 50;
+      // 自分のステータス反映（初期HP: 60）
+      window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 60;
       window.gameState.my.monsters = roomData[`${mePrefix}_field`] || [];
       window.gameState.my.rate = roomData[`${mePrefix}_rate`] || window.userProfile.rate || 1000;
 
-      // 相手のステータス反映
+      // 相手のステータス反映（初期HP: 60）
       const fetchedOppName = roomData[`${oppPrefix}_name`];
       window.gameState.opp.name = fetchedOppName ? fetchedOppName : (isP1 ? "対戦相手を待っています..." : "プレイヤー1");
-      window.gameState.opp.hp = roomData[`${oppPrefix}_hp`] ?? 50;
+      window.gameState.opp.hp = roomData[`${oppPrefix}_hp`] ?? 60;
       window.gameState.opp.monsters = roomData[`${oppPrefix}_field`] || [];
       
       onlineOppRate = roomData[`${oppPrefix}_rate`] || 1000;
@@ -1831,7 +1832,8 @@
     window.gameState.turnCount = 1;
     window.gameState.selectedAttackerIdx = null;
     
-    window.gameState.my.hp = 50; window.gameState.my.mp = 20; window.gameState.my.monsters = []; window.gameState.my.elem = "water";
+    // HP: 60 に修正
+    window.gameState.my.hp = 60; window.gameState.my.maxHp = 60; window.gameState.my.mp = 20; window.gameState.my.monsters = []; window.gameState.my.elem = "water";
     window.gameState.my.name = window.userProfile.name;
     window.gameState.my.rate = window.userProfile.rate || 1000;
     document.getElementById("myNameDisplay").textContent = window.gameState.my.name;
@@ -1839,7 +1841,7 @@
     window.gameState.opp.name = cpuPreset.name;
     window.gameState.opp.rate = cpuPreset.rate || 1200;
     window.gameState.opp.elem = cpuPreset.elem;
-    window.gameState.opp.hp = 50; window.gameState.opp.mp = 20; window.gameState.opp.monsters = [];
+    window.gameState.opp.hp = 60; window.gameState.opp.maxHp = 60; window.gameState.opp.mp = 20; window.gameState.opp.monsters = [];
     document.getElementById("oppNameDisplay").textContent = window.gameState.opp.name;
 
     const oppElemElem = document.getElementById("oppElem");
@@ -1911,6 +1913,7 @@
     }
   }
 
+  // 🛠️ 5体上限対応
   function playCard(index) {
     if (window.gameState.turn !== "player") return;
     const card = window.gameState.my.hand[index];
@@ -1923,8 +1926,8 @@
     if (card.voice) playVoice(card.voice);
 
     if (card.type === "monster") {
-      if (window.gameState.my.monsters.length >= 3) {
-        addLog("フィールドには最大3体までしか召喚できません！", "damage");
+      if (window.gameState.my.monsters.length >= 5) {
+        addLog("フィールドには最大5体までしか召喚できません！", "damage");
         return;
       }
       window.gameState.my.mp -= card.costMp;
@@ -1940,7 +1943,7 @@
         if (tokenCard) {
           let spawnedCount = 0;
           for (let i = 0; i < 2; i++) {
-            if (window.gameState.opp.monsters.length < 3) {
+            if (window.gameState.opp.monsters.length < 5) {
               const tokenCopy = JSON.parse(JSON.stringify(tokenCard));
               window.gameState.opp.monsters.push({
                 ...tokenCopy,
@@ -2001,7 +2004,7 @@
       }
     } else if (card.type === "magic") {
       if (card.summonFromDeck) {
-        if (window.gameState.my.monsters.length >= 3) {
+        if (window.gameState.my.monsters.length >= 5) {
           addLog("フィールドがいっぱいため緊急召喚できません！", "damage");
           return;
         }
@@ -2249,6 +2252,7 @@
     setTimeout(cpuTurn, 1000);
   }
 
+  // 🛠️ CPUターン（5体上限対応）
   function cpuTurn() {
     addLog(`--- ${window.gameState.opp.name} のターン (${window.gameState.turnCount}ターン目) ---`);
 
@@ -2264,7 +2268,7 @@
       }
     });
 
-    if (window.gameState.opp.monsters.length < 3) {
+    if (window.gameState.opp.monsters.length < 5) {
       const monsterCard = window.gameState.opp.hand.find(c => c.type === "monster" && c.costMp <= window.gameState.opp.mp);
       if (monsterCard) {
         const idx = window.gameState.opp.hand.indexOf(monsterCard);
@@ -2280,7 +2284,7 @@
           if (tokenCard) {
             let spawnedCount = 0;
             for (let i = 0; i < 2; i++) {
-              if (window.gameState.my.monsters.length < 3) {
+              if (window.gameState.my.monsters.length < 5) {
                 const tokenCopy = JSON.parse(JSON.stringify(tokenCard));
                 window.gameState.my.monsters.push({
                   ...tokenCopy,
@@ -2518,6 +2522,7 @@
     }
   }
 
+  // 🛠️ UI更新（5枠描画対応）
   function updateUI() {
     document.getElementById("myHpBar").style.width = `${(window.gameState.my.hp / window.gameState.my.maxHp) * 100}%`;
     document.getElementById("myHpText").textContent = `HP ${window.gameState.my.hp}/${window.gameState.my.maxHp}`;
@@ -2550,9 +2555,10 @@
       oppPlayerInfo.onclick = null;
     }
 
+    // 自分のフィールド（5枠描画）
     const myMonstersContainer = document.getElementById("myMonsters");
     myMonstersContainer.innerHTML = "";
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 5; i++) {
       const slot = document.createElement("div");
       slot.className = "monster-slot";
       if (window.gameState.selectedAttackerIdx === i) slot.classList.add("attacker-selected");
@@ -2566,7 +2572,7 @@
         const timerBadge = m.turnsLeft !== undefined ? `<div class="timer-badge">⌛ 残り${m.turnsLeft}T</div>` : '';
 
         const imgHTML = m.image 
-          ? `<img src="${m.image}" style="width:24px; height:24px; object-fit:cover; border-radius:3px;">` 
+          ? `<img src="${m.image}" style="width:20px; height:20px; object-fit:cover; border-radius:3px;">` 
           : (m.icon || '👾');
 
         slot.onclick = () => selectMyMonsterToAttack(i);
@@ -2585,14 +2591,15 @@
           </div>
         `;
       } else {
-        slot.innerHTML = `<span style="font-size:0.7rem; color:#555;">(空き)</span>`;
+        slot.innerHTML = `<span style="font-size:0.65rem; color:#555;">(空き)</span>`;
       }
       myMonstersContainer.appendChild(slot);
     }
 
+    // 相手のフィールド（5枠描画）
     const oppMonstersContainer = document.getElementById("oppMonsters");
     oppMonstersContainer.innerHTML = "";
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 5; i++) {
       const slot = document.createElement("div");
       slot.className = "monster-slot";
 
@@ -2610,7 +2617,7 @@
         const timerBadge = m.turnsLeft !== undefined ? `<div class="timer-badge">⌛ 残り${m.turnsLeft}T</div>` : '';
 
         const imgHTML = m.image 
-          ? `<img src="${m.image}" style="width:24px; height:24px; object-fit:cover; border-radius:3px;">` 
+          ? `<img src="${m.image}" style="width:20px; height:20px; object-fit:cover; border-radius:3px;">` 
           : (m.icon || '👾');
 
         slot.innerHTML = `
@@ -2628,7 +2635,7 @@
           </div>
         `;
       } else {
-        slot.innerHTML = `<span style="font-size:0.7rem; color:#555;">(空き)</span>`;
+        slot.innerHTML = `<span style="font-size:0.65rem; color:#555;">(空き)</span>`;
       }
       oppMonstersContainer.appendChild(slot);
     }
