@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>赤城ユタカードバトル - 完全機能統合版（ボタン修正）</title>
+  <title>赤城ユタカードバトル - 完全機能統合版</title>
   <style>
     :root {
       --bg-color: #1a1a24;
@@ -149,57 +149,92 @@
 
     .stats-panel strong { color: var(--gold-color); }
 
-    /* 📢 お知らせ枠（視認性向上版） */
-.notice-panel {
-  background: #111827; /* 背景を濃いダークブルーにして文字を浮き立たせる */
-  border: 1px solid #00fff5; /* ネオンブルーの明確な枠線 */
-  border-radius: 8px;
-  padding: 10px 12px;
-  width: 100%;
-  max-width: 320px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  text-align: left;
-  max-height: 140px; /* スクロールエリアを少し広げる */
-  overflow-y: auto;
-  box-shadow: 0 0 10px rgba(0, 255, 245, 0.15); /* ほんのり発光感 */
-}
+    /* 📢 お知らせ枠 (見やすさ改善版) */
+    .notice-panel {
+      background: #111827;
+      border: 1px solid #00fff5;
+      border-radius: 8px;
+      padding: 10px 12px;
+      width: 100%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: left;
+      max-height: 140px;
+      overflow-y: auto;
+      box-shadow: 0 0 10px rgba(0, 255, 245, 0.15);
+    }
 
-.notice-header {
-  font-size: 0.85rem;
-  font-weight: bold;
-  color: #00fff5;
-  border-bottom: 1px solid rgba(0, 255, 245, 0.3);
-  padding-bottom: 4px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
+    .notice-header {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #00fff5;
+      border-bottom: 1px solid rgba(0, 255, 245, 0.3);
+      padding-bottom: 4px;
+    }
 
-#noticeList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+    #noticeList {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
 
-.notice-item {
-  font-size: 0.78rem;
-  color: #ffffff; /* 本文をくっきりした白文字に */
-  line-height: 1.4;
-  background: rgba(255, 255, 255, 0.05); /* お知らせごとに軽い背景区切り */
-  padding: 6px 8px;
-  border-radius: 4px;
-  border-left: 3px solid #00adb5; /* 箇条書き風のアクセントライン */
-}
+    .notice-item {
+      font-size: 0.78rem;
+      color: #ffffff;
+      line-height: 1.4;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 6px 8px;
+      border-radius: 4px;
+      border-left: 3px solid #00adb5;
+    }
 
-.notice-item strong {
-  color: #ffd700; /* タイトルをゴールド表示 */
-  display: block;
-  margin-bottom: 2px;
-  font-size: 0.82rem;
-}
-    /* 🏪 マーケット＆トレード＆管理者タブ */
+    .notice-item strong {
+      color: #ffd700;
+      display: block;
+      margin-bottom: 2px;
+      font-size: 0.82rem;
+    }
+
+    .event-panel {
+      background: rgba(255, 140, 0, 0.12);
+      border: 2px solid #ff8c00;
+      border-radius: 8px;
+      padding: 10px 12px;
+      width: 100%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+      box-shadow: 0 0 12px rgba(255, 140, 0, 0.3);
+    }
+
+    .menu {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      max-width: 320px;
+      position: relative;
+      z-index: 20;
+    }
+
+    details.rules {
+      width: 100%;
+      max-width: 440px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 8px 12px;
+      text-align: left;
+      font-size: 0.8rem;
+    }
+
+    details.rules summary { cursor: pointer; font-weight: bold; color: var(--gold-color); }
+    details.rules ul { margin-top: 6px; padding-left: 18px; line-height: 1.4; color: #ccc; }
+
     .market-tabs, .admin-tabs {
       display: flex;
       gap: 8px;
@@ -267,7 +302,6 @@
       text-align: center;
     }
 
-    /* 🏷️ 称号・バッジ設定 */
     .custom-section {
       background: rgba(255,255,255,0.03);
       border: 1px solid #444;
@@ -288,25 +322,6 @@
       max-height: 180px;
       overflow-y: auto;
       padding: 2px;
-    }
-
-    .custom-item-card {
-      background: #222;
-      border: 1px solid #555;
-      border-radius: 6px;
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      cursor: pointer;
-      font-size: 0.75rem;
-      text-align: center;
-    }
-
-    .custom-item-card.equipped {
-      border-color: #00fff5;
-      background: rgba(0, 255, 245, 0.15);
     }
 
     /* --- 管理者画面 --- */
@@ -895,7 +910,6 @@
     button.btn.primary:hover { background: #ff2e63; }
     button.btn.big { padding: 12px; font-size: 0.95rem; min-height: 44px; }
 
-    /* モーダルの非表示・クリック透過制御 */
     .modal {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -954,7 +968,6 @@
       font-size: 0.85rem;
     }
 
-    /* 右下管理者ボタン */
     .admin-entry-btn {
       position: absolute;
       bottom: 8px;
@@ -1137,7 +1150,6 @@
         </div>
       </div>
 
-      <!-- 過去・開催中イベント一覧 -->
       <div style="font-size:0.8rem; color:#aaa; width:100%; max-width:400px; text-align:left; margin-top:6px;">登録済みイベント一覧</div>
       <div id="adminEventList" class="admin-list-container"></div>
     </div>
@@ -1321,16 +1333,25 @@
 </div>
 
 <script>
- // HTML側では cards1.js で定義された ELEMENTS に設定を統合・更新します
-if (typeof ELEMENTS !== 'undefined') {
-  Object.assign(ELEMENTS, {
-    fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
-    water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
-    wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
-    light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
-    dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
-  });
-}
+  // 🌟 5属性定義（既存のELEMENTSがある場合は追加・統合）
+  if (typeof ELEMENTS !== 'undefined') {
+    Object.assign(ELEMENTS, {
+      fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
+      water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
+      wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
+      light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
+      dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
+    });
+  } else {
+    var ELEMENTS = {
+      fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
+      water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
+      wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
+      light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
+      dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
+    };
+  }
+
   // 🔍 カード拡大表示処理
   function openCardZoomModal(cardData) {
     if (!cardData) return;
@@ -1372,7 +1393,7 @@ if (typeof ELEMENTS !== 'undefined') {
   let currentEvent = null;
   let editingEventId = null;
 
-  const ADMIN_PASSCODE = "Sinn0626";
+  const ADMIN_PASSCODE = "admin123";
 
   // --- BGM & ボイス 設定 ---
   const bgmTitle = new Audio('bgm_title.mp3');
@@ -1420,7 +1441,6 @@ if (typeof ELEMENTS !== 'undefined') {
     }
   }
 
-  // 🏆 ランク名判定ロジック
   function getRankName(rate) {
     if (rate >= 2500) return "👑 マスター";
     if (rate >= 2000) return "🥇 ゴールド";
@@ -1429,7 +1449,6 @@ if (typeof ELEMENTS !== 'undefined') {
     return "🌱 ビギナー";
   }
 
-  // 🧮 イロレーティング計算関数
   function calculateRateChange(myRate, oppRate, isWin) {
     const K = 32;
     const expectedScore = 1 / (1 + Math.pow(10, (oppRate - myRate) / 400));
@@ -1437,15 +1456,11 @@ if (typeof ELEMENTS !== 'undefined') {
     return Math.round(K * (actualScore - expectedScore));
   }
 
-  // 🌐 Supabaseからみんなの作成カードを自動ロード
   async function loadSharedCustomCards() {
     if (!supabaseClient) return;
     try {
       const { data, error } = await supabaseClient.from('custom_cards').select('*');
-      if (error) {
-        console.error("共有カード読み込みエラー:", error);
-        return;
-      }
+      if (error) return;
 
       if (data && data.length > 0) {
         data.forEach(dbCard => {
@@ -1466,14 +1481,12 @@ if (typeof ELEMENTS !== 'undefined') {
             });
           }
         });
-        console.log(`共有カードを ${data.length} 件追加読み込みしました。`);
       }
     } catch (e) {
       console.error("共有カード処理失敗:", e);
     }
   }
 
-  // ローカル用プレイヤーデータ保存
   window.userProfile = {
     name: "あなた",
     rate: 1000,
@@ -1487,12 +1500,11 @@ if (typeof ELEMENTS !== 'undefined') {
     inventory: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : []
   };
 
-  // 🌐 Supabase からプロファイル（レート・戦績）を同期
   async function syncProfileFromSupabase() {
     if (!supabaseClient) return;
     try {
       const myName = window.userProfile.name;
-      const { data, error } = await supabaseClient.from('profiles').select('*').eq('id', myName);
+      const { data } = await supabaseClient.from('profiles').select('*').eq('id', myName);
       
       if (data && data.length > 0) {
         const user = data[0];
@@ -1528,7 +1540,6 @@ if (typeof ELEMENTS !== 'undefined') {
     }
   }
 
-  // 📢 お知らせ取得関数
   async function fetchNotices() {
     if (!supabaseClient) return;
     try {
@@ -1547,7 +1558,6 @@ if (typeof ELEMENTS !== 'undefined') {
     }
   }
 
-  // ⚙️ 管理者画面のタブ切り替え
   function switchAdminTab(tab) {
     document.getElementById("tabBtnEvents").classList.toggle("active", tab === 'events');
     document.getElementById("tabBtnNotices").classList.toggle("active", tab === 'notices');
@@ -1556,7 +1566,6 @@ if (typeof ELEMENTS !== 'undefined') {
   }
   window.switchAdminTab = switchAdminTab;
 
-  // 📢 管理者からのお知らせ投稿
   async function saveNoticeFromAdmin() {
     if (!supabaseClient) return alert("Supabaseに接続されていません");
     const title = document.getElementById("adminNoticeTitle").value.trim();
@@ -1575,7 +1584,6 @@ if (typeof ELEMENTS !== 'undefined') {
   }
   window.saveNoticeFromAdmin = saveNoticeFromAdmin;
 
-  // 🏪 マーケット画面処理
   function openMarketScreen() {
     document.getElementById("titleScreen").classList.add("hidden");
     document.getElementById("marketScreen").classList.remove("hidden");
@@ -1591,14 +1599,12 @@ if (typeof ELEMENTS !== 'undefined') {
   }
   window.switchMarketTab = switchMarketTab;
 
-  // 🤝 トレード画面処理
   function openTradeScreen() {
     document.getElementById("titleScreen").classList.add("hidden");
     document.getElementById("tradeScreen").classList.remove("hidden");
   }
   window.openTradeScreen = openTradeScreen;
 
-  // 🏷️ プロフィールカスタマイズ画面処理
   function openProfileCustomScreen() {
     document.getElementById("titleScreen").classList.add("hidden");
     document.getElementById("customScreen").classList.remove("hidden");
@@ -1611,13 +1617,11 @@ if (typeof ELEMENTS !== 'undefined') {
   }
   window.saveProfileCustomization = saveProfileCustomization;
 
-  // 📜 ルールダイアログ制御
   function openRulesModal() { document.getElementById("rulesModal").classList.add("active"); }
   function closeRulesModal() { document.getElementById("rulesModal").classList.remove("active"); }
   window.openRulesModal = openRulesModal;
   window.closeRulesModal = closeRulesModal;
 
-  // ⚙️ 管理者画面へのパスワード認証・遷移
   async function openAdminScreen() {
     const inputPass = prompt("管理者用パスコードを入力してください:");
     if (inputPass === ADMIN_PASSCODE) {
@@ -1650,7 +1654,6 @@ if (typeof ELEMENTS !== 'undefined') {
   }
   window.resetAdminForm = resetAdminForm;
 
-  // ⚙️ 管理者用イベントリスト取得
   async function fetchAdminEventList() {
     if (!supabaseClient) return;
     const { data } = await supabaseClient.from('events').select('*').order('start_at', { ascending: false });
@@ -1661,7 +1664,6 @@ if (typeof ELEMENTS !== 'undefined') {
       data.forEach(evt => {
         const item = document.createElement("div");
         item.className = "admin-event-item";
-
         const startStr = new Date(evt.start_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         const endStr = new Date(evt.end_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -1683,7 +1685,6 @@ if (typeof ELEMENTS !== 'undefined') {
     }
   }
 
-  // ⚙️ イベント編集モード呼び出し
   async function editAdminEvent(id) {
     if (!supabaseClient) return;
     const { data } = await supabaseClient.from('events').select('*').eq('id', id).single();
@@ -1704,7 +1705,6 @@ if (typeof ELEMENTS !== 'undefined') {
   }
   window.editAdminEvent = editAdminEvent;
 
-  // ⚙️ イベント削除処理
   async function deleteAdminEvent(id, title) {
     if (!confirm(`本当にイベント【${title}】(ID:${id}) を削除しますか？`)) return;
     if (!supabaseClient) return;
@@ -1720,7 +1720,6 @@ if (typeof ELEMENTS !== 'undefined') {
   }
   window.deleteAdminEvent = deleteAdminEvent;
 
-  // ⚙️ イベントの新規作成／更新保存
   async function saveEventFromAdmin() {
     if (!supabaseClient) return alert("Supabaseの接続に問題があります。");
 
@@ -1770,12 +1769,11 @@ if (typeof ELEMENTS !== 'undefined') {
   }
   window.saveEventFromAdmin = saveEventFromAdmin;
 
-  // 🔥 イベント機能：アクティブなイベント情報と戦績を取得
   async function checkActiveEvent() {
     if (!supabaseClient) return;
     try {
       const now = new Date().toISOString();
-      const { data, error } = await supabaseClient
+      const { data } = await supabaseClient
         .from('events')
         .select('*')
         .lte('start_at', now)
@@ -1837,7 +1835,6 @@ if (typeof ELEMENTS !== 'undefined') {
     }
   }
 
-  // 🔥 終了したイベントの自動集計＆報酬付与
   async function checkClaimableEventRewards() {
     if (!supabaseClient) return;
     const myName = window.userProfile.name;
@@ -1878,7 +1875,6 @@ if (typeof ELEMENTS !== 'undefined') {
     }
   }
 
-  // 🔥 イベント用戦績の更新
   async function updateEventParticipantStats(isWin) {
     if (!currentEvent || !supabaseClient) return;
     const myName = window.userProfile.name;
@@ -1965,7 +1961,6 @@ if (typeof ELEMENTS !== 'undefined') {
     if (statRank) statRank.textContent = getRankName(rate);
   }
 
-  // ゲーム状態管理（HP: 60）
   window.gameState = {
     mode: "casual",
     gauntletStage: 0,
@@ -2066,7 +2061,6 @@ if (typeof ELEMENTS !== 'undefined') {
     document.getElementById("onlineLobbyScreen").classList.remove("hidden");
   }
 
-  // 🎰 ガチャ機能ロジック
   function drawGachaCard() {
     const rand = Math.random() * 100;
     let targetRarity = 1;
@@ -2122,7 +2116,7 @@ if (typeof ELEMENTS !== 'undefined') {
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
-  // --- 🏆 通常 / 🔥 イベント ランクマッチ自動検索処理 ---
+  // --- 🏆 ランクマッチ自動検索 ---
   async function searchRankedMatch(isEvent = false) {
     if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
 
@@ -2202,7 +2196,7 @@ if (typeof ELEMENTS !== 'undefined') {
     }
   }
 
-  // --- Supabase フリーオンライン対戦処理 ---
+  // --- フリーオンライン対戦 ---
   async function createOnlineRoom() {
     if (!supabaseClient) return alert("Supabaseの初期化に失敗しています。");
 
@@ -2216,7 +2210,7 @@ if (typeof ELEMENTS !== 'undefined') {
     window.gameState.my.deck = fullDeck.slice(5);
 
     try {
-      const { data, error } = await supabaseClient.from('rooms').insert([{
+      const { error } = await supabaseClient.from('rooms').insert([{
         id: onlineRoomId,
         status: 'waiting',
         is_ranked: false,
@@ -2229,7 +2223,7 @@ if (typeof ELEMENTS !== 'undefined') {
         p2_hp: 60,
         p2_deck_count: 15,
         log: [`部屋作成成功！合言葉: ${onlineRoomId}`]
-      }]).select();
+      }]);
 
       if (error) {
         alert(`部屋作成エラー: ${error.message}`);
@@ -2317,10 +2311,7 @@ if (typeof ELEMENTS !== 'undefined') {
         .select('*')
         .eq('id', onlineRoomId);
 
-      if (error) {
-        console.warn("部屋データ取得エラー:", error.message);
-        return;
-      }
+      if (error) return;
 
       if (data && data.length > 0) {
         applyRoomData(data[0]);
@@ -2428,14 +2419,11 @@ if (typeof ELEMENTS !== 'undefined') {
     await supabaseClient.from('rooms').update(updateObj).eq('id', onlineRoomId);
   }
 
-  // --- CPU / シングルプレイ進行 ---
   function startCasualGame(diffKey) {
     window.gameState.mode = "casual";
     window.gameState.currentDifficulty = diffKey;
-    
     document.getElementById("casualSelectScreen").classList.add("hidden");
     document.getElementById("gameScreen").classList.remove("hidden");
-    
     initGame();
   }
   window.startCasualGame = startCasualGame;
@@ -2443,7 +2431,6 @@ if (typeof ELEMENTS !== 'undefined') {
   function startGauntletMode() {
     window.gameState.mode = "gauntlet";
     window.gameState.gauntletStage = 0;
-    
     document.getElementById("titleScreen").classList.add("hidden");
     document.getElementById("gameScreen").classList.remove("hidden");
     startGauntletStage();
@@ -2454,11 +2441,9 @@ if (typeof ELEMENTS !== 'undefined') {
       const stageInfo = GAUNTLET_STAGES[window.gameState.gauntletStage];
       window.gameState.currentDifficulty = stageInfo.diff;
     }
-
     initGame();
   }
 
-  // --- デッキ編集 ---
   function openDeckEditor() {
     document.getElementById("titleScreen").classList.add("hidden");
     document.getElementById("deckScreen").classList.remove("hidden");
@@ -2504,7 +2489,6 @@ if (typeof ELEMENTS !== 'undefined') {
     });
   }
 
-  // ⭐ カードDOM生成関数
   function renderCardDOM(cardData, badgeText, clickHandler) {
     const elemInfo = ELEMENTS[cardData.elem] || { name: "無", icon: "⚪", class: "" };
       
@@ -2629,7 +2613,6 @@ if (typeof ELEMENTS !== 'undefined') {
     renderDeckEditor();
   }
 
-  // --- ゲームコア処理 ---
   function buildDeckFromIds(idArray) {
     const rawDeck = idArray.map(id => ({ ...CARD_DATABASE.find(c => c.id === id) }));
     for (let i = rawDeck.length - 1; i > 0; i--) {
@@ -2709,7 +2692,6 @@ if (typeof ELEMENTS !== 'undefined') {
     }
   }
 
-  // 🧮 弱点ダメージ（1.5倍）計算関数
   function calcDamage(atk, cardElem, targetElem) {
     const eData = ELEMENTS[cardElem];
     if (eData && eData.strongTo === targetElem) {
@@ -3256,7 +3238,6 @@ if (typeof ELEMENTS !== 'undefined') {
     updateUI();
   }
 
-  // --- 勝敗判定 ＆ レート・イベント戦績更新 ---
   function checkWinLoss() {
     const isWin = window.gameState.opp.hp <= 0;
     const isLoss = window.gameState.my.hp <= 0;
@@ -3327,7 +3308,6 @@ if (typeof ELEMENTS !== 'undefined') {
     if ((window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") && onlineRoomId && supabaseClient) {
       try {
         await supabaseClient.from('rooms').delete().eq('id', onlineRoomId);
-        console.log(`部屋 (${onlineRoomId}) を自動クリーンアップしました。`);
       } catch (e) {
         console.error("部屋削除エラー:", e);
       } finally {
@@ -3471,3 +3451,8 @@ if (typeof ELEMENTS !== 'undefined') {
 </script>
 </body>
 </html>
+```<FollowUp>
+<ElicitationsGroup>
+もし上記コードを適用してもマッチング画面でエラーが出る場合は、開発者ツール（F12）のコンソールログを再度共有してください。
+</ElicitationsGroup>
+</FollowUp>
