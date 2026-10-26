@@ -1401,7 +1401,6 @@
     }
   }
 
-  // 🛠️ 406エラー修正版 joinOnlineRoom
   async function joinOnlineRoom() {
     if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
 
@@ -1456,7 +1455,6 @@
       .subscribe();
   }
 
-  // 🛠️ 406エラー修正版 fetchRoomData
   async function fetchRoomData() {
     if (!onlineRoomId || !supabaseClient) return;
     try {
@@ -1478,69 +1476,86 @@
     }
   }
 
+  // 🛠️ リアルタイム同期・相手の名前・フィールド表示を安全に反映する修正版
   function applyRoomData(roomData) {
     if (!roomData) return;
 
-    const isP1 = onlineMyRole === 'player1';
-    const mePrefix = isP1 ? 'p1' : 'p2';
-    const oppPrefix = isP1 ? 'p2' : 'p1';
+    try {
+      const isP1 = onlineMyRole === 'player1';
+      const mePrefix = isP1 ? 'p1' : 'p2';
+      const oppPrefix = isP1 ? 'p2' : 'p1';
 
-    const previousTurn = window.gameState.turn;
-    const isMyTurnNow = roomData.current_turn === onlineMyRole;
+      const previousTurn = window.gameState.turn;
+      const isMyTurnNow = roomData.current_turn === onlineMyRole;
 
-    window.gameState.my.hp = roomData[`${mePrefix}_hp`];
-    window.gameState.my.monsters = roomData[`${mePrefix}_field`] || [];
-    window.gameState.my.rate = roomData[`${mePrefix}_rate`] || window.userProfile.rate || 1000;
+      // 自分のステータス反映
+      window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 50;
+      window.gameState.my.monsters = roomData[`${mePrefix}_field`] || [];
+      window.gameState.my.rate = roomData[`${mePrefix}_rate`] || window.userProfile.rate || 1000;
 
-    window.gameState.opp.name = roomData[`${oppPrefix}_name`] || "対戦相手待ち...";
-    window.gameState.opp.hp = roomData[`${oppPrefix}_hp`];
-    window.gameState.opp.monsters = roomData[`${oppPrefix}_field`] || [];
-    
-    onlineOppRate = roomData[`${oppPrefix}_rate`] || 1000;
-    window.gameState.opp.rate = onlineOppRate;
+      // 相手のステータス反映
+      const fetchedOppName = roomData[`${oppPrefix}_name`];
+      window.gameState.opp.name = fetchedOppName ? fetchedOppName : (isP1 ? "対戦相手を待っています..." : "プレイヤー1");
+      window.gameState.opp.hp = roomData[`${oppPrefix}_hp`] ?? 50;
+      window.gameState.opp.monsters = roomData[`${oppPrefix}_field`] || [];
+      
+      onlineOppRate = roomData[`${oppPrefix}_rate`] || 1000;
+      window.gameState.opp.rate = onlineOppRate;
 
-    if (roomData[`${oppPrefix}_deck_count`] !== undefined) {
-      onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`];
-    }
-
-    window.gameState.turn = isMyTurnNow ? "player" : "opponent";
-
-    if (isMyTurnNow && previousTurn !== "player") {
-      hasDrawnThisTurn = false;
-
-      window.gameState.my.monsters.forEach(m => {
-        if (m.isStunned) {
-          m.isStunned = false;
-          m.canAttack = false;
-        } else {
-          m.canAttack = true;
-        }
-      });
-
-      if (!hasDrawnThisTurn && window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
-        hasDrawnThisTurn = true;
-        const drawnCard = window.gameState.my.deck.shift();
-        window.gameState.my.hand.push(drawnCard);
-        addLog(`山札からカードを1枚引きました。（残山札:${window.gameState.my.deck.length}枚）`);
-        syncOnlineAction();
+      if (roomData[`${oppPrefix}_deck_count`] !== undefined) {
+        onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`];
       }
 
-      window.gameState.my.mp = Math.min(window.gameState.my.maxHp, window.gameState.my.mp + 2);
+      // ターン管理
+      window.gameState.turn = isMyTurnNow ? "player" : "opponent";
+
+      if (isMyTurnNow && previousTurn !== "player") {
+        hasDrawnThisTurn = false;
+
+        window.gameState.my.monsters.forEach(m => {
+          if (m) {
+            if (m.isStunned) {
+              m.isStunned = false;
+              m.canAttack = false;
+            } else {
+              m.canAttack = true;
+            }
+          }
+        });
+
+        if (!hasDrawnThisTurn && window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
+          hasDrawnThisTurn = true;
+          const drawnCard = window.gameState.my.deck.shift();
+          window.gameState.my.hand.push(drawnCard);
+          addLog(`山札からカードを1枚引きました。（残山札:${window.gameState.my.deck.length}枚）`);
+          syncOnlineAction();
+        }
+
+        window.gameState.my.mp = Math.min(window.gameState.my.maxHp, window.gameState.my.mp + 2);
+      }
+
+      // UI描画の更新
+      document.getElementById("oppNameDisplay").textContent = window.gameState.opp.name;
+      document.getElementById("myNameDisplay").textContent = window.gameState.my.name;
+      updateUI();
+
+      // ログ描画
+      const logArea = document.getElementById("logArea");
+      if (logArea) {
+        logArea.innerHTML = "";
+        (roomData.log || []).forEach(msg => {
+          const div = document.createElement("div");
+          div.className = "log-entry";
+          div.textContent = msg;
+          logArea.appendChild(div);
+        });
+        logArea.scrollTop = logArea.scrollHeight;
+      }
+
+      checkWinLoss();
+    } catch (err) {
+      console.error("applyRoomData 描画エラー:", err);
     }
-
-    updateUI();
-
-    const logArea = document.getElementById("logArea");
-    logArea.innerHTML = "";
-    (roomData.log || []).forEach(msg => {
-      const div = document.createElement("div");
-      div.className = "log-entry";
-      div.textContent = msg;
-      logArea.appendChild(div);
-    });
-    logArea.scrollTop = logArea.scrollHeight;
-
-    checkWinLoss();
   }
 
   async function syncOnlineAction() {
