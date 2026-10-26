@@ -2336,6 +2336,12 @@ if (window.ELEMENTS) {
       onlineOppRate = roomData[`${oppPrefix}_rate`] || 1000;
       window.gameState.opp.rate = onlineOppRate;
 
+      const oppNameEl = document.getElementById("oppNameDisplay");
+      const myNameEl = document.getElementById("myNameDisplay");
+      
+      if (oppNameEl) oppNameEl.textContent = window.gameState.opp.name;
+      if (myNameEl) myNameEl.textContent = window.gameState.my.name;
+
       if (roomData[`${oppPrefix}_deck_count`] !== undefined) {
         onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`];
       }
@@ -3464,11 +3470,3 @@ if (window.ELEMENTS) {
       handContainer.appendChild(cardDiv);
     });
   }
-</script>
-</body>
-</html>
-```<FollowUp>
-<ElicitationsGroup>
-もし上記コードを適用してもマッチング画面でエラーが出る場合は、開発者ツール（F12）のコンソールログを再度共有してください。
-</ElicitationsGroup>
-</FollowUp>
