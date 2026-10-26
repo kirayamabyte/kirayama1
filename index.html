@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>赤城ユタカードバトル - 光・闇属性＆弱点倍率拡張版</title>
+  <title>赤城ユタカードバトル - 完全機能統合版</title>
   <style>
     :root {
       --bg-color: #1a1a24;
@@ -76,7 +76,7 @@
 
     /* --- タイトル画面 --- */
     #titleScreen {
-      justify-content: center;
+      justify-content: flex-start;
       align-items: center;
       text-align: center;
       gap: 10px;
@@ -102,7 +102,7 @@
       max-width: 320px;
     }
 
-    .field input, .field-input {
+    .field input, .field-input, textarea.field-input {
       padding: 8px 12px;
       border-radius: 6px;
       border: 1px solid #444;
@@ -111,6 +111,7 @@
       text-align: center;
       font-size: 0.95rem;
       width: 100%;
+      font-family: inherit;
     }
 
     .stats-panel {
@@ -128,6 +129,18 @@
       align-items: center;
     }
 
+    .user-title-badge {
+      font-size: 0.75rem;
+      color: #00fff5;
+      background: rgba(0, 173, 181, 0.2);
+      border: 1px solid #00adb5;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: bold;
+    }
+
+    .user-badge-icon { font-size: 1.1rem; margin-left: 4px; }
+
     .stats-row {
       display: flex;
       justify-content: space-around;
@@ -135,6 +148,36 @@
     }
 
     .stats-panel strong { color: var(--gold-color); }
+
+    /* 📢 お知らせ枠 */
+    .notice-panel {
+      background: rgba(0, 173, 181, 0.08);
+      border: 1px solid #00adb5;
+      border-radius: 8px;
+      padding: 8px 12px;
+      width: 100%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      text-align: left;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+
+    .notice-header {
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #00fff5;
+      border-bottom: 1px solid rgba(0,255,245,0.2);
+      padding-bottom: 2px;
+    }
+
+    .notice-item {
+      font-size: 0.72rem;
+      color: #ddd;
+      line-height: 1.3;
+    }
 
     .event-panel {
       background: rgba(255, 140, 0, 0.12);
@@ -173,6 +216,116 @@
 
     details.rules summary { cursor: pointer; font-weight: bold; color: var(--gold-color); }
     details.rules ul { margin-top: 6px; padding-left: 18px; line-height: 1.4; color: #ccc; }
+
+    /* 🏪 マーケット＆トレード＆管理者タブ */
+    .market-tabs, .admin-tabs {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      max-width: 440px;
+      margin-bottom: 8px;
+    }
+
+    .market-tab-btn, .admin-tab-btn {
+      flex: 1;
+      padding: 8px;
+      font-size: 0.8rem;
+      background: #222;
+      border: 1px solid #444;
+      color: #aaa;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .market-tab-btn.active, .admin-tab-btn.active {
+      background: #00adb5;
+      color: #fff;
+      border-color: #00fff5;
+      font-weight: bold;
+    }
+
+    .market-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+      width: 100%;
+      max-width: 600px;
+      overflow-y: auto;
+      padding: 4px;
+    }
+
+    .trade-container {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      max-width: 600px;
+      justify-content: space-between;
+    }
+
+    .trade-box {
+      flex: 1;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      min-height: 180px;
+    }
+
+    .trade-box-title {
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: var(--gold-color);
+      border-bottom: 1px solid #333;
+      width: 100%;
+      padding-bottom: 4px;
+      text-align: center;
+    }
+
+    /* 🏷️ 称号・バッジ設定 */
+    .custom-section {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 10px;
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: left;
+    }
+
+    .custom-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 8px;
+      max-height: 180px;
+      overflow-y: auto;
+      padding: 2px;
+    }
+
+    .custom-item-card {
+      background: #222;
+      border: 1px solid #555;
+      border-radius: 6px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      text-align: center;
+    }
+
+    .custom-item-card.equipped {
+      border-color: #00fff5;
+      background: rgba(0, 255, 245, 0.15);
+    }
 
     /* --- 管理者画面 --- */
     #adminScreen {
@@ -748,12 +901,17 @@
       transition: background 0.2s;
       position: relative;
       z-index: 50;
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.2;
     }
 
     button.btn:hover { background: #393e46; }
     button.btn.primary { background: var(--accent-color); border-color: #ff2e63; }
     button.btn.primary:hover { background: #ff2e63; }
-    button.btn.big { padding: 12px; font-size: 0.95rem; }
+    button.btn.big { padding: 12px; font-size: 0.95rem; min-height: 44px; }
 
     /* モーダルの非表示・クリック透過制御 */
     .modal {
@@ -777,6 +935,21 @@
     }
 
     .modal h2 { font-size: 1.5rem; color: var(--gold-color); }
+
+    .rule-dialog {
+      background: #1a1a24;
+      border: 2px solid var(--gold-color);
+      border-radius: 12px;
+      padding: 16px;
+      width: 100%;
+      max-width: 360px;
+      max-height: 75vh;
+      overflow-y: auto;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
 
     .gacha-result-grid {
       display: flex;
@@ -830,6 +1003,10 @@
     </label>
 
     <div class="stats-panel">
+      <div>
+        <span id="statTitle" class="user-title-badge">《見習いデュエリスト》</span>
+        <span id="statBadge" class="user-badge-icon">🔰</span>
+      </div>
       <div class="stats-row">
         <span>ランク: <strong id="statRank" style="color:#ffd700;">🥉 ブロンズ</strong></span>
         <span>レート: <strong id="statRate">1000</strong> RP</span>
@@ -841,6 +1018,12 @@
       <div class="stats-row">
         <span>コイン: 🪙 <strong id="statCoins" style="color:#ffd700;">1000</strong>pt</span>
       </div>
+    </div>
+
+    <!-- 📢 お知らせ枠 -->
+    <div id="noticeContainer" class="notice-panel">
+      <div class="notice-header">📢 運営からのお知らせ</div>
+      <div id="noticeList"><div class="notice-item">お知らせを読み込み中...</div></div>
     </div>
 
     <!-- 期間限定イベントバナー表示エリア -->
@@ -856,10 +1039,14 @@
       </button>
       <button id="btnSearchRanked" type="button" class="btn primary big" style="background:#8a2be2; border-color:#a855f7;">🏆 通常ランクマッチ</button>
       <button id="btnOnline" type="button" class="btn primary big" style="background:#00adb5; border-color:#00fff5;">🌐 ルーム対戦 (合言葉)</button>
+      <button type="button" class="btn primary big" onclick="openMarketScreen()" style="background:#28a745; border-color:#5cb85c;">🏪 カードマーケット (出品・購入)</button>
+      <button type="button" class="btn primary big" onclick="openTradeScreen()" style="background:#17a2b8; border-color:#17a2b8;">🤝 カードトレード (直接交換)</button>
+      <button type="button" class="btn big" onclick="openProfileCustomScreen()" style="background:#8a2be2; border-color:#a855f7;">🏷️ 称号・バッジ設定</button>
       <button id="btnGacha" type="button" class="btn primary big" style="background:#ff9900; border-color:#ffcc00;">🎰 ガチャを引く</button>
       <button id="btnGauntlet" type="button" class="btn primary big">🔥 連戦モード (CPU)</button>
       <button id="btnCasual" type="button" class="btn big">⚔️ カジュアルモード (CPU)</button>
       <button id="btnDeckEdit" type="button" class="btn">🎴 デッキ編集</button>
+      <button type="button" class="btn big" onclick="openRulesModal()" style="background:#00adb5; border-color:#00fff5;">📜 公式ルールを確認</button>
     </div>
 
     <details class="rules">
@@ -874,45 +1061,116 @@
     <button type="button" class="admin-entry-btn" onclick="openAdminScreen()">⚙️ 管理者</button>
   </section>
 
-  <!-- ⚙️ 管理者専用画面 -->
-  <section id="adminScreen" class="screen hidden">
-    <h2 style="color:var(--gold-color);">⚙️ イベント作成・管理画面</h2>
-    
-    <div class="admin-form">
-      <div id="adminFormHeader" style="font-weight:bold; color:var(--gold-color); font-size:0.85rem;">新規イベント作成</div>
-      <label>イベントID (英数字)
-        <input id="adminEvtId" class="field-input" placeholder="例: EVT_SEASON_02">
-      </label>
+  <!-- 🏪 カードマーケット画面 -->
+  <section id="marketScreen" class="screen hidden" style="align-items: center; padding: 12px; gap: 8px;">
+    <h2 style="color:var(--gold-color);">🏪 プレイヤーマーケット</h2>
+    <div style="font-size:0.8rem; color:#aaa;">所持コイン: 🪙 <strong id="marketCoinDisplay">1000</strong> pt</div>
 
-      <label>イベントタイトル
-        <input id="adminEvtTitle" class="field-input" placeholder="例: 🔥 炎属性限定バトルカップ">
-      </label>
+    <div class="market-tabs">
+      <button id="tabMarketBuy" type="button" class="market-tab-btn active" onclick="switchMarketTab('buy')">🛒 カードを買う</button>
+      <button id="tabMarketSell" type="button" class="market-tab-btn" onclick="switchMarketTab('sell')">📦 出品・自分のカード</button>
+    </div>
 
-      <label>開始日時
-        <input id="adminEvtStart" type="datetime-local" class="field-input">
-      </label>
+    <div id="marketBuyArea" class="market-grid"></div>
+    <div id="marketSellArea" class="market-grid hidden"></div>
 
-      <label>終了日時
-        <input id="adminEvtEnd" type="datetime-local" class="field-input">
-      </label>
+    <button type="button" class="btn" onclick="showTitle()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
+  </section>
 
-      <label>達成・参加報酬コイン (pt)
-        <input id="adminEvtCoins" type="number" class="field-input" value="1000">
-      </label>
+  <!-- 🤝 カードトレード画面 -->
+  <section id="tradeScreen" class="screen hidden" style="align-items: center; padding: 12px; gap: 8px;">
+    <h2 style="color:#00fff5;">🤝 カードトレード (交換)</h2>
+    <div id="tradeTargetForm" style="display:flex; gap:6px; width:100%; max-width:320px;">
+      <input id="tradePartnerInput" class="field-input" placeholder="相手のプレイヤー名">
+      <button type="button" class="btn primary" onclick="alert('申請を送信しました')" style="width:110px;">申請を送る</button>
+    </div>
 
-      <div style="display:flex; gap:6px; margin-top:4px;">
-        <button id="btnSaveAdminEvent" type="button" class="btn primary" onclick="saveEventFromAdmin()" style="background:#ff8c00; border-color:#ffd700;">
-          🚀 イベントを作成・公開
-        </button>
-        <button id="btnCancelAdminEdit" type="button" class="btn hidden" onclick="resetAdminForm()">
-          キャンセル
-        </button>
+    <div class="trade-container">
+      <div class="trade-box">
+        <div class="trade-box-title">あなたの提出カード</div>
+        <div id="myTradeCardSlot" style="font-size:0.75rem; color:#aaa;">(未選択)</div>
+      </div>
+      <div class="trade-box">
+        <div class="trade-box-title">相手の提出カード</div>
+        <div id="partnerTradeCardSlot" style="font-size:0.75rem; color:#aaa;">(選択待ち)</div>
       </div>
     </div>
 
-    <!-- 過去・開催中イベント一覧 -->
-    <div style="font-size:0.8rem; color:#aaa; width:100%; max-width:400px; text-align:left; margin-top:6px;">登録済みイベント一覧</div>
-    <div id="adminEventList" class="admin-list-container"></div>
+    <button type="button" class="btn" onclick="showTitle()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
+  </section>
+
+  <!-- 🏷️ 称号・バッジ設定画面 -->
+  <section id="customScreen" class="screen hidden" style="align-items: center; padding: 12px; gap: 10px;">
+    <h2 style="color:var(--gold-color);">🏷️ プロフィール設定</h2>
+    <div class="custom-section">
+      <div style="font-size:0.85rem; font-weight:bold; color:#00fff5;">獲得称号一覧</div>
+      <div id="titleListContainer" class="custom-grid"></div>
+    </div>
+    <div class="custom-section">
+      <div style="font-size:0.85rem; font-weight:bold; color:var(--gold-color);">獲得バッジ一覧</div>
+      <div id="badgeListContainer" class="custom-grid"></div>
+    </div>
+    <button type="button" class="btn primary" onclick="saveProfileCustomization()" style="max-width:200px; margin-top:8px;">保存して戻る</button>
+  </section>
+
+  <!-- ⚙️ 管理者専用画面 -->
+  <section id="adminScreen" class="screen hidden">
+    <h2 style="color:var(--gold-color);">⚙️ 管理者画面</h2>
+    <div class="admin-tabs">
+      <button id="tabBtnEvents" type="button" class="admin-tab-btn active" onclick="switchAdminTab('events')">🏆 イベント</button>
+      <button id="tabBtnNotices" type="button" class="admin-tab-btn" onclick="switchAdminTab('notices')">📢 お知らせ</button>
+    </div>
+
+    <!-- イベント管理フォーム -->
+    <div id="adminFormEvent">
+      <div class="admin-form">
+        <div id="adminFormHeader" style="font-weight:bold; color:var(--gold-color); font-size:0.85rem;">新規イベント作成</div>
+        <label>イベントID (英数字)
+          <input id="adminEvtId" class="field-input" placeholder="例: EVT_SEASON_02">
+        </label>
+
+        <label>イベントタイトル
+          <input id="adminEvtTitle" class="field-input" placeholder="例: 🔥 炎属性限定バトルカップ">
+        </label>
+
+        <label>開始日時
+          <input id="adminEvtStart" type="datetime-local" class="field-input">
+        </label>
+
+        <label>終了日時
+          <input id="adminEvtEnd" type="datetime-local" class="field-input">
+        </label>
+
+        <label>達成・参加報酬コイン (pt)
+          <input id="adminEvtCoins" type="number" class="field-input" value="1000">
+        </label>
+
+        <div style="display:flex; gap:6px; margin-top:4px;">
+          <button id="btnSaveAdminEvent" type="button" class="btn primary" onclick="saveEventFromAdmin()" style="background:#ff8c00; border-color:#ffd700;">
+            🚀 イベントを作成・公開
+          </button>
+          <button id="btnCancelAdminEdit" type="button" class="btn hidden" onclick="resetAdminForm()">
+            キャンセル
+          </button>
+        </div>
+      </div>
+
+      <!-- 過去・開催中イベント一覧 -->
+      <div style="font-size:0.8rem; color:#aaa; width:100%; max-width:400px; text-align:left; margin-top:6px;">登録済みイベント一覧</div>
+      <div id="adminEventList" class="admin-list-container"></div>
+    </div>
+
+    <!-- お知らせ管理フォーム -->
+    <div id="adminFormNotice" class="admin-form hidden">
+      <div style="font-weight:bold; color:var(--gold-color); font-size:0.85rem;">新規お知らせ作成</div>
+      <label>タイトル
+        <input id="adminNoticeTitle" class="field-input" placeholder="例: メンテナンスのお知らせ">
+      </label>
+      <label>本文
+        <textarea id="adminNoticeBody" class="field-input" rows="3" placeholder="お知らせ内容を入力..."></textarea>
+      </label>
+      <button type="button" class="btn primary" onclick="saveNoticeFromAdmin()">📢 お知らせ発行</button>
+    </div>
 
     <button type="button" class="btn" onclick="showTitle()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
   </section>
@@ -1034,9 +1292,24 @@
 
       <div class="controls">
         <button id="btnPass" type="button" class="btn">ターン終了</button>
+        <button type="button" class="btn" onclick="showTitle()">降参してタイトルへ</button>
       </div>
     </div>
   </section>
+
+  <!-- 📜 ルール確認ダイアログモーダル -->
+  <div id="rulesModal" class="modal">
+    <div class="rule-dialog">
+      <h3 style="color:var(--gold-color); text-align:center;">📜 公式ルールガイド</h3>
+      <div style="font-size:0.8rem; color:#ccc; line-height:1.4;">
+        ・相手のHP(60)を0にすると勝利！<br>
+        ・属性相性（火 ➔ 木 ➔ 水 ➔ 火）で弱点1.5倍ダメージ！<br>
+        ・光と闇は互いに弱点を突き合う特効関係！<br>
+        ・カード長押しで拡大表示できます！
+      </div>
+      <button type="button" class="btn primary" onclick="closeRulesModal()" style="width:100%; margin-top:6px;">閉じる</button>
+    </div>
+  </div>
 
   <!-- 🔍 カード拡大表示用モーダル -->
   <div id="cardZoomModal" class="modal" onclick="closeCardZoomModal(event)">
@@ -1225,6 +1498,8 @@
     losses: 0,
     bestGauntletStage: 0,
     coins: 1000,
+    equippedTitle: "《見習いデュエリスト》",
+    equippedBadge: "🔰",
     deck: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : [],
     inventory: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : []
   };
@@ -1269,6 +1544,95 @@
       console.error("プロファイル保存エラー:", e);
     }
   }
+
+  // 📢 お知らせ取得関数
+  async function fetchNotices() {
+    if (!supabaseClient) return;
+    try {
+      const { data } = await supabaseClient.from('notices').select('*').order('created_at', { ascending: false });
+      const list = document.getElementById("noticeList");
+      if (list && data && data.length > 0) {
+        list.innerHTML = "";
+        data.forEach(n => {
+          list.innerHTML += `<div class="notice-item"><strong>${n.title}</strong><br>${n.body}</div>`;
+        });
+      } else if (list) {
+        list.innerHTML = `<div class="notice-item">現在お知らせはありません。</div>`;
+      }
+    } catch (e) {
+      console.error("お知らせ取得エラー:", e);
+    }
+  }
+
+  // ⚙️ 管理者画面のタブ切り替え
+  function switchAdminTab(tab) {
+    document.getElementById("tabBtnEvents").classList.toggle("active", tab === 'events');
+    document.getElementById("tabBtnNotices").classList.toggle("active", tab === 'notices');
+    document.getElementById("adminFormEvent").classList.toggle("hidden", tab !== 'events');
+    document.getElementById("adminFormNotice").classList.toggle("hidden", tab !== 'notices');
+  }
+  window.switchAdminTab = switchAdminTab;
+
+  // 📢 管理者からのお知らせ投稿
+  async function saveNoticeFromAdmin() {
+    if (!supabaseClient) return alert("Supabaseに接続されていません");
+    const title = document.getElementById("adminNoticeTitle").value.trim();
+    const body = document.getElementById("adminNoticeBody").value.trim();
+    if (!title || !body) return alert("タイトルと本文を入力してください");
+
+    const { error } = await supabaseClient.from('notices').insert([{ title, body }]);
+    if (error) {
+      alert("投稿失敗: " + error.message);
+    } else {
+      alert("📢 お知らせを発行しました！");
+      document.getElementById("adminNoticeTitle").value = "";
+      document.getElementById("adminNoticeBody").value = "";
+      fetchNotices();
+    }
+  }
+  window.saveNoticeFromAdmin = saveNoticeFromAdmin;
+
+  // 🏪 マーケット画面処理
+  function openMarketScreen() {
+    document.getElementById("titleScreen").classList.add("hidden");
+    document.getElementById("marketScreen").classList.remove("hidden");
+    document.getElementById("marketCoinDisplay").textContent = window.userProfile.coins;
+  }
+  window.openMarketScreen = openMarketScreen;
+
+  function switchMarketTab(tab) {
+    document.getElementById("tabMarketBuy").classList.toggle("active", tab === 'buy');
+    document.getElementById("tabMarketSell").classList.toggle("active", tab === 'sell');
+    document.getElementById("marketBuyArea").classList.toggle("hidden", tab !== 'buy');
+    document.getElementById("marketSellArea").classList.toggle("hidden", tab !== 'sell');
+  }
+  window.switchMarketTab = switchMarketTab;
+
+  // 🤝 トレード画面処理
+  function openTradeScreen() {
+    document.getElementById("titleScreen").classList.add("hidden");
+    document.getElementById("tradeScreen").classList.remove("hidden");
+  }
+  window.openTradeScreen = openTradeScreen;
+
+  // 🏷️ プロフィールカスタマイズ画面処理
+  function openProfileCustomScreen() {
+    document.getElementById("titleScreen").classList.add("hidden");
+    document.getElementById("customScreen").classList.remove("hidden");
+  }
+  window.openProfileCustomScreen = openProfileCustomScreen;
+
+  function saveProfileCustomization() {
+    saveUserProfile();
+    showTitle();
+  }
+  window.saveProfileCustomization = saveProfileCustomization;
+
+  // 📜 ルールダイアログ制御
+  function openRulesModal() { document.getElementById("rulesModal").classList.add("active"); }
+  function closeRulesModal() { document.getElementById("rulesModal").classList.remove("active"); }
+  window.openRulesModal = openRulesModal;
+  window.closeRulesModal = closeRulesModal;
 
   // ⚙️ 管理者画面へのパスワード認証・遷移
   async function openAdminScreen() {
@@ -1572,6 +1936,8 @@
         }
         if (window.userProfile.coins === undefined) window.userProfile.coins = 1000;
         if (window.userProfile.rate === undefined) window.userProfile.rate = 1000;
+        if (!window.userProfile.equippedTitle) window.userProfile.equippedTitle = "《見習いデュエリスト》";
+        if (!window.userProfile.equippedBadge) window.userProfile.equippedBadge = "🔰";
       } catch (e) { console.error("データロードエラー", e); }
     }
     updateTitleStatsUI();
@@ -1602,6 +1968,12 @@
     const gachaCoinDisplay = document.getElementById("gachaCoinDisplay");
     if (gachaCoinDisplay) gachaCoinDisplay.textContent = window.userProfile.coins;
 
+    const statTitle = document.getElementById("statTitle");
+    if (statTitle) statTitle.textContent = window.userProfile.equippedTitle || "《見習いデュエリスト》";
+
+    const statBadge = document.getElementById("statBadge");
+    if (statBadge) statBadge.textContent = window.userProfile.equippedBadge || "🔰";
+
     const rate = window.userProfile.rate || 1000;
     const statRate = document.getElementById("statRate");
     if (statRate) statRate.textContent = rate;
@@ -1628,6 +2000,7 @@
     await loadSharedCustomCards();
     await syncProfileFromSupabase();
     await checkActiveEvent();
+    fetchNotices();
 
     const unlockAudio = () => {
       try {
@@ -1684,6 +2057,9 @@
     document.getElementById("deckScreen").classList.add("hidden");
     document.getElementById("gachaScreen").classList.add("hidden");
     document.getElementById("adminScreen").classList.add("hidden");
+    document.getElementById("marketScreen").classList.add("hidden");
+    document.getElementById("tradeScreen").classList.add("hidden");
+    document.getElementById("customScreen").classList.add("hidden");
     document.getElementById("titleScreen").classList.remove("hidden");
     updateTitleStatsUI();
     checkActiveEvent();
