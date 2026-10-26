@@ -1576,33 +1576,25 @@ if (window.ELEMENTS) {
   }
   window.saveNoticeFromAdmin = saveNoticeFromAdmin;
 
-  function openMarketScreen() {
-    document.getElementById("titleScreen").classList.add("hidden");
-    document.getElementById("marketScreen").classList.remove("hidden");
-    document.getElementById("marketCoinDisplay").textContent = window.userProfile.coins;
-  }
-  window.openMarketScreen = openMarketScreen;
+  // --- 🏪 マーケット画面を開く ---
+window.openMarketScreen = function() {
+  document.getElementById("titleScreen").classList.add("hidden");
+  document.getElementById("marketScreen").classList.remove("hidden");
+  const coinEl = document.getElementById("marketCoinDisplay");
+  if (coinEl) coinEl.textContent = window.userProfile.coins;
+};
 
-  function switchMarketTab(tab) {
-    document.getElementById("tabMarketBuy").classList.toggle("active", tab === 'buy');
-    document.getElementById("tabMarketSell").classList.toggle("active", tab === 'sell');
-    document.getElementById("marketBuyArea").classList.toggle("hidden", tab !== 'buy');
-    document.getElementById("marketSellArea").classList.toggle("hidden", tab !== 'sell');
-  }
-  window.switchMarketTab = switchMarketTab;
+// --- 🤝 トレード画面を開く ---
+window.openTradeScreen = function() {
+  document.getElementById("titleScreen").classList.add("hidden");
+  document.getElementById("tradeScreen").classList.remove("hidden");
+};
 
-  function openTradeScreen() {
-    document.getElementById("titleScreen").classList.add("hidden");
-    document.getElementById("tradeScreen").classList.remove("hidden");
-  }
-  window.openTradeScreen = openTradeScreen;
-
-  function openProfileCustomScreen() {
-    document.getElementById("titleScreen").classList.add("hidden");
-    document.getElementById("customScreen").classList.remove("hidden");
-  }
-  window.openProfileCustomScreen = openProfileCustomScreen;
-
+// --- 🏷️ プロフィール設定画面を開く ---
+window.openProfileCustomScreen = function() {
+  document.getElementById("titleScreen").classList.add("hidden");
+  document.getElementById("customScreen").classList.remove("hidden");
+};
   function saveProfileCustomization() {
     saveUserProfile();
     showTitle();
