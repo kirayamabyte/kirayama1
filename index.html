@@ -2152,6 +2152,7 @@
         .select('*')
         .eq('status', 'waiting')
         .eq('is_ranked', true)
+        .neq('p1_name', myName)
         .order('updated_at', { ascending: true });
 
       const { data: waitingRooms, error: selectErr } = await query;
