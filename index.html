@@ -2123,7 +2123,7 @@
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
-  // --- 🏆 ランクマッチ自動検索 ---
+  // --- 🏆 ランクマッチ自動検索（古い部屋の自動クリーンアップ付き） ---
   async function searchRankedMatch(isEvent = false) {
     if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
 
@@ -2139,6 +2139,14 @@
     try {
       const myName = window.userProfile.name;
 
+      // ----------------------------------------------------
+      // ⬇️【追加】残っている自分の古い部屋（p1またはp2）を消去・リセット
+      // ----------------------------------------------------
+      await supabaseClient.from('rooms').delete().eq('p1_name', myName);
+      await supabaseClient.from('rooms').delete().eq('p2_name', myName);
+      // ----------------------------------------------------
+
+      // 待機中の部屋を検索（自分以外の部屋）
       let query = supabaseClient
         .from('rooms')
         .select('*')
@@ -2152,6 +2160,7 @@
       const validOpponentRoom = (waitingRooms || []).find(room => room.p1_name !== myName);
 
       if (validOpponentRoom) {
+        // 他人の待機部屋に入室
         onlineRoomId = validOpponentRoom.id;
         onlineMyRole = 'player2';
         hasDrawnThisTurn = false;
@@ -2173,6 +2182,7 @@
 
         subscribeRoomUpdates();
       } else {
+        // 新しい待機部屋を作成
         onlineRoomId = "RANK_" + Math.random().toString(36).substring(2, 8).toUpperCase();
         onlineMyRole = 'player1';
         hasDrawnThisTurn = true;
@@ -2203,6 +2213,7 @@
     }
   }
 
+   
   // --- フリーオンライン対戦 ---
   async function createOnlineRoom() {
     if (!supabaseClient) return alert("Supabaseの初期化に失敗しています。");
