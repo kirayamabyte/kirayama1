@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>赤城ユタカードバトル - ランクマッチSupabase統合版</title>
+  <title>赤城ユタカードバトル - ボタンタップ判定完全修正版</title>
   <style>
     :root {
       --bg-color: #1a1a24;
@@ -68,6 +68,8 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      position: relative;
+      z-index: 10;
     }
 
     .hidden { display: none !important; }
@@ -139,6 +141,8 @@
       gap: 8px;
       width: 100%;
       max-width: 320px;
+      position: relative;
+      z-index: 20;
     }
 
     details.rules {
@@ -524,7 +528,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      cursor: pointer;
+      cursor: pointer !important;
       pointer-events: auto !important;
       transition: transform 0.2s, border-color 0.2s;
       flex-shrink: 0;
@@ -652,7 +656,7 @@
       font-size: 0.85rem;
       transition: background 0.2s;
       position: relative;
-      z-index: 5;
+      z-index: 50;
     }
 
     button.btn:hover { background: #393e46; }
@@ -660,22 +664,27 @@
     button.btn.primary:hover { background: #ff2e63; }
     button.btn.big { padding: 12px; font-size: 0.95rem; }
 
+    /* 🛠️ モーダルの完全非表示・クリック判定透過修正 */
     .modal {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.88);
-      display: none;
+      display: none !important; /* 初期状態では完全に除去 */
       flex-direction: column;
       justify-content: center;
       align-items: center;
       gap: 14px;
       z-index: 1000;
       border-radius: 12px;
-      pointer-events: auto;
       padding: 16px;
+      pointer-events: none; /* 非表示時はクリックを通過させる */
     }
 
-    .modal.active { display: flex; }
+    .modal.active {
+      display: flex !important; /* activeクラス付与時のみ表示 */
+      pointer-events: auto !important; /* 表示時は操作可能 */
+    }
+
     .modal h2 { font-size: 1.5rem; color: var(--gold-color); }
 
     .gacha-result-grid {
@@ -740,7 +749,7 @@
       <summary>ランクマッチ＆レート仕様</summary>
       <ul>
         <li><b>レート管理</b>：Supabaseでリアルタイム一括管理されます。勝敗に応じてRP（レート）が変動！</li>
-        <li><b>ランク階級</b>：ビギナー(<1000) / ブロンズ(1000〜) / シルバー(1500〜) / ゴールド(2000〜) / マスター(2500〜)</li>
+        <li><b>ランク階級</b>：ビギナー(&lt;1000) / ブロンズ(1000〜) / シルバー(1500〜) / ゴールド(2000〜) / マスター(2500〜)</li>
         <li><b>対戦相手のレート表示</b>：対戦画面で相手の正確なリアルタイムレートとランクが表示されます。</li>
       </ul>
     </details>
@@ -1056,7 +1065,6 @@
         window.userProfile.wins = data.wins ?? 0;
         window.userProfile.losses = data.losses ?? 0;
       } else {
-        // 新規登録
         await supabaseClient.from('profiles').upsert({
           id: myName,
           rate: window.userProfile.rate || 1000,
@@ -1171,10 +1179,10 @@
     playBGM('title');
   });
 
-  // 画面遷移
+  // 🛠️ 画面遷移（全モーダルを確実にクリアする処理を追加）
   function showTitle() {
-    document.getElementById("endModal").classList.remove("active");
-    document.getElementById("gachaResultModal").classList.remove("active");
+    document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+
     document.getElementById("gameScreen").classList.add("hidden");
     document.getElementById("casualSelectScreen").classList.add("hidden");
     document.getElementById("onlineLobbyScreen").classList.add("hidden");
@@ -1269,7 +1277,6 @@
 
     addLog("🔍 ランクマッチ待機部屋を検索中...", "important");
 
-    // 既存の待機中のランクマッチ部屋を検索
     const { data: waitingRooms } = await supabaseClient
       .from('rooms')
       .select('*')
@@ -1278,7 +1285,6 @@
       .limit(1);
 
     if (waitingRooms && waitingRooms.length > 0) {
-      // 部屋が存在するため参加 (Player 2)
       onlineRoomId = waitingRooms[0].id;
       onlineMyRole = 'player2';
       hasDrawnThisTurn = false;
@@ -1299,7 +1305,6 @@
 
       subscribeRoomUpdates();
     } else {
-      // 待機部屋がないため新規作成 (Player 1)
       onlineRoomId = "RANK_" + Math.random().toString(36).substring(2, 8).toUpperCase();
       onlineMyRole = 'player1';
       hasDrawnThisTurn = true;
@@ -1757,7 +1762,7 @@
     window.gameState.opp.hand = fullOppDeck.slice(0, 5);
     window.gameState.opp.deck = fullOppDeck.slice(5);
 
-    document.getElementById("endModal").classList.remove("active");
+    document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
     document.getElementById("logArea").innerHTML = "";
 
     const bannerText = window.gameState.mode === "gauntlet" 
