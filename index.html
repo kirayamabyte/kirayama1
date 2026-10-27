@@ -2518,29 +2518,25 @@ async function showTitle() {
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
-  async function searchRankedMatch() {
+ async function searchRankedMatch() {
   try {
     const myName = window.userProfile?.name || "プレイヤー";
-    
-    // 1. デッキデータの安全な取得
     const deckIds = window.userProfile?.deck || [];
+    
     if (!deckIds.length) {
       alert("デッキが設定されていません。");
       return;
     }
 
-    // 2. 待機中の部屋を検索
+    // 🌟 1. 待機中の部屋を検索（is_ranked などの指定を外してシンプルに検索）
     const { data: waitingRooms, error: fetchErr } = await supabaseClient
       .from('rooms')
       .select('*')
       .eq('status', 'waiting')
-      .eq('is_ranked', true)
       .order('created_at', { ascending: true })
       .limit(1);
 
-    if (fetchErr) {
-      console.error("部屋検索エラー:", fetchErr);
-    }
+    if (fetchErr) console.error("部屋検索エラー:", fetchErr);
 
     const validOpponentRoom = (waitingRooms && waitingRooms.length > 0) ? waitingRooms[0] : null;
 
@@ -2551,26 +2547,24 @@ async function showTitle() {
       hasDrawnThisTurn = false;
       window.gameState.isGameStarted = true;
 
-      // 手札・山札の準備
       const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
       window.gameState.my.hand = fullDeck.slice(0, 5);
       window.gameState.my.deck = fullDeck.slice(5);
 
-      // 🌟 初期MP（5）の設定
+      // MPはJavaScript側で保持（初期値 5）
       window.gameState.my.mp = 5;
       window.gameState.opp.mp = 5;
 
-      // 画面上にルームIDを即座に表示
       const roomIdEl = document.getElementById("roomIdDisplay") || document.getElementById("onlineRoomId");
       if (roomIdEl) roomIdEl.textContent = onlineRoomId;
 
+      // 🌟 2. 参戦更新（DBに存在する基本カラムのみ送信）
       const { error: updateErr } = await supabaseClient.from('rooms').update({
         status: 'playing',
         p2_name: myName,
         p2_rate: window.userProfile.rate || 1000,
         p2_hand: window.gameState.my.hand.map(c => c.id),
         p2_hp: 60,
-        p2_mp: 5,
         p2_deck_count: 15,
         updated_at: new Date().toISOString()
       }).eq('id', onlineRoomId);
@@ -2586,32 +2580,28 @@ async function showTitle() {
       hasDrawnThisTurn = true;
       window.gameState.isGameStarted = false;
 
-      // 手札・山札の準備
       const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
       window.gameState.my.hand = fullDeck.slice(0, 5);
       window.gameState.my.deck = fullDeck.slice(5);
 
-      // 🌟 初期MP（5）の設定
+      // MPはJavaScript側で保持（初期値 5）
       window.gameState.my.mp = 5;
       window.gameState.opp.mp = 5;
 
-      // 画面上にルームIDを即座に表示
       const roomIdEl = document.getElementById("roomIdDisplay") || document.getElementById("onlineRoomId");
       if (roomIdEl) roomIdEl.textContent = onlineRoomId;
 
+      // 🌟 3. 部屋作成（DBに存在する基本カラムのみ送信）
       const { error: insertErr } = await supabaseClient.from('rooms').insert([{
         id: onlineRoomId,
         status: 'waiting',
-        is_ranked: true,
         current_turn: 'player1',
         p1_name: myName,
         p1_rate: window.userProfile.rate || 1000,
         p1_hand: window.gameState.my.hand.map(c => c.id),
         p1_hp: 60,
-        p1_mp: 5,
         p1_deck_count: 15,
         p2_hp: 60,
-        p2_mp: 5,
         p2_deck_count: 15,
         updated_at: new Date().toISOString()
       }]);
@@ -3757,87 +3747,106 @@ async function showTitle() {
 
   // 🌟 updateUI 関数（位置指定召喚・各種ステータス表示の完全対応版）
   function updateUI() {
-    const myMpEl = document.getElementById("myMpText");
-  if (myMpEl) {
-    // 上限を 40 に制限して表示
-    window.gameState.my.mp = Math.min(40, window.gameState.my.mp);
-    myMpEl.textContent = `MP ${window.gameState.my.mp}/40`;
-  }
   const isMyTurn = window.gameState.turn === "player";
-    const modeBanner = document.getElementById("modeBanner");
-    const myPinfo = document.querySelector("#gameScreen .player-area:last-child .pinfo");
-    const oppPinfo = document.getElementById("oppPlayerInfo");
-    const myMpBarEl = document.getElementById("myMpBar");
-  if (myMpBarEl) {
-    const mpPercent = Math.min(100, (window.gameState.my.mp / 40) * 100);
-    myMpBarEl.style.width = `${mpPercent}%`;
-  }
-    if (modeBanner) {
-      if (isMyTurn) {
-        modeBanner.classList.add("my-turn-banner");
-        modeBanner.classList.remove("opp-turn-banner");
-      } else {
-        modeBanner.classList.add("opp-turn-banner");
-        modeBanner.classList.remove("my-turn-banner");
-      }
-    }
+  const modeBanner = document.getElementById("modeBanner");
+  const myPinfo = document.querySelector("#gameScreen .player-area:last-child .pinfo");
+  const oppPinfo = document.getElementById("oppPlayerInfo");
 
-    if (myPinfo && oppPinfo) {
-      if (isMyTurn) {
-        myPinfo.classList.add("active-turn-me");
-        oppPinfo.classList.remove("active-turn-opp");
-      } else {
-        oppPinfo.classList.add("active-turn-opp");
-        myPinfo.classList.remove("active-turn-me");
-      }
-    }
-    document.getElementById("myHpBar").style.width = `${(window.gameState.my.hp / window.gameState.my.maxHp) * 100}%`;
-    document.getElementById("myHpText").textContent = `HP ${window.gameState.my.hp}/${window.gameState.my.maxHp}`;
-    document.getElementById("myMpBar").style.width = `${(window.gameState.my.mp / window.gameState.my.maxMp) * 100}%`;
-    document.getElementById("myMpText").textContent = `MP ${window.gameState.my.mp}/${window.gameState.my.maxMp}`;
+  // 🌟 MP制限と初期値セーフガード（上限40）
+  window.gameState.my.mp = Math.min(40, window.gameState.my.mp ?? 5);
+  window.gameState.opp.mp = Math.min(40, window.gameState.opp.mp ?? 5);
 
-    document.getElementById("oppHpBar").style.width = `${(window.gameState.opp.hp / window.gameState.opp.maxHp) * 100}%`;
-    document.getElementById("oppHpText").textContent = `HP ${window.gameState.opp.hp}/${window.gameState.opp.maxHp}`;
-    document.getElementById("oppMpBar").style.width = `${(window.gameState.opp.mp / window.gameState.opp.maxMp) * 100}%`;
-    document.getElementById("oppMpText").textContent = `MP ${window.gameState.opp.mp}/${window.gameState.opp.maxMp}`;
-
-    document.getElementById("myDeckCount").textContent = `🎴 山札: ${window.gameState.my.deck.length}`;
-    
-    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
-      document.getElementById("oppDeckCount").textContent = `🎴 山札: ${onlineOppDeckCount}`;
-      document.getElementById("myRateDisplay").textContent = `${window.userProfile.rate || 1000} RP`;
-      document.getElementById("oppRateDisplay").textContent = `${onlineOppRate || 1000} RP`;
+  if (modeBanner) {
+    if (isMyTurn) {
+      modeBanner.classList.add("my-turn-banner");
+      modeBanner.classList.remove("opp-turn-banner");
     } else {
-      document.getElementById("oppDeckCount").textContent = `🎴 山札: ${window.gameState.opp.deck.length}`;
-      document.getElementById("myRateDisplay").textContent = `${window.userProfile.rate || 1000} RP`;
-      document.getElementById("oppRateDisplay").textContent = `${window.gameState.opp.rate || 1000} RP`;
+      modeBanner.classList.add("opp-turn-banner");
+      modeBanner.classList.remove("my-turn-banner");
     }
+  }
 
-    const oppPlayerInfo = document.getElementById("oppPlayerInfo");
-    const activeOppMonsters = window.gameState.opp.monsters.filter(Boolean);
+  if (myPinfo && oppPinfo) {
+    if (isMyTurn) {
+      myPinfo.classList.add("active-turn-me");
+      oppPinfo.classList.remove("active-turn-opp");
+    } else {
+      oppPinfo.classList.add("active-turn-opp");
+      myPinfo.classList.remove("active-turn-me");
+    }
+  }
+
+  // 🌟 自分のステータス描画（安全な null ガード付き）
+  const myHpBar = document.getElementById("myHpBar");
+  if (myHpBar) myHpBar.style.width = `${(window.gameState.my.hp / (window.gameState.my.maxHp || 60)) * 100}%`;
+  
+  const myHpText = document.getElementById("myHpText");
+  if (myHpText) myHpText.textContent = `HP ${window.gameState.my.hp}/${window.gameState.my.maxHp || 60}`;
+  
+  const myMpBar = document.getElementById("myMpBar");
+  if (myMpBar) myMpBar.style.width = `${(window.gameState.my.mp / 40) * 100}%`;
+  
+  const myMpText = document.getElementById("myMpText");
+  if (myMpText) myMpText.textContent = `MP ${window.gameState.my.mp}/40`;
+
+  // 🌟 相手のステータス描画（安全な null ガード付き）
+  const oppHpBar = document.getElementById("oppHpBar");
+  if (oppHpBar) oppHpBar.style.width = `${(window.gameState.opp.hp / (window.gameState.opp.maxHp || 60)) * 100}%`;
+  
+  const oppHpText = document.getElementById("oppHpText");
+  if (oppHpText) oppHpText.textContent = `HP ${window.gameState.opp.hp}/${window.gameState.opp.maxHp || 60}`;
+  
+  const oppMpBar = document.getElementById("oppMpBar");
+  if (oppMpBar) oppMpBar.style.width = `${(window.gameState.opp.mp / 40) * 100}%`;
+  
+  const oppMpText = document.getElementById("oppMpText");
+  if (oppMpText) oppMpText.textContent = `MP ${window.gameState.opp.mp}/40`;
+
+  // 🌟 山札・レート描画（安全ガード付き）
+  const myDeckCount = document.getElementById("myDeckCount");
+  if (myDeckCount) myDeckCount.textContent = `🎴 山札: ${window.gameState.my.deck ? window.gameState.my.deck.length : 0}`;
+  
+  const oppDeckCount = document.getElementById("oppDeckCount");
+  const myRateDisplay = document.getElementById("myRateDisplay");
+  const oppRateDisplay = document.getElementById("oppRateDisplay");
+
+  if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
+    if (oppDeckCount) oppDeckCount.textContent = `🎴 山札: ${typeof onlineOppDeckCount !== 'undefined' ? onlineOppDeckCount : 15}`;
+    if (myRateDisplay) myRateDisplay.textContent = `${window.userProfile?.rate || 1000} RP`;
+    if (oppRateDisplay) oppRateDisplay.textContent = `${typeof onlineOppRate !== 'undefined' ? onlineOppRate : 1000} RP`;
+  } else {
+    if (oppDeckCount) oppDeckCount.textContent = `🎴 山札: ${window.gameState.opp.deck ? window.gameState.opp.deck.length : 0}`;
+    if (myRateDisplay) myRateDisplay.textContent = `${window.userProfile?.rate || 1000} RP`;
+    if (oppRateDisplay) oppRateDisplay.textContent = `${window.gameState.opp.rate || 1000} RP`;
+  }
+
+  const oppPlayerInfo = document.getElementById("oppPlayerInfo");
+  if (oppPlayerInfo) {
+    const activeOppMonsters = (window.gameState.opp.monsters || []).filter(Boolean);
     if (window.gameState.selectedAttackerIdx !== null && activeOppMonsters.length === 0) {
       oppPlayerInfo.classList.add("selectable-target");
-      oppPlayerInfo.onclick = attackEnemyPlayer;
+      oppPlayerInfo.onclick = typeof attackEnemyPlayer === 'function' ? attackEnemyPlayer : null;
     } else {
       oppPlayerInfo.classList.remove("selectable-target");
       oppPlayerInfo.onclick = null;
     }
+  }
 
-    // 🎯 自分のモンスターフィールド（枠）の描画
-    const myMonstersContainer = document.getElementById("myMonsters");
+  // 🎯 自分のモンスターフィールド（枠）の描画
+  const myMonstersContainer = document.getElementById("myMonsters");
+  if (myMonstersContainer) {
     myMonstersContainer.innerHTML = "";
     for (let i = 0; i < 5; i++) {
       const slot = document.createElement("div");
       slot.className = "monster-slot";
       if (window.gameState.selectedAttackerIdx === i) slot.classList.add("attacker-selected");
 
-      // 🌟 位置指定召喚モード中で、かつ空きスロットの場合
       if (window.gameState.pendingSummonIndex !== null && !window.gameState.my.monsters[i]) {
-        slot.classList.add("selectable-target"); // 青枠強調
+        slot.classList.add("selectable-target");
         slot.style.borderColor = "#00fff5";
         slot.style.boxShadow = "0 0 10px #00fff5";
         slot.style.cursor = "pointer";
-        slot.onclick = () => confirmSummonToSlot(i); // タップで位置確定召喚
+        slot.onclick = () => typeof confirmSummonToSlot === 'function' && confirmSummonToSlot(i);
       }
 
       if (window.gameState.my.monsters[i]) {
@@ -3852,7 +3861,7 @@ async function showTitle() {
           ? `<img src="${m.image}" style="width:20px; height:20px; object-fit:cover; border-radius:3px;">` 
           : (m.icon || '👾');
 
-        slot.onclick = () => selectMyMonsterToAttack(i);
+        slot.onclick = () => typeof selectMyMonsterToAttack === 'function' && selectMyMonsterToAttack(i);
         slot.innerHTML = `
           <div class="monster-card-field ${(!m.canAttack || m.isStunned || m.cannotAttack) ? 'exhausted' : ''} ${m.isStunned ? 'stunned' : ''}">
             ${stunBadge}
@@ -3874,9 +3883,11 @@ async function showTitle() {
       }
       myMonstersContainer.appendChild(slot);
     }
+  }
 
-    // 🎯 相手のモンスターフィールドの描画
-    const oppMonstersContainer = document.getElementById("oppMonsters");
+  // 🎯 相手のモンスターフィールドの描画
+  const oppMonstersContainer = document.getElementById("oppMonsters");
+  if (oppMonstersContainer) {
     oppMonstersContainer.innerHTML = "";
     for (let i = 0; i < 5; i++) {
       const slot = document.createElement("div");
@@ -3884,7 +3895,7 @@ async function showTitle() {
 
       if (window.gameState.selectedAttackerIdx !== null && window.gameState.opp.monsters[i]) {
         slot.classList.add("selectable-target");
-        slot.onclick = () => attackEnemyMonster(i);
+        slot.onclick = () => typeof attackEnemyMonster === 'function' && attackEnemyMonster(i);
       }
 
       if (window.gameState.opp.monsters[i]) {
@@ -3918,15 +3929,8 @@ async function showTitle() {
       }
       oppMonstersContainer.appendChild(slot);
     }
-
-    // 🎴 手札の描画
-    const handContainer = document.getElementById("myHand");
-    handContainer.innerHTML = "";
-    window.gameState.my.hand.forEach((card, idx) => {
-      const cardDiv = renderCardDOM(card, "", () => playCard(idx));
-      handContainer.appendChild(cardDiv);
-    });
   }
+}
 </script>
 </body>
 </html>
