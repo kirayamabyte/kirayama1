@@ -2085,6 +2085,7 @@
     turnCount: 1,
     selectedAttackerIdx: null,
     pendingWeaponIndex: null,
+    pendingSummonIndex: null,
     my: { name: "あなた", rate: 1000, elem: "water", hp: 60, maxHp: 60, mp: 20, maxMp: 20, monsters: [], deck: [], hand: [] },
     opp: { name: "CPU", rate: 1000, elem: "fire", hp: 60, maxHp: 60, mp: 20, maxMp: 20, monsters: [], deck: [], hand: [] }
   };
@@ -2960,9 +2961,11 @@ async function showTitle() {
     }
   }
 
+  // 🎴 カードプレイ処理（モンスターの枠指定召喚対応版）
   function playCard(index) {
     if (window.gameState.turn !== "player") return;
     const card = window.gameState.my.hand[index];
+    if (!card) return;
 
     if (card.costMp && window.gameState.my.mp < card.costMp) {
       addLog(`MPが足りません！`, "damage");
@@ -2971,70 +2974,35 @@ async function showTitle() {
 
     if (card.voice) playVoice(card.voice);
 
+    // 👾 モンスターカードの場合：直接出さずに「配置枠選択モード」に入る
     if (card.type === "monster") {
-      if (window.gameState.my.monsters.length >= 5) {
+      const activeCount = window.gameState.my.monsters.filter(m => m !== null).length;
+      if (activeCount >= 5) {
         addLog("フィールドには最大5体までしか召喚できません！", "damage");
         return;
       }
-      window.gameState.my.mp -= card.costMp;
 
-      const monsterCopy = JSON.parse(JSON.stringify(card));
-      const newMonster = { ...monsterCopy, currentHp: monsterCopy.hp, maxHp: monsterCopy.hp, weapon: null, canAttack: false, isStunned: false };
-
-      window.gameState.my.monsters.push(newMonster);
-      addLog(`${window.gameState.my.name} は 【${card.name}】 を召喚！`, "important");
-
-      if (card.spawnEnemyTokens) {
-        const tokenCard = CARD_DATABASE.find(c => c.id === "token_blocker");
-        if (tokenCard) {
-          let spawnedCount = 0;
-          for (let i = 0; i < 2; i++) {
-            if (window.gameState.opp.monsters.length < 5) {
-              const tokenCopy = JSON.parse(JSON.stringify(tokenCard));
-              window.gameState.opp.monsters.push({
-                ...tokenCopy,
-                currentHp: tokenCopy.hp,
-                maxHp: tokenCopy.hp,
-                weapon: null,
-                canAttack: false,
-                isStunned: false,
-                turnsLeft: tokenCopy.tokenLifetime || 3
-              });
-              spawnedCount++;
-            }
-          }
-
-          if (spawnedCount > 0) {
-            addLog(`🌀【${card.name}】の能力！ 相手の場に【${tokenCard.name}】を ${spawnedCount} 体出現させた！`, "effective");
-          }
-
-          const tokenAmount = window.gameState.opp.monsters.filter(m => m.id === "token_blocker").length;
-          if (tokenAmount > 0) {
-            const buffAtk = tokenAmount * 5;
-            newMonster.atk += buffAtk;
-            addLog(`✨ 相手の場の[拘束体] ${tokenAmount} 体につき、【${newMonster.name}】のATKが +${buffAtk} 上昇！（現在ATK:${newMonster.atk}）`, "effective");
-          }
-        }
+      if (window.gameState.pendingSummonIndex === index) {
+        window.gameState.pendingSummonIndex = null;
+        addLog("召喚の選択をキャンセルしました。");
+      } else {
+        window.gameState.pendingSummonIndex = index;
+        addLog(`【${card.name}】を出す位置を選択してください。（空いている枠をタップ）`, "important");
       }
+      updateUI();
+      return;
+    }
 
-      if (card.buffAtk) {
-        let buffedCount = 0;
-        window.gameState.my.monsters.forEach(m => {
-          m.atk += card.buffAtk;
-          buffedCount++;
-        });
-        addLog(`✨【${card.name}】の能力発動！ 味方 ${buffedCount} 体の攻撃力が +${card.buffAtk} 上昇！`, "effective");
-      }
-
-      window.gameState.my.hand.splice(index, 1);
-    } else if (card.type === "weapon") {
-      if (window.gameState.my.monsters.length === 0) {
+    // 🗡️ 装備カードの場合
+    if (card.type === "weapon") {
+      const availableMonsters = window.gameState.my.monsters.filter(m => m !== null);
+      if (availableMonsters.length === 0) {
         addLog("装備させるモンスターがフィールドに存在しません！", "damage");
         return;
       }
 
       const unequippedIndices = [];
-      window.gameState.my.monsters.forEach((m, i) => { if (!m.weapon) unequippedIndices.push(i); });
+      window.gameState.my.monsters.forEach((m, i) => { if (m && !m.weapon) unequippedIndices.push(i); });
 
       if (unequippedIndices.length === 0) {
         addLog("すでにすべてのモンスターが武器を装備しています！", "damage");
@@ -3048,9 +3016,13 @@ async function showTitle() {
         openEquipModal(index);
         return;
       }
-    } else if (card.type === "magic") {
+    }
+
+    // 🔮 魔法カードの場合
+    if (card.type === "magic") {
       if (card.summonFromDeck) {
-        if (window.gameState.my.monsters.length >= 5) {
+        const activeCount = window.gameState.my.monsters.filter(m => m !== null).length;
+        if (activeCount >= 5) {
           addLog("フィールドがいっぱいため緊急召喚できません！", "damage");
           return;
         }
@@ -3071,20 +3043,13 @@ async function showTitle() {
         const summonedCard = window.gameState.my.deck.splice(randomIndex, 1)[0];
         const summonedCopy = JSON.parse(JSON.stringify(summonedCard));
 
+        const emptySlotIdx = window.gameState.my.monsters.findIndex(m => m === null);
         const newMonster = { ...summonedCopy, currentHp: summonedCopy.hp, maxHp: summonedCopy.hp, weapon: null, canAttack: true, isStunned: false };
-        window.gameState.my.monsters.push(newMonster);
-
-        addLog(`🔮【${card.name}】発動！ 山札から【${summonedCard.name}】を緊急召喚！（このターン攻撃可能！）`, "effective");
-
-        if (summonedCard.buffAtk) {
-          let buffedCount = 0;
-          window.gameState.my.monsters.forEach(m => {
-            m.atk += summonedCard.buffAtk;
-            buffedCount++;
-          });
-          addLog(`✨【${summonedCard.name}】の能力発動！ 味方 ${buffedCount} 体の攻撃力が +${summonedCard.buffAtk} 上昇！`, "effective");
+        if (emptySlotIdx !== -1) {
+          window.gameState.my.monsters[emptySlotIdx] = newMonster;
         }
 
+        addLog(`🔮【${card.name}】発動！ 山札から【${summonedCard.name}】を緊急召喚！（このターン攻撃可能！）`, "effective");
         window.gameState.my.hand.splice(index, 1);
       } else {
         window.gameState.my.mp -= card.costMp;
@@ -3099,6 +3064,80 @@ async function showTitle() {
         window.gameState.my.hand.splice(index, 1);
       }
     }
+
+    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") syncOnlineAction();
+    else updateUI();
+
+    checkWinLoss();
+  }
+
+  // 🎯 選択した枠へモンスターを確定配置・能力発動する関数
+  function confirmSummonToSlot(slotIdx) {
+    const handIdx = window.gameState.pendingSummonIndex;
+    if (handIdx === null) return;
+
+    const card = window.gameState.my.hand[handIdx];
+    if (!card) return;
+
+    window.gameState.my.mp -= card.costMp;
+
+    const monsterCopy = JSON.parse(JSON.stringify(card));
+    const newMonster = { ...monsterCopy, currentHp: monsterCopy.hp, maxHp: monsterCopy.hp, weapon: null, canAttack: false, isStunned: false };
+
+    // 指定されたスロット位置へ直接配置
+    window.gameState.my.monsters[slotIdx] = newMonster;
+    window.gameState.pendingSummonIndex = null;
+
+    addLog(`${window.gameState.my.name} は ${slotIdx + 1}番目の枠に 【${card.name}】 を召喚！`, "important");
+
+    // 🌀 トークン生成能力（敵の空きスロットへ生成）
+    if (card.spawnEnemyTokens) {
+      const tokenCard = CARD_DATABASE.find(c => c.id === "token_blocker");
+      if (tokenCard) {
+        let spawnedCount = 0;
+        for (let i = 0; i < 2; i++) {
+          const emptyOppIdx = window.gameState.opp.monsters.findIndex(m => m === null);
+          if (emptyOppIdx !== -1) {
+            const tokenCopy = JSON.parse(JSON.stringify(tokenCard));
+            window.gameState.opp.monsters[emptyOppIdx] = {
+              ...tokenCopy,
+              currentHp: tokenCopy.hp,
+              maxHp: tokenCopy.hp,
+              weapon: null,
+              canAttack: false,
+              isStunned: false,
+              turnsLeft: tokenCopy.tokenLifetime || 3
+            };
+            spawnedCount++;
+          }
+        }
+
+        if (spawnedCount > 0) {
+          addLog(`🌀【${card.name}】の能力！ 相手の場に【${tokenCard.name}】を ${spawnedCount} 体出現させた！`, "effective");
+        }
+
+        const tokenAmount = window.gameState.opp.monsters.filter(m => m && m.id === "token_blocker").length;
+        if (tokenAmount > 0) {
+          const buffAtk = tokenAmount * 5;
+          newMonster.atk += buffAtk;
+          addLog(`✨ 相手の場の[拘束体] ${tokenAmount} 体につき、【${newMonster.name}】のATKが +${buffAtk} 上昇！（現在ATK:${newMonster.atk}）`, "effective");
+        }
+      }
+    }
+
+    // ✨ 全体バフ能力
+    if (card.buffAtk) {
+      let buffedCount = 0;
+      window.gameState.my.monsters.forEach(m => {
+        if (m) {
+          m.atk += card.buffAtk;
+          buffedCount++;
+        }
+      });
+      addLog(`✨【${card.name}】の能力発動！ 味方 ${buffedCount} 体の攻撃力が +${card.buffAtk} 上昇！`, "effective");
+    }
+
+    window.gameState.my.hand.splice(handIdx, 1);
 
     if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") syncOnlineAction();
     else updateUI();
@@ -3573,6 +3612,7 @@ async function showTitle() {
     }
   }
 
+  // 🌟 updateUI 関数（位置指定召喚・各種ステータス表示の完全対応版）
   function updateUI() {
     document.getElementById("myHpBar").style.width = `${(window.gameState.my.hp / window.gameState.my.maxHp) * 100}%`;
     document.getElementById("myHpText").textContent = `HP ${window.gameState.my.hp}/${window.gameState.my.maxHp}`;
@@ -3597,7 +3637,8 @@ async function showTitle() {
     }
 
     const oppPlayerInfo = document.getElementById("oppPlayerInfo");
-    if (window.gameState.selectedAttackerIdx !== null && window.gameState.opp.monsters.length === 0) {
+    const activeOppMonsters = window.gameState.opp.monsters.filter(Boolean);
+    if (window.gameState.selectedAttackerIdx !== null && activeOppMonsters.length === 0) {
       oppPlayerInfo.classList.add("selectable-target");
       oppPlayerInfo.onclick = attackEnemyPlayer;
     } else {
@@ -3605,12 +3646,22 @@ async function showTitle() {
       oppPlayerInfo.onclick = null;
     }
 
+    // 🎯 自分のモンスターフィールド（枠）の描画
     const myMonstersContainer = document.getElementById("myMonsters");
     myMonstersContainer.innerHTML = "";
     for (let i = 0; i < 5; i++) {
       const slot = document.createElement("div");
       slot.className = "monster-slot";
       if (window.gameState.selectedAttackerIdx === i) slot.classList.add("attacker-selected");
+
+      // 🌟 位置指定召喚モード中で、かつ空きスロットの場合
+      if (window.gameState.pendingSummonIndex !== null && !window.gameState.my.monsters[i]) {
+        slot.classList.add("selectable-target"); // 青枠強調
+        slot.style.borderColor = "#00fff5";
+        slot.style.boxShadow = "0 0 10px #00fff5";
+        slot.style.cursor = "pointer";
+        slot.onclick = () => confirmSummonToSlot(i); // タップで位置確定召喚
+      }
 
       if (window.gameState.my.monsters[i]) {
         const m = window.gameState.my.monsters[i];
@@ -3639,12 +3690,15 @@ async function showTitle() {
             ${wText}
           </div>
         `;
-      } else {
+      } else if (window.gameState.pendingSummonIndex === null) {
         slot.innerHTML = `<span style="font-size:0.65rem; color:#555;">(空き)</span>`;
+      } else {
+        slot.innerHTML = `<span style="font-size:0.65rem; color:#00fff5; font-weight:bold;">ここに召喚</span>`;
       }
       myMonstersContainer.appendChild(slot);
     }
 
+    // 🎯 相手のモンスターフィールドの描画
     const oppMonstersContainer = document.getElementById("oppMonsters");
     oppMonstersContainer.innerHTML = "";
     for (let i = 0; i < 5; i++) {
@@ -3688,6 +3742,7 @@ async function showTitle() {
       oppMonstersContainer.appendChild(slot);
     }
 
+    // 🎴 手札の描画
     const handContainer = document.getElementById("myHand");
     handContainer.innerHTML = "";
     window.gameState.my.hand.forEach((card, idx) => {
