@@ -2528,12 +2528,13 @@ async function showTitle() {
 
     // 1. 待機部屋の検索（400エラー防止：基本条件のみ）
     const { data: waitingRooms, error: fetchErr } = await supabaseClient
-      .from('rooms')
-      .select('*')
+      select('*')
       .eq('status', 'waiting')
-      .order('created_at', { ascending: true })
       .limit(1);
 
+    if (fetchErr) {
+      console.warn("部屋検索スキップ（新規作成へ移行）:", fetchErr);
+    }
     if (fetchErr) console.error("部屋検索エラー:", fetchErr);
     window.searchRankedMatch = searchRankedMatch;
 
