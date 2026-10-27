@@ -1436,41 +1436,49 @@
   };
   window.sendAdminNotice = window.saveNoticeFromAdmin;
 
-  window.fetchNotices = async function() {
-    // ...お知らせ取得のコード...
-  };
-  // ----------------------------------------------------
+  // 🟢 お知らせ取得機能（完全修正版）
+  async function fetchNotices() {
+    if (!supabaseClient) {
+      console.warn("Supabaseクライアントが未初期化です");
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabaseClient
+        .from('notices')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("notices取得エラー:", error);
+        const list = document.getElementById("noticeList");
+        if (list) list.innerHTML = `<div class="notice-item" style="color:#ff6b6b;">取得エラー: ${error.message}</div>`;
+        return;
+      }
+
+      const list = document.getElementById("noticeList");
+      if (list) {
+        if (data && data.length > 0) {
+          list.innerHTML = "";
+          data.forEach(n => {
+            const formattedBody = (n.body || "").replace(/\n/g, "<br>");
+            list.innerHTML += `
+              <div class="notice-item">
+                <strong>📢 ${n.title}</strong>
+                <div style="margin-top:4px; color:#e0e0e0; font-size:0.8rem;">${formattedBody}</div>
+              </div>`;
+          });
+        } else {
+          list.innerHTML = `<div class="notice-item" style="color:#aaa; text-align:center;">現在新しいお知らせはありません。</div>`;
+        }
+      }
+    } catch (e) {
+      console.error("お知らせ取得例外:", e);
+    }
+  }
   
-  // その他の関数（openMarketScreen
-  // 🌟 1. 画面遷移用関数の定義（グローバル登録）
-  window.openMarketScreen = function() {
-    var titleEl = document.getElementById("titleScreen");
-    var marketEl = document.getElementById("marketScreen");
-    if (titleEl) titleEl.classList.add("hidden");
-    if (marketEl) marketEl.classList.remove("hidden");
-    var coinEl = document.getElementById("marketCoinDisplay");
-    if (coinEl && window.userProfile) coinEl.textContent = window.userProfile.coins || 1000;
-  };
-
-  window.openTradeScreen = function() {
-    var titleEl = document.getElementById("titleScreen");
-    var tradeEl = document.getElementById("tradeScreen");
-    if (titleEl) titleEl.classList.add("hidden");
-    if (tradeEl) tradeEl.classList.remove("hidden");
-  };
-
-  window.openProfileCustomScreen = function() {
-    var titleEl = document.getElementById("titleScreen");
-    var customEl = document.getElementById("customScreen");
-    if (titleEl) titleEl.classList.add("hidden");
-    if (customEl) customEl.classList.remove("hidden");
-  };
-
-  window.openRulesModal = function() {
-    var rulesModal = document.getElementById("rulesModal");
-    if (rulesModal) rulesModal.classList.add("active");
-  };
-
+  // ページ読み込み完了時および画面表示時に自動実行
+  window.fetchNotices = fetchNotices;
   window.closeRulesModal = function() {
     var rulesModal = document.getElementById("rulesModal");
     if (rulesModal) rulesModal.classList.remove("active");
