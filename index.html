@@ -75,14 +75,17 @@
     .hidden { display: none !important; }
 
     /* --- タイトル画面 --- */
-    #titleScreen {
-      justify-content: flex-start;
-      align-items: center;
-      text-align: center;
-      gap: 10px;
-      padding: 16px;
-      overflow-y: auto;
-    }
+   #titleScreen {
+  justify-content: flex-start;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 16px 12px;
+  overflow-y: auto;
+  
+  /* 子要素（お知らせ枠等）が潰されるのを防ぐ設定 */
+  min-height: 0;
+}
 
     #titleScreen h1 {
       font-size: 2.1rem;
@@ -164,15 +167,14 @@
   gap: 8px;
   text-align: left;
   
-  /* ⚠️ 縦潰れを防止するための重要設定 */
-  min-height: 130px; /* 最小高さを確保して文字切れを完全に防ぐ */
-  max-height: 180px; /* 長文の時はスクロール可能にする */
-  flex-shrink: 0;   /* 親要素のflex配置による押しつぶしを無効化 */
+ /* ⚠️ ここが超重要：縦潰れを物理的に阻止する設定 */
+  height: 150px !important;       /* 高さを150pxで固定 */
+  min-height: 150px !important;   /* 最低高さを保障 */
+  flex-shrink: 0 !important;      /* 親要素からの圧縮命令を絶対に拒否 */
   
   overflow-y: auto;
   box-shadow: 0 0 12px rgba(0, 255, 245, 0.2);
 }
-
 /* カスタムスクロールバーで操作性を向上 */
 .notice-panel::-webkit-scrollbar {
   width: 6px;
