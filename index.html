@@ -2185,84 +2185,105 @@
     try { playBGM('title'); } catch(e){}
   });
 
+  // 🌟 強制タイトル画面復帰処理（モーダル全削除＆エラー回避）
   function showTitleDirect() {
-    let onlineRoomId = null;
-    let onlineMyRole = null;
-    let roomChannel = null;
-    if (window.gameState) window.gameState.isGameStarted = false;
+    try {
+      // 1. タイマー・通信チャンネルの解除
+      if (roomPollingInterval) {
+        clearInterval(roomPollingInterval);
+        roomPollingInterval = null;
+      }
+      if (typeof roomChannel !== 'undefined' && roomChannel && supabaseClient) {
+        supabaseClient.removeChannel(roomChannel);
+        roomChannel = null;
+      }
 
-    if (roomPollingInterval) clearInterval(roomPollingInterval);
-    document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+      // 2. 変数の安全な初期化
+      onlineRoomId = null;
+      onlineMyRole = null;
+      if (window.gameState) {
+        window.gameState.isGameStarted = false;
+        window.gameState.selectedAttackerIdx = null;
+        window.gameState.pendingSummonIndex = null;
+        window.gameState.pendingWeaponIndex = null;
+      }
 
-    document.getElementById("gameScreen").classList.add("hidden");
-    document.getElementById("casualSelectScreen").classList.add("hidden");
-    document.getElementById("onlineLobbyScreen").classList.add("hidden");
-    document.getElementById("deckScreen").classList.add("hidden");
-    document.getElementById("gachaScreen").classList.add("hidden");
-    document.getElementById("adminScreen").classList.add("hidden");
-    document.getElementById("marketScreen").classList.add("hidden");
-    document.getElementById("tradeScreen").classList.add("hidden");
-    document.getElementById("customScreen").classList.add("hidden");
-    document.getElementById("titleScreen").classList.remove("hidden");
+      // 3. アクティブなすべてのモーダル（勝敗・カード拡大・装備選択など）を非表示にする
+      document.querySelectorAll('.modal').forEach(m => {
+        m.classList.remove('active');
+        m.style.display = 'none'; // インラインスタイルも強制解除
+      });
 
-    updateTitleStatsUI();
-    checkActiveEvent();
-    try { playBGM('title'); } catch(e){}
+      // 4. 全画面セクションを一旦非表示
+      const screens = [
+        "gameScreen", "casualSelectScreen", "onlineLobbyScreen", 
+        "deckScreen", "gachaScreen", "adminScreen", 
+        "marketScreen", "tradeScreen", "customScreen"
+      ];
+      screens.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add("hidden");
+      });
+
+      // 5. タイトル画面を表示
+      const titleEl = document.getElementById("titleScreen");
+      if (titleEl) titleEl.classList.remove("hidden");
+
+      // 6. UIとBGMの更新
+      updateTitleStatsUI();
+      checkActiveEvent();
+      try { playBGM('title'); } catch(e){}
+
+    } catch (e) {
+      console.error("showTitleDirect 強制実行エラー:", e);
+      // 万が一エラーが起きてもタイトル画面だけは強制表示する
+      const titleEl = document.getElementById("titleScreen");
+      if (titleEl) titleEl.classList.remove("hidden");
+    }
   }
   window.showTitleDirect = showTitleDirect;
 
+  // 🌟 降参・タイトル復帰ボタン用処理
   async function surrenderAndReturn() {
-    const isRanked = window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked";
-    const currentRoomId = onlineRoomId;
-    const isP1 = onlineMyRole === 'player1';
+    try {
+      const isRanked = window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked";
+      const currentRoomId = onlineRoomId;
+      const isP1 = onlineMyRole === 'player1';
 
-    let isPlaying = false;
+      // 対戦中に自主退室した場合のペナルティ処理
+      if (currentRoomId && window.gameState.isGameStarted && isRanked) {
+        const myRate = window.userProfile.rate || 1000;
+        window.userProfile.rate = Math.max(0, myRate - 32);
+        window.userProfile.losses++;
+        saveUserProfile();
 
-    if (currentRoomId && supabaseClient) {
-      try {
-        const { data: roomData } = await supabaseClient
-          .from('rooms')
-          .select('status')
-          .eq('id', currentRoomId)
-          .maybeSingle();
-
-        if (roomData && roomData.status === 'playing') {
-          isPlaying = true;
+        if (window.gameState.mode === "event_ranked") {
+          updateEventParticipantStats(false);
         }
-      } catch (e) {
-        console.error("部屋状態確認エラー:", e);
       }
-    }
 
-    if (isPlaying && isRanked) {
-      const myRate = window.userProfile.rate || 1000;
-      window.userProfile.rate = Math.max(0, myRate - 32);
-      window.userProfile.losses++;
-      saveUserProfile();
-
-      if (window.gameState.mode === "event_ranked") {
-        updateEventParticipantStats(false);
+      // Supabaseへ非同期通知（レスポンスを待たずに画面遷移を優先）
+      if (currentRoomId && supabaseClient) {
+        const mePrefix = isP1 ? 'p1' : 'p2';
+        supabaseClient.from('rooms').update({
+          [`${mePrefix}_surrendered`]: true,
+          updated_at: new Date().toISOString()
+        }).eq('id', currentRoomId).catch(() => {});
       }
+    } catch (err) {
+      console.error("surrenderAndReturn エラー:", err);
+    } finally {
+      // 成功・失敗にかかわらず確実にタイトルへ復帰
+      showTitleDirect();
     }
-
-    if (currentRoomId && supabaseClient) {
-      try {
-        if (!isPlaying) {
-          await supabaseClient.from('rooms').delete().eq('id', currentRoomId);
-        } else {
-          const mePrefix = isP1 ? 'p1' : 'p2';
-          await supabaseClient.from('rooms').update({
-            [`${mePrefix}_surrendered`]: true,
-            updated_at: new Date().toISOString()
-          }).eq('id', currentRoomId);
-        }
-      } catch (e) {
-        console.error("退室処理エラー:", e);
-      }
-    }
-
-    showTitleDirect();
   }
+  window.surrenderAndReturn = surrenderAndReturn;
+
+  window.showTitle = function() {
+    surrenderAndReturn();
+  };
+    showTitleDirect();
+  
   window.surrenderAndReturn = surrenderAndReturn;
 
   async function showTitle() {
