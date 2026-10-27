@@ -2551,17 +2551,17 @@ async function showTitle() {
         window.gameState.my.mp = 5;
         window.gameState.opp.mp = 5;
 
-        await supabaseClient.from('rooms').update({
-          status: 'playing',
-          p2_name: myName,
-          p2_rate: window.userProfile.rate || 1000,
-          p2_hand: window.gameState.my.hand.map(c => c.id),
-          p2_hp: 60,
-          p2_deck_count: 15,
-          updated_at: new Date().toISOString(),
-          log: [...(validOpponentRoom.log || []), `${myName} (Rate:${window.userProfile.rate}) が参戦！対戦開始！`]
-        }).eq('id', onlineRoomId);
-
+       // ⚔️ ゲスト参戦時の更新処理
+  await supabaseClient.from('rooms').update({
+    status: 'playing',
+    p2_name: myName,
+    p2_rate: window.userProfile.rate || 1000,
+    p2_hand: window.gameState.my.hand.map(c => c.id),
+    p2_hp: 60,
+    p2_mp: 5, // 🌟 MP初期値
+    p2_deck_count: 15,
+    updated_at: new Date().toISOString()
+  }).eq('id', onlineRoomId);
         subscribeRoomUpdates();
       } else {
         onlineRoomId = "RANK_" + Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -2588,7 +2588,21 @@ async function showTitle() {
           updated_at: new Date().toISOString(),
           log: [`対戦相手を募集中... (ホスト:${myName})`]
         }]);
+async function fetchCurrentRoomData() {
+    if (!onlineRoomId) return;
+    const { data, error } = await supabaseClient
+      .from('rooms')
+      .select('*')
+      .eq('id', onlineRoomId)
+      .single();
 
+    if (data && !error) {
+      if (data.status === 'playing') {
+        window.gameState.isGameStarted = true;
+      }
+      applyRoomData(data);
+    }
+  }
         subscribeRoomUpdates();
       }
     } catch (err) {
@@ -2673,34 +2687,39 @@ async function showTitle() {
     subscribeRoomUpdates();
   }
 
-  function subscribeRoomUpdates() {
-    document.getElementById("onlineLobbyScreen").classList.add("hidden");
-    document.getElementById("gameScreen").classList.remove("hidden");
-    
-    let modeName = "🌐 フリー対戦";
-    if (window.gameState.mode === "ranked") modeName = "🏆 ランクマッチ";
-    if (window.gameState.mode === "event_ranked") modeName = `🔥 ${currentEvent ? currentEvent.title : 'イベントマッチ'}`;
-    
-    document.getElementById("modeBanner").textContent = `${modeName} - 部屋ID: ${onlineRoomId}`;
+ function subscribeRoomUpdates() {
+    if (!onlineRoomId) return;
 
-    try { playBGM('battle'); } catch(e){}
-    fetchRoomData();
-
-    if (roomPollingInterval) clearInterval(roomPollingInterval);
-    roomPollingInterval = setInterval(() => {
-      fetchRoomData();
-    }, 1500);
-
-    if (supabaseClient) {
-      supabaseClient
-        .channel(`room:${onlineRoomId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${onlineRoomId}` }, (payload) => {
-          applyRoomData(payload.new);
-        })
-        .subscribe();
+    // 既存チャンネルがあれば解除して再接続
+    if (roomChannel) {
+      supabaseClient.removeChannel(roomChannel);
     }
-  }
 
+    roomChannel = supabaseClient
+      .channel('room-' + onlineRoomId)
+      .on('postgres_changes', {
+        event: '*', // INSERT / UPDATE どちらも検知
+        schema: 'public',
+        table: 'rooms',
+        filter: `id=eq.${onlineRoomId}`
+      }, (payload) => {
+        console.log("部屋更新を受信:", payload);
+        if (payload.new) {
+          // 相手が参戦して playing になった場合も即座に反応
+          if (payload.new.status === 'playing') {
+            window.gameState.isGameStarted = true;
+          }
+          applyRoomData(payload.new);
+        }
+      })
+      .subscribe((status) => {
+        console.log("Supabase接続ステータス:", status);
+        if (status === 'SUBSCRIBED') {
+          // 接続成功時に最新の部屋状態を1度手動取得して同期
+          fetchCurrentRoomData();
+        }
+      });
+  }
   async function fetchRoomData() {
     if (!onlineRoomId || !supabaseClient) return;
     try {
