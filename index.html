@@ -2214,50 +2214,48 @@
   });
 
   // 🌟 タイトルに戻る（対戦中・待機中に応じたポイント減算処理の分離）
+  // 🌟 タイトルに戻る（対戦中・待機中に応じたポイント減算処理の即時判定版）
   async function showTitle() {
-    if ((window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") && onlineRoomId && supabaseClient) {
+    const currentRoomId = onlineRoomId;
+    const isP1 = onlineMyRole === 'player1';
+    const isRanked = window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked";
+    const isPlaying = window.gameState.isGameStarted === true;
+
+    // 1. 対戦相手がいて実際にゲームが始まっている（playing）場合のみペナルティ適用
+    if (isPlaying && isRanked) {
+      const myRate = window.userProfile.rate || 1000;
+      window.userProfile.rate = Math.max(0, myRate - 32);
+      window.userProfile.losses++;
+      saveUserProfile();
+
+      if (window.gameState.mode === "event_ranked") {
+        updateEventParticipantStats(false);
+      }
+    }
+
+    // 2. 通信処理（バックグラウンドで実行）
+    if ((window.gameState.mode === "online" || isRanked) && currentRoomId && supabaseClient) {
       try {
-        // 現在の部屋データからステータスを取得
-        const { data: roomData } = await supabaseClient
-          .from('rooms')
-          .select('status')
-          .eq('id', onlineRoomId)
-          .maybeSingle();
-
-        const isP1 = onlineMyRole === 'player1';
-
-        // 1. 相手がおらず待機中 (waiting) の場合 ➔ レート減少ペナルティなしで部屋削除してタイトルへ
-        if (!roomData || roomData.status === 'waiting') {
-          await supabaseClient.from('rooms').delete().eq('id', onlineRoomId);
-        } 
-        // 2. 相手がいて対戦中 (playing) の場合 ➔ レートを減算して降参処理
-        else if (roomData.status === 'playing') {
+        if (!isPlaying) {
+          // 待機中なら部屋を削除
+          await supabaseClient.from('rooms').delete().eq('id', currentRoomId);
+        } else {
+          // 対戦中なら降参フラグを送信
           const mePrefix = isP1 ? 'p1' : 'p2';
-
-          if (window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
-            const myRate = window.userProfile.rate || 1000;
-            window.userProfile.rate = Math.max(0, myRate - 32);
-            window.userProfile.losses++;
-            saveUserProfile();
-
-            if (window.gameState.mode === "event_ranked") {
-              updateEventParticipantStats(false);
-            }
-          }
-
           await supabaseClient.from('rooms').update({
             [`${mePrefix}_surrendered`]: true,
             updated_at: new Date().toISOString()
-          }).eq('id', onlineRoomId);
+          }).eq('id', currentRoomId);
         }
-
       } catch (e) {
-        console.error("離脱処理エラー:", e);
-      } finally {
-        onlineRoomId = null;
-        onlineMyRole = null;
+        console.error("離脱通信エラー:", e);
       }
     }
+
+    // 3. 状態のリセット
+    onlineRoomId = null;
+    onlineMyRole = null;
+    window.gameState.isGameStarted = false;
 
     if (roomPollingInterval) clearInterval(roomPollingInterval);
     document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
