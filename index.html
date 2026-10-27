@@ -2457,6 +2457,7 @@
   window.searchRankedMatch = searchRankedMatch;
 
   // 🌟 通信チャンネル接続（自動画面更新付き）
+ // 🌟 相手の降参検知・勝敗連動付きリアルタイム通信
   function subscribeRoomUpdates() {
     if (!onlineRoomId || !supabaseClient) return;
 
@@ -2473,87 +2474,25 @@
         filter: `id=eq.${onlineRoomId}`
       }, (payload) => {
         if (payload.new) {
-          // ホスト待機中にゲストが入ってきた時の処理
+          // ホスト待機中に相手が参加した場合
           if (!window.gameState.isGameStarted && payload.new.status === 'playing') {
             window.gameState.isGameStarted = true;
-            addLog("対戦相手が参加しました！バトル開始！", "important");
+            addLog("🎉 対戦相手が参加しました！バトル開始！", "effective");
           }
           applyRoomData(payload.new);
         }
       })
-      .subscribe((status) => {
-        console.log("Supabase Realtime 接続状態:", status);
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log("Supabase Realtime 接続完了");
+        } else if (err) {
+          addLog(`⚠️ 通信エラー: ${err.message}`, "damage");
+        }
       });
   }
   window.subscribeRoomUpdates = subscribeRoomUpdates;
-  window.searchRankedMatch = searchRankedMatch;
 
-  async function joinOnlineRoom() {
-    if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
-
-    const code = document.getElementById("onlineRoomCodeInput").value.trim().toUpperCase();
-    if (!code) return alert("合言葉を入力してください");
-
-    const { data, error } = await supabaseClient
-      .from('rooms')
-      .select('*')
-      .eq('id', code);
-
-    if (error || !data || data.length === 0) return alert("部屋が見つかりません");
-    const room = data[0];
-    if (room.status !== 'waiting') return alert("満員か対戦中の部屋です");
-
-    onlineRoomId = code;
-    onlineMyRole = 'player2';
-    window.gameState.mode = "online";
-    hasDrawnThisTurn = false;
-
-    const fullDeck = buildDeckFromIds(window.userProfile.deck);
-    window.gameState.my.hand = fullDeck.slice(0, 5);
-    window.gameState.my.deck = fullDeck.slice(5);
-
-    await supabaseClient.from('rooms').update({
-      status: 'playing',
-      p2_name: window.userProfile.name,
-      p2_rate: window.userProfile.rate || 1000,
-      p2_hand: window.gameState.my.hand.map(c => c.id),
-      p2_hp: 60,
-      p2_deck_count: 15,
-      log: [...(room.log || []), `${window.userProfile.name} が参加しました！対戦開始！`]
-    }).eq('id', onlineRoomId);
-
-    document.getElementById("onlineLobbyScreen").classList.add("hidden");
-    document.getElementById("gameScreen").classList.remove("hidden");
-    subscribeRoomUpdates();
-  }
-  window.joinOnlineRoom = joinOnlineRoom;
-
-  function subscribeRoomUpdates() {
-    if (!onlineRoomId || !supabaseClient) return;
-
-    if (typeof roomChannel !== 'undefined' && roomChannel) {
-      supabaseClient.removeChannel(roomChannel);
-    }
-
-    roomChannel = supabaseClient
-      .channel('room-' + onlineRoomId)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'rooms',
-        filter: `id=eq.${onlineRoomId}`
-      }, (payload) => {
-        if (payload.new) {
-          if (payload.new.status === 'playing') {
-            window.gameState.isGameStarted = true;
-          }
-          applyRoomData(payload.new);
-        }
-      })
-      .subscribe();
-  }
-  window.subscribeRoomUpdates = subscribeRoomUpdates;
-
+  // 🌟 部屋データの同期＆降参フラグ検知処理
   function applyRoomData(roomData) {
     if (!roomData) return;
 
@@ -2562,15 +2501,31 @@
       const mePrefix = isP1 ? 'p1' : 'p2';
       const oppPrefix = isP1 ? 'p2' : 'p1';
 
+      // 🏳️ 相手が降参（surrendered: true）したかをチェック
+      const isOppSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
+      if (isOppSurrendered && window.gameState.isGameStarted && window.gameState.opp.hp > 0) {
+        addLog(`🏳️ 対戦相手が降参しました！`, "effective");
+        // 相手のHPを0にして強制的に勝利判定を実行
+        window.gameState.opp.hp = 0;
+        updateUI();
+        checkWinLoss();
+        return;
+      }
+
+      // 手番の同期
       window.gameState.turn = roomData.current_turn === 'player1' ? (isP1 ? 'player' : 'opp') : (isP1 ? 'opp' : 'player');
 
+      // 自分のステータス同期
       window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 60;
       window.gameState.my.monsters = roomData[`${mePrefix}_field`] || [null, null, null, null, null];
       window.gameState.my.rate = roomData[`${mePrefix}_rate`] || window.userProfile.rate || 1000;
 
+      // 相手のステータス同期
       const fetchedOppName = roomData[`${oppPrefix}_name`];
       window.gameState.opp.name = fetchedOppName ? fetchedOppName : "対戦相手";
       window.gameState.opp.hp = roomData[`${oppPrefix}_hp`] ?? 60;
+      onlineOppRate = roomData[`${oppPrefix}_rate`] || 1000;
+      onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`] ?? 15;
       
       const rawOppMonsters = roomData[`${oppPrefix}_field`] || [null, null, null, null, null];
       window.gameState.opp.monsters = rawOppMonsters.map(m => {
@@ -2579,21 +2534,18 @@
         return { ...(baseCard || {}), ...m };
       });
 
+      // MPの同期
       const myMpFromDb = roomData[`${mePrefix}_mp`];
       const oppMpFromDb = roomData[`${oppPrefix}_mp`];
 
       if (myMpFromDb !== undefined && myMpFromDb !== null) {
         window.gameState.my.mp = Math.min(40, myMpFromDb);
-      } else if (window.gameState.my.mp === undefined) {
-        window.gameState.my.mp = 5;
       }
-
       if (oppMpFromDb !== undefined && oppMpFromDb !== null) {
         window.gameState.opp.mp = Math.min(40, oppMpFromDb);
-      } else if (window.gameState.opp.mp === undefined) {
-        window.gameState.opp.mp = 5;
       }
 
+      // 手札の同期
       const myHandIds = roomData[`${mePrefix}_hand`];
       if (Array.isArray(myHandIds) && typeof buildDeckFromIds === 'function') {
         window.gameState.my.hand = buildDeckFromIds(myHandIds);
