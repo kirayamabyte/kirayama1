@@ -2458,105 +2458,45 @@
 
   // 🌟 通信チャンネル接続（自動画面更新付き）
  // 🌟 相手の降参検知・勝敗連動付きリアルタイム通信
-  // 🌟 相手の降参検知・勝敗連動付きリアルタイム通信
-  function subscribeRoomUpdates() {
-    if (!onlineRoomId || !supabaseClient) return;
-
-    if (typeof roomChannel !== 'undefined' && roomChannel) {
-      supabaseClient.removeChannel(roomChannel);
-    }
-
-    roomChannel = supabaseClient
-      .channel('room-' + onlineRoomId)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'rooms',
-        filter: `id=eq.${onlineRoomId}`
-      }, (payload) => {
-        if (payload.new) {
-          // ホスト待機中に相手が参加した場合
-          if (!window.gameState.isGameStarted && payload.new.status === 'playing') {
-            window.gameState.isGameStarted = true;
-            addLog("🎉 対戦相手が参加しました！バトル開始！", "effective");
-          }
-          applyRoomData(payload.new);
-        }
-      })
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log("Supabase Realtime 接続完了");
-        } else if (err) {
-          addLog(`⚠️ 通信エラー: ${err.message}`, "damage");
-        }
-      });
-  }
-  window.subscribeRoomUpdates = subscribeRoomUpdates;
-
-  // 🌟 部屋データの同期＆降参フラグ検知処理
-  function applyRoomData(roomData) {
-    if (!roomData) return;
-
+  // 🌟 降参・タイトル復帰（絶対に止まらない安全処理版）
+  async function surrenderAndReturn() {
     try {
+      const isRanked = window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked";
+      const currentRoomId = onlineRoomId;
       const isP1 = onlineMyRole === 'player1';
-      const mePrefix = isP1 ? 'p1' : 'p2';
-      const oppPrefix = isP1 ? 'p2' : 'p1';
 
-      // 🏳️ 相手が降参（surrendered: true）したかをチェック
-      const isOppSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
-      if (isOppSurrendered && window.gameState.isGameStarted && window.gameState.opp.hp > 0) {
-        addLog(`🏳️ 対戦相手が降参しました！`, "effective");
-        // 相手のHPを0にして強制的に勝利判定を実行
-        window.gameState.opp.hp = 0;
-        updateUI();
-        checkWinLoss();
-        return;
+      // 対戦中に自主退室した場合のレート・戦績ペナルティ処理
+      if (currentRoomId && window.gameState.isGameStarted && isRanked) {
+        const myRate = window.userProfile.rate || 1000;
+        window.userProfile.rate = Math.max(0, myRate - 32);
+        window.userProfile.losses++;
+        saveUserProfile();
+
+        if (window.gameState.mode === "event_ranked") {
+          updateEventParticipantStats(false);
+        }
       }
 
-      // 手番の同期
-      window.gameState.turn = roomData.current_turn === 'player1' ? (isP1 ? 'player' : 'opp') : (isP1 ? 'opp' : 'player');
-
-      // 自分のステータス同期
-      window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 60;
-      window.gameState.my.monsters = roomData[`${mePrefix}_field`] || [null, null, null, null, null];
-      window.gameState.my.rate = roomData[`${mePrefix}_rate`] || window.userProfile.rate || 1000;
-
-      // 相手のステータス同期
-      const fetchedOppName = roomData[`${oppPrefix}_name`];
-      window.gameState.opp.name = fetchedOppName ? fetchedOppName : "対戦相手";
-      window.gameState.opp.hp = roomData[`${oppPrefix}_hp`] ?? 60;
-      onlineOppRate = roomData[`${oppPrefix}_rate`] || 1000;
-      onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`] ?? 15;
-      
-      const rawOppMonsters = roomData[`${oppPrefix}_field`] || [null, null, null, null, null];
-      window.gameState.opp.monsters = rawOppMonsters.map(m => {
-        if (!m) return null;
-        const baseCard = typeof CARD_DATABASE !== 'undefined' ? CARD_DATABASE.find(c => c.id === m.id) : null;
-        return { ...(baseCard || {}), ...m };
-      });
-
-      // MPの同期
-      const myMpFromDb = roomData[`${mePrefix}_mp`];
-      const oppMpFromDb = roomData[`${oppPrefix}_mp`];
-
-      if (myMpFromDb !== undefined && myMpFromDb !== null) {
-        window.gameState.my.mp = Math.min(40, myMpFromDb);
+      // Supabase側の部屋ステータス更新/削除（通信エラーが起きても無視して画面遷移を進める）
+      if (currentRoomId && supabaseClient) {
+        const mePrefix = isP1 ? 'p1' : 'p2';
+        
+        // バックグラウンドで非同期送信（awaitで処理をブロックしない）
+        supabaseClient.from('rooms').update({
+          [`${mePrefix}_surrendered`]: true,
+          updated_at: new Date().toISOString()
+        }).eq('id', currentRoomId).then(({ error }) => {
+          if (error) console.warn("降参フラグ送信警告:", error.message);
+        }).catch(err => console.warn("降参通信例外:", err));
       }
-      if (oppMpFromDb !== undefined && oppMpFromDb !== null) {
-        window.gameState.opp.mp = Math.min(40, oppMpFromDb);
-      }
-
-      // 手札の同期
-      const myHandIds = roomData[`${mePrefix}_hand`];
-      if (Array.isArray(myHandIds) && typeof buildDeckFromIds === 'function') {
-        window.gameState.my.hand = buildDeckFromIds(myHandIds);
-      }
-
-      updateUI();
-    } catch (e) {
-      console.error("applyRoomData同期エラー:", e);
+    } catch (err) {
+      console.error("surrenderAndReturn 内部エラー:", err);
+    } finally {
+      // 通信の成功・失敗に関わらず必ずタイトル画面へ復帰させる
+      showTitleDirect();
     }
   }
+  window.surrenderAndReturn = surrenderAndReturn;
   async function syncOnlineAction() {
     if (!supabaseClient) return;
 
