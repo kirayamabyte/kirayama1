@@ -1502,7 +1502,79 @@
       dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
     };
   }
+// 🌟 1. 画面遷移用関数の定義
+  window.openMarketScreen = function() {
+    var titleEl = document.getElementById("titleScreen");
+    var marketEl = document.getElementById("marketScreen");
+    if (titleEl) titleEl.classList.add("hidden");
+    if (marketEl) marketEl.classList.remove("hidden");
+    var coinEl = document.getElementById("marketCoinDisplay");
+    if (coinEl && window.userProfile) coinEl.textContent = window.userProfile.coins || 1000;
+  };
 
+  window.openTradeScreen = function() {
+    var titleEl = document.getElementById("titleScreen");
+    var tradeEl = document.getElementById("tradeScreen");
+    if (titleEl) titleEl.classList.add("hidden");
+    if (tradeEl) tradeEl.classList.remove("hidden");
+  };
+
+  window.openProfileCustomScreen = function() {
+    var titleEl = document.getElementById("titleScreen");
+    var customEl = document.getElementById("customScreen");
+    if (titleEl) titleEl.classList.add("hidden");
+    if (customEl) customEl.classList.remove("hidden");
+    renderProfileCustomization();
+  };
+
+  function renderProfileCustomization() {
+    const titleContainer = document.getElementById("titleListContainer");
+    if (titleContainer) {
+      const titles = [
+        "《見習いデュエリスト》",
+        "《赤城の精鋭》",
+        "《カードマスター》",
+        "《伝説のデュエリスト》"
+      ];
+      titleContainer.innerHTML = titles.map(t => `
+        <button type="button" class="btn ${window.userProfile.equippedTitle === t ? 'primary' : ''}" 
+                onclick="selectTitle('${t}')" style="font-size:0.75rem; padding:6px;">
+          ${t}
+        </button>
+      `).join("");
+    }
+
+    const badgeContainer = document.getElementById("badgeListContainer");
+    if (badgeContainer) {
+      const badges = ["🔰", "⚔️", "🛡️", "🔥", "👑", "💎"];
+      badgeContainer.innerHTML = badges.map(b => `
+        <button type="button" class="btn ${window.userProfile.equippedBadge === b ? 'primary' : ''}" 
+                onclick="selectBadge('${b}')" style="font-size:1.1rem; padding:6px;">
+          ${b}
+        </button>
+      `).join("");
+    }
+  }
+
+  window.selectTitle = function(title) {
+    window.userProfile.equippedTitle = title;
+    renderProfileCustomization();
+  };
+
+  window.selectBadge = function(badge) {
+    window.userProfile.equippedBadge = badge;
+    renderProfileCustomization();
+  };
+
+  window.openRulesModal = function() {
+    var rulesModal = document.getElementById("rulesModal");
+    if (rulesModal) rulesModal.classList.add("active");
+  };
+
+  window.closeRulesModal = function() {
+    var rulesModal = document.getElementById("rulesModal");
+    if (rulesModal) rulesModal.classList.remove("active");
+  };
   // 🔍 カード拡大表示処理
   function openCardZoomModal(cardData) {
     if (!cardData) return;
