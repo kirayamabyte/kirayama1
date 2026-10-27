@@ -2220,8 +2220,9 @@
   // 🌟 1. 純粋な画面切り替え用関数
   // 🌟 画面遷移専用関数
   function showTitleDirect() {
-    onlineRoomId = null;
-    onlineMyRole = null;
+    let onlineRoomId = null;
+    let onlineMyRole = null;
+    let roomChannel = null;
     if (window.gameState) window.gameState.isGameStarted = false;
 
     if (roomPollingInterval) clearInterval(roomPollingInterval);
@@ -2648,56 +2649,36 @@ async function showTitle() {
   }
 
  function subscribeRoomUpdates() {
-    if (!onlineRoomId) return;
+  if (!onlineRoomId) return;
 
-    // 既存チャンネルがあれば解除して再接続
-    if (roomChannel) {
-      supabaseClient.removeChannel(roomChannel);
-    }
+  // 🌟 変数が未定義でもエラーにならないよう安全にチェック
+  if (typeof roomChannel !== 'undefined' && roomChannel) {
+    supabaseClient.removeChannel(roomChannel);
+  }
 
-    roomChannel = supabaseClient
-      .channel('room-' + onlineRoomId)
-      .on('postgres_changes', {
-        event: '*', // INSERT / UPDATE どちらも検知
-        schema: 'public',
-        table: 'rooms',
-        filter: `id=eq.${onlineRoomId}`
-      }, (payload) => {
-        console.log("部屋更新を受信:", payload);
-        if (payload.new) {
-          // 相手が参戦して playing になった場合も即座に反応
-          if (payload.new.status === 'playing') {
-            window.gameState.isGameStarted = true;
-          }
-          applyRoomData(payload.new);
+  roomChannel = supabaseClient
+    .channel('room-' + onlineRoomId)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'rooms',
+      filter: `id=eq.${onlineRoomId}`
+    }, (payload) => {
+      if (payload.new) {
+        if (payload.new.status === 'playing') {
+          window.gameState.isGameStarted = true;
         }
-      })
-      .subscribe((status) => {
-        console.log("Supabase接続ステータス:", status);
-        if (status === 'SUBSCRIBED') {
-          // 接続成功時に最新の部屋状態を1度手動取得して同期
+        applyRoomData(payload.new);
+      }
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        if (typeof fetchCurrentRoomData === 'function') {
           fetchCurrentRoomData();
         }
-      });
-  }
-  async function fetchRoomData() {
-    if (!onlineRoomId || !supabaseClient) return;
-    try {
-      const { data, error } = await supabaseClient
-        .from('rooms')
-        .select('*')
-        .eq('id', onlineRoomId);
-
-      if (error) return;
-
-      if (data && data.length > 0) {
-        applyRoomData(data[0]);
       }
-    } catch(e) {
-      console.error("fetchRoomData 例外:", e);
-    }
-  }
-
+    });
+}
   // 🌟 通信データ（相手カードの復元・名前反映・降参検知）処理
   // 🌟 通信データ更新（待機状態での誤判定防止・降参検知完全対応版）
   function applyRoomData(roomData) {
