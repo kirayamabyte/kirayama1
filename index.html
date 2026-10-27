@@ -2521,14 +2521,9 @@ async function showTitle() {
  async function searchRankedMatch() {
   try {
     const myName = window.userProfile?.name || "プレイヤー";
-    const deckIds = window.userProfile?.deck || [];
-    
-    if (!deckIds.length) {
-      alert("デッキが設定されていません。");
-      return;
-    }
+    const deckIds = window.userProfile?.deck || [1, 2, 3, 4, 5];
 
-    // 🌟 1. 待機中の部屋を検索（is_ranked などの指定を外してシンプルに検索）
+    // 1. 待機部屋の検索（400エラー防止：基本条件のみ）
     const { data: waitingRooms, error: fetchErr } = await supabaseClient
       .from('rooms')
       .select('*')
@@ -2551,19 +2546,18 @@ async function showTitle() {
       window.gameState.my.hand = fullDeck.slice(0, 5);
       window.gameState.my.deck = fullDeck.slice(5);
 
-      // MPはJavaScript側で保持（初期値 5）
+      // 初期MP (5)
       window.gameState.my.mp = 5;
       window.gameState.opp.mp = 5;
 
       const roomIdEl = document.getElementById("roomIdDisplay") || document.getElementById("onlineRoomId");
       if (roomIdEl) roomIdEl.textContent = onlineRoomId;
 
-      // 🌟 2. 参戦更新（DBに存在する基本カラムのみ送信）
+      // 🌟 updateErr を正しく受け取る
       const { error: updateErr } = await supabaseClient.from('rooms').update({
         status: 'playing',
         p2_name: myName,
         p2_rate: window.userProfile.rate || 1000,
-        p2_hand: window.gameState.my.hand.map(c => c.id),
         p2_hp: 60,
         p2_deck_count: 15,
         updated_at: new Date().toISOString()
@@ -2584,37 +2578,27 @@ async function showTitle() {
       window.gameState.my.hand = fullDeck.slice(0, 5);
       window.gameState.my.deck = fullDeck.slice(5);
 
-      // MPはJavaScript側で保持（初期値 5）
+      // 初期MP (5)
       window.gameState.my.mp = 5;
       window.gameState.opp.mp = 5;
 
       const roomIdEl = document.getElementById("roomIdDisplay") || document.getElementById("onlineRoomId");
       if (roomIdEl) roomIdEl.textContent = onlineRoomId;
 
-      // 🌟 3. 部屋作成（DBに存在する基本カラムのみ送信）
-      // ⏳ ホスト作成時（rooms.insert）
-await supabaseClient.from('rooms').insert([{
-  id: onlineRoomId,
-  status: 'waiting',
-  current_turn: 'player1',
-  p1_name: myName,
-  p1_rate: window.userProfile.rate || 1000,
-  p1_hp: 60,
-  p1_deck_count: 15,
-  p2_hp: 60,
-  p2_deck_count: 15,
-  updated_at: new Date().toISOString()
-}]);
+      // 🌟 insertErr を正しく受け取る（const { error: insertErr }）
+      const { error: insertErr } = await supabaseClient.from('rooms').insert([{
+        id: onlineRoomId,
+        status: 'waiting',
+        current_turn: 'player1',
+        p1_name: myName,
+        p1_rate: window.userProfile.rate || 1000,
+        p1_hp: 60,
+        p1_deck_count: 15,
+        p2_hp: 60,
+        p2_deck_count: 15,
+        updated_at: new Date().toISOString()
+      }]);
 
-// ⚔️ ゲスト参戦時（rooms.update）
-await supabaseClient.from('rooms').update({
-  status: 'playing',
-  p2_name: myName,
-  p2_rate: window.userProfile.rate || 1000,
-  p2_hp: 60,
-  p2_deck_count: 15,
-  updated_at: new Date().toISOString()
-}).eq('id', onlineRoomId);
       if (insertErr) console.error("部屋作成エラー:", insertErr);
 
       subscribeRoomUpdates();
