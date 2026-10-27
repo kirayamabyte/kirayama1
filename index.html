@@ -149,54 +149,73 @@
 
     .stats-panel strong { color: var(--gold-color); }
 
-    /* 📢 お知らせ枠 (視認性向上CSS) */
-    .notice-panel {
-      background: #111827;
-      border: 1px solid #00fff5;
-      border-radius: 8px;
-      padding: 10px 12px;
-      width: 100%;
-      max-width: 320px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      text-align: left;
-      max-height: 140px;
-      overflow-y: auto;
-      box-shadow: 0 0 10px rgba(0, 255, 245, 0.15);
-    }
+   /* 📢 お知らせ枠 (視認性・応答性大幅向上版) */
+.notice-panel {
+  background: #111827;
+  border: 1px solid #00fff5;
+  border-radius: 8px;
+  padding: 10px 12px;
+  width: 100%;
+  max-width: 440px; /* PC/スマホ共通で他の枠（rulesなど）と幅を統一 */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  max-height: 180px; /* 少し高さを広げて読みやすく */
+  overflow-y: auto;
+  box-shadow: 0 0 12px rgba(0, 255, 245, 0.2);
+}
 
-    .notice-header {
-      font-size: 0.85rem;
-      font-weight: bold;
-      color: #00fff5;
-      border-bottom: 1px solid rgba(0, 255, 245, 0.3);
-      padding-bottom: 4px;
-    }
+/* カスタムスクロールバーで操作性を向上 */
+.notice-panel::-webkit-scrollbar {
+  width: 6px;
+}
+.notice-panel::-webkit-scrollbar-thumb {
+  background: #00adb5;
+  border-radius: 3px;
+}
+.notice-panel::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+}
 
-    #noticeList {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+.notice-header {
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: #00fff5;
+  border-bottom: 1px solid rgba(0, 255, 245, 0.3);
+  padding-bottom: 6px;
+  position: sticky; /* スクロールしてもヘッダーを上部に固定 */
+  top: 0;
+  background: #111827;
+  z-index: 2;
+}
 
-    .notice-item {
-      font-size: 0.78rem;
-      color: #ffffff;
-      line-height: 1.4;
-      background: rgba(255, 255, 255, 0.05);
-      padding: 6px 8px;
-      border-radius: 4px;
-      border-left: 3px solid #00adb5;
-    }
+#noticeList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
-    .notice-item strong {
-      color: #ffd700;
-      display: block;
-      margin-bottom: 2px;
-      font-size: 0.82rem;
-    }
+.notice-item {
+  font-size: 0.82rem; /* 文字サイズを少し大きく */
+  color: #ffffff;
+  line-height: 1.5; /* 行間を広げて視認性をアップ */
+  background: rgba(255, 255, 255, 0.06);
+  padding: 8px 10px;
+  border-radius: 6px;
+  border-left: 4px solid #00fff5;
+  word-break: break-word; /* スマホでの長文・URLのはみ出しを防止 */
+  overflow-wrap: anywhere;
+}
 
+.notice-item strong {
+  color: #ffd700;
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.88rem;
+  letter-spacing: 0.02em;
+}
     .event-panel {
       background: rgba(255, 140, 0, 0.12);
       border: 2px solid #ff8c00;
@@ -1592,16 +1611,17 @@
       if (list && data && data.length > 0) {
         list.innerHTML = "";
         data.forEach(n => {
-          list.innerHTML += `<div class="notice-item"><strong>${n.title}</strong><br>${n.body}</div>`;
+          // 本文中の改行（\n）をHTMLの改行（<br>）に自動変換する処理を追加
+          const formattedBody = (n.body || "").replace(/\n/g, "<br>");
+          list.innerHTML += `<div class="notice-item"><strong>📢 ${n.title}</strong><div style="margin-top:4px; color:#e0e0e0;">${formattedBody}</div></div>`;
         });
       } else if (list) {
-        list.innerHTML = `<div class="notice-item">現在お知らせはありません。</div>`;
+        list.innerHTML = `<div class="notice-item" style="color:#aaa; text-align:center;">現在新しいお知らせはありません。</div>`;
       }
     } catch (e) {
       console.error("お知らせ取得エラー:", e);
     }
   }
-
   function switchAdminTab(tab) {
     document.getElementById("tabBtnEvents").classList.toggle("active", tab === 'events');
     document.getElementById("tabBtnNotices").classList.toggle("active", tab === 'notices');
