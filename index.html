@@ -2561,7 +2561,7 @@ async function showTitle() {
       const oppUpdatedAt = roomData.updated_at ? new Date(roomData.updated_at).getTime() : Date.now();
       const now = Date.now();
       
-      const isOpponentDisconnected = (now - oppUpdatedAt) > 60000;
+      const isOpponentDisconnected = (now - oppUpdatedAt) > 120000;
       const isOpponentSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
 
       if (isOpponentSurrendered || (roomData.status === 'playing' && isOpponentDisconnected)) {
