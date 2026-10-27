@@ -2458,6 +2458,7 @@
 
   // 🌟 通信チャンネル接続（自動画面更新付き）
  // 🌟 相手の降参検知・勝敗連動付きリアルタイム通信
+  // 🌟 相手の降参検知・勝敗連動付きリアルタイム通信
   function subscribeRoomUpdates() {
     if (!onlineRoomId || !supabaseClient) return;
 
@@ -2556,7 +2557,6 @@
       console.error("applyRoomData同期エラー:", e);
     }
   }
-
   async function syncOnlineAction() {
     if (!supabaseClient) return;
 
