@@ -1361,7 +1361,8 @@
 
       <div class="controls">
         <button id="btnPass" type="button" class="btn">ターン終了</button>
-        <button type="button" class="btn" onclick="showTitle()">降参してタイトルへ</button>
+        <!-- 変更前: onclick="showTitle()" -->
+<button type="button" class="btn" onclick="surrenderAndReturn()">降参してタイトルへ</button>
       </div>
     </div>
   </section>
@@ -2216,10 +2217,11 @@
   // 🌟 タイトルに戻る（対戦中・待機中に応じたポイント減算処理の分離）
   // 🌟 タイトルに戻る（対戦中・待機中に応じたポイント減算処理の即時判定版）
   // 🌟 純粋な画面切り替え用関数（ここから追加）
+  // 🌟 1. 純粋な画面切り替え用関数
   function showTitleDirect() {
     onlineRoomId = null;
     onlineMyRole = null;
-    window.gameState.isGameStarted = false;
+    if (window.gameState) window.gameState.isGameStarted = false;
 
     if (roomPollingInterval) clearInterval(roomPollingInterval);
     document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
@@ -2240,19 +2242,22 @@
     try { playBGM('title'); } catch(e){}
   }
   window.showTitleDirect = showTitleDirect;
-  // 👆（ここまで追加）
 
-  // 🌟 タイトルに戻る（元からある showTitle 関数）
+  // 🌟 2. 互換性のための showTitle（内部で降参処理を呼ぶ）
   async function showTitle() {
+    await surrenderAndReturn();
   }
-  // 🌟 降参・離脱専用処理（待機中と対戦中を完全切り分け）
+  window.showTitle = showTitle;
+
+  // 🌟 3. 降参・離脱専用処理（確実な画面遷移を追加）
   async function surrenderAndReturn() {
     const isRanked = window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked";
     const currentRoomId = onlineRoomId;
     const isP1 = onlineMyRole === 'player1';
 
-    // 1. Supabaseで現在の部屋状態をリアルタイム照会
     let isPlaying = false;
+
+    // 1. Supabaseで現在の部屋状態をリアルタイム照会
     if (currentRoomId && supabaseClient) {
       try {
         const { data: roomData } = await supabaseClient
@@ -2269,7 +2274,7 @@
       }
     }
 
-    // 2. 実際に「対戦中 (playing)」のときだけポイント減算・敗北加算ペナルティを実行
+    // 2. 実際に「対戦中 (playing)」のときだけポイント減算を実行
     if (isPlaying && isRanked) {
       const myRate = window.userProfile.rate || 1000;
       window.userProfile.rate = Math.max(0, myRate - 32);
@@ -2285,7 +2290,7 @@
     if (currentRoomId && supabaseClient) {
       try {
         if (!isPlaying) {
-          // 待機中（まだ相手がいない）ならノーペナルティで部屋を削除
+          // 待機中ならノーペナルティで部屋を削除
           await supabaseClient.from('rooms').delete().eq('id', currentRoomId);
         } else {
           // 対戦中なら相手に降参を通知
@@ -2300,9 +2305,13 @@
       }
     }
 
-    // 4. 画面をタイトルへ戻す
+    // 4. 🔥【重要】最後に必ずタイトル画面へ切り替える
     showTitleDirect();
   }
+  window.surrenderAndReturn = surrenderAndReturn;
+    // 4. 画面をタイトルへ戻す
+    showTitleDirect();
+  
   window.surrenderAndReturn = surrenderAndReturn;
 async function showTitle() {
     // 🌐 オンライン対戦中に降参・途中離脱した場合の処理
