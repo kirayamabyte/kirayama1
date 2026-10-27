@@ -2550,7 +2550,7 @@ async function showTitle() {
 
         window.gameState.my.mp = 5;
         window.gameState.opp.mp = 5;
-        
+
         await supabaseClient.from('rooms').update({
           status: 'playing',
           p2_name: myName,
@@ -2802,8 +2802,9 @@ async function showTitle() {
           addLog(`山札からカードを1枚引きました。（残山札:${window.gameState.my.deck.length}枚）`);
           syncOnlineAction();
         }
+        
 // 🌟 上限を 40 に設定してターン開始時に MP を加算（例: +2 や +5 など）
-  window.gameState.my.mp = Math.min(40, window.gameState.my.mp + 5);
+  window.gameState.my.mp = Math.min(40, (window.gameState.my.mp || 5) + 5);
       }
 
       const logArea = document.getElementById("logArea");
@@ -3827,11 +3828,21 @@ async function showTitle() {
 
   // 🌟 updateUI 関数（位置指定召喚・各種ステータス表示の完全対応版）
   function updateUI() {
+    const myMpEl = document.getElementById("myMp");
+  if (myMpEl) {
+    // 上限を 40 に制限して表示
+    window.gameState.my.mp = Math.min(40, window.gameState.my.mp);
+    myMpEl.textContent = `${window.gameState.my.mp} / 40`;
+  }
   const isMyTurn = window.gameState.turn === "player";
     const modeBanner = document.getElementById("modeBanner");
     const myPinfo = document.querySelector("#gameScreen .player-area:last-child .pinfo");
     const oppPinfo = document.getElementById("oppPlayerInfo");
-
+    const myMpBarEl = document.getElementById("myMpBar");
+  if (myMpBarEl) {
+    const mpPercent = Math.min(100, (window.gameState.my.mp / 40) * 100);
+    myMpBarEl.style.width = `${mpPercent}%`;
+  }
     if (modeBanner) {
       if (isMyTurn) {
         modeBanner.classList.add("my-turn-banner");
