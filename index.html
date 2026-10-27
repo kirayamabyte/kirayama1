@@ -2342,25 +2342,29 @@
   window.closeGachaResultModal = closeGachaResultModal;
 
   // 🌟 ランクマッチ検索・部屋作成（isEventフラグ対応）
+  // 🌟 ランクマッチ検索・部屋作成（マッチング不具合修正版）
   async function searchRankedMatch(isEvent = false) {
     try {
       window.gameState.mode = isEvent ? "event_ranked" : "ranked";
       const myName = window.userProfile?.name || "プレイヤー";
       const deckIds = window.userProfile?.deck || [1, 2, 3, 4, 5];
 
+      // 1. 待機中（status='waiting'）の部屋を検索
       const { data: waitingRooms, error: fetchErr } = await supabaseClient
         .from('rooms')
         .select('*')
         .eq('status', 'waiting')
+        .order('created_at', { ascending: true })
         .limit(1);
 
       if (fetchErr) {
-        console.warn("部屋検索スキップ（新規作成へ移行）:", fetchErr);
+        console.error("部屋検索エラー:", fetchErr);
       }
 
       const validOpponentRoom = (waitingRooms && waitingRooms.length > 0) ? waitingRooms[0] : null;
 
       if (validOpponentRoom) {
+        // ⚔️ 既存の部屋に「ゲスト (player2)」として参加
         onlineRoomId = validOpponentRoom.id;
         onlineMyRole = 'player2';
         hasDrawnThisTurn = false;
@@ -2369,16 +2373,20 @@
         const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
         window.gameState.my.hand = fullDeck.slice(0, 5);
         window.gameState.my.deck = fullDeck.slice(5);
-
         window.gameState.my.mp = 5;
         window.gameState.opp.mp = 5;
 
+        // 相手（p1）の情報をセット
+        window.gameState.opp.name = validOpponentRoom.p1_name || "対戦相手";
+        onlineOppRate = validOpponentRoom.p1_rate || 1000;
+
+        // DB更新（ステータスを playing に変更）
         const { error: updateErr } = await supabaseClient.from('rooms').update({
           status: 'playing',
           p2_name: myName,
           p2_rate: window.userProfile.rate || 1000,
           p2_hp: 60,
-          p2_deck_count: 15,
+          p2_deck_count: window.gameState.my.deck.length,
           updated_at: new Date().toISOString()
         }).eq('id', onlineRoomId);
 
@@ -2387,6 +2395,7 @@
         subscribeRoomUpdates();
 
       } else {
+        // ⏳ 部屋が存在しないため「ホスト (player1)」として新規作成
         onlineRoomId = (isEvent ? "EVT_" : "RANK_") + Math.random().toString(36).substring(2, 8).toUpperCase();
         onlineMyRole = 'player1';
         hasDrawnThisTurn = true;
@@ -2395,7 +2404,6 @@
         const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
         window.gameState.my.hand = fullDeck.slice(0, 5);
         window.gameState.my.deck = fullDeck.slice(5);
-
         window.gameState.my.mp = 5;
         window.gameState.opp.mp = 5;
 
@@ -2406,7 +2414,7 @@
           p1_name: myName,
           p1_rate: window.userProfile.rate || 1000,
           p1_hp: 60,
-          p1_deck_count: 15,
+          p1_deck_count: window.gameState.my.deck.length,
           p2_hp: 60,
           p2_deck_count: 15,
           updated_at: new Date().toISOString()
@@ -2417,14 +2425,54 @@
         subscribeRoomUpdates();
       }
 
+      // 画面表示を対戦画面に切り替え
       document.getElementById("titleScreen").classList.add("hidden");
       document.getElementById("gameScreen").classList.remove("hidden");
+      
+      if (!window.gameState.isGameStarted) {
+        addLog("対戦相手を探しています...（待機中）", "important");
+      } else {
+        addLog(`対戦相手【${window.gameState.opp.name}】とマッチングしました！`, "important");
+      }
+
       updateUI();
 
     } catch (err) {
       console.error("searchRankedMatch 全体エラー:", err);
     }
   }
+  window.searchRankedMatch = searchRankedMatch;
+
+  // 🌟 通信チャンネル接続（自動画面更新付き）
+  function subscribeRoomUpdates() {
+    if (!onlineRoomId || !supabaseClient) return;
+
+    if (typeof roomChannel !== 'undefined' && roomChannel) {
+      supabaseClient.removeChannel(roomChannel);
+    }
+
+    roomChannel = supabaseClient
+      .channel('room-' + onlineRoomId)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'rooms',
+        filter: `id=eq.${onlineRoomId}`
+      }, (payload) => {
+        if (payload.new) {
+          // ホスト待機中にゲストが入ってきた時の処理
+          if (!window.gameState.isGameStarted && payload.new.status === 'playing') {
+            window.gameState.isGameStarted = true;
+            addLog("対戦相手が参加しました！バトル開始！", "important");
+          }
+          applyRoomData(payload.new);
+        }
+      })
+      .subscribe((status) => {
+        console.log("Supabase Realtime 接続状態:", status);
+      });
+  }
+  window.subscribeRoomUpdates = subscribeRoomUpdates;
   window.searchRankedMatch = searchRankedMatch;
 
   async function joinOnlineRoom() {
