@@ -1527,23 +1527,47 @@
     renderProfileCustomization();
   };
 
+  // 称号・バッジの一覧を描画する関数（実績解放対応版）
   function renderProfileCustomization() {
     const titleContainer = document.getElementById("titleListContainer");
     if (titleContainer) {
-      const titles = [
-        "《見習いデュエリスト》",
-        "《赤城の精鋭》",
-        "《カードマスター》",
-        "《伝説のデュエリスト》"
+      const userRate = window.userProfile.rate || 1000;
+      const userWins = window.userProfile.wins || 0;
+
+      // 称号の解放条件リスト
+      const titleDefinitions = [
+        { name: "《見習いデュエリスト》", unlocked: true, desc: "初期解放" },
+        { name: "《銅の決闘者》", unlocked: userRate >= 1000, desc: "ブロンズ到達 (1000 RP)" },
+        { name: "《銀の覇者》", unlocked: userRate >= 1500, desc: "シルバー到達 (1500 RP)" },
+        { name: "《黄金の決闘神》", unlocked: userRate >= 2000, desc: "ゴールド到達 (2000 RP)" },
+        { name: "《カードマスター》", unlocked: userRate >= 2500, desc: "マスター到達 (2500 RP)" },
+        { name: "《百戦錬磨》", unlocked: userWins >= 10, desc: "通算10勝達成" },
+        { name: "《無敗の伝承》", unlocked: userWins >= 50, desc: "通算50勝達成" }
       ];
-      titleContainer.innerHTML = titles.map(t => `
-        <button type="button" class="btn ${window.userProfile.equippedTitle === t ? 'primary' : ''}" 
-                onclick="selectTitle('${t}')" style="font-size:0.75rem; padding:6px;">
-          ${t}
-        </button>
-      `).join("");
+
+      titleContainer.innerHTML = titleDefinitions.map(t => {
+        const isEquipped = window.userProfile.equippedTitle === t.name;
+        if (t.unlocked) {
+          return `
+            <button type="button" class="btn ${isEquipped ? 'primary' : ''}" 
+                    onclick="selectTitle('${t.name}')" 
+                    style="font-size:0.75rem; padding:6px; display:flex; flex-direction:column; align-items:center;">
+              <span>${t.name}</span>
+            </button>
+          `;
+        } else {
+          return `
+            <button type="button" class="btn" disabled 
+                    style="font-size:0.7rem; padding:6px; opacity:0.4; background:#111; border-color:#333; color:#888; cursor:not-allowed;">
+              🔒 🔒🔒🔒<br>
+              <span style="font-size:0.6rem; color:#666;">(${t.desc})</span>
+            </button>
+          `;
+        }
+      }).join("");
     }
 
+    // バッジリストの描画
     const badgeContainer = document.getElementById("badgeListContainer");
     if (badgeContainer) {
       const badges = ["🔰", "⚔️", "🛡️", "🔥", "👑", "💎"];
@@ -1555,7 +1579,6 @@
       `).join("");
     }
   }
-
   window.selectTitle = function(title) {
     window.userProfile.equippedTitle = title;
     renderProfileCustomization();
