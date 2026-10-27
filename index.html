@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>赤城ユタカードバトル - 完全機能統合版</title>
   <style>
+    
     :root {
       --bg-color: #1a1a24;
       --card-bg: #2a2a38;
@@ -990,6 +991,43 @@
       cursor: pointer;
       z-index: 30;
     }
+    /* 🌟 ターン強調エフェクト */
+.pinfo.active-turn-me {
+  border: 2px solid #00fff5 !important;
+  box-shadow: 0 0 15px rgba(0, 255, 245, 0.6) !important;
+  animation: turnPulseMe 1.5s infinite alternate;
+}
+
+.pinfo.active-turn-opp {
+  border: 2px solid #ff4444 !important;
+  box-shadow: 0 0 15px rgba(255, 68, 68, 0.6) !important;
+  animation: turnPulseOpp 1.5s infinite alternate;
+}
+
+@keyframes turnPulseMe {
+  from { box-shadow: 0 0 8px rgba(0, 255, 245, 0.4); }
+  to { box-shadow: 0 0 18px rgba(0, 255, 245, 0.9); }
+}
+
+@keyframes turnPulseOpp {
+  from { box-shadow: 0 0 8px rgba(255, 68, 68, 0.4); }
+  to { box-shadow: 0 0 18px rgba(255, 68, 68, 0.9); }
+}
+
+/* ターン表示バナーの装飾 */
+.mode-banner.my-turn-banner {
+  background: rgba(0, 255, 245, 0.2) !important;
+  border-color: #00fff5 !important;
+  color: #00fff5 !important;
+  font-weight: bold;
+}
+
+.mode-banner.opp-turn-banner {
+  background: rgba(255, 68, 68, 0.2) !important;
+  border-color: #ff4444 !important;
+  color: #ff4444 !important;
+  font-weight: bold;
+}
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -3323,7 +3361,7 @@ async function showTitle() {
     window.gameState.selectedAttackerIdx = null;
     window.gameState.pendingSummonIndex = null; // 召喚選択解除
     addLog(`--- ターン終了 ---`);
-    
+
     updateTokenLifetimes(window.gameState.my.monsters, window.gameState.my.name);
 
     if (checkWinLoss()) return;
@@ -3615,6 +3653,30 @@ async function showTitle() {
 
   // 🌟 updateUI 関数（位置指定召喚・各種ステータス表示の完全対応版）
   function updateUI() {
+  const isMyTurn = window.gameState.turn === "player";
+    const modeBanner = document.getElementById("modeBanner");
+    const myPinfo = document.querySelector("#gameScreen .player-area:last-child .pinfo");
+    const oppPinfo = document.getElementById("oppPlayerInfo");
+
+    if (modeBanner) {
+      if (isMyTurn) {
+        modeBanner.classList.add("my-turn-banner");
+        modeBanner.classList.remove("opp-turn-banner");
+      } else {
+        modeBanner.classList.add("opp-turn-banner");
+        modeBanner.classList.remove("my-turn-banner");
+      }
+    }
+
+    if (myPinfo && oppPinfo) {
+      if (isMyTurn) {
+        myPinfo.classList.add("active-turn-me");
+        oppPinfo.classList.remove("active-turn-opp");
+      } else {
+        oppPinfo.classList.add("active-turn-opp");
+        myPinfo.classList.remove("active-turn-me");
+      }
+    }
     document.getElementById("myHpBar").style.width = `${(window.gameState.my.hp / window.gameState.my.maxHp) * 100}%`;
     document.getElementById("myHpText").textContent = `HP ${window.gameState.my.hp}/${window.gameState.my.maxHp}`;
     document.getElementById("myMpBar").style.width = `${(window.gameState.my.mp / window.gameState.my.maxMp) * 100}%`;
