@@ -2521,6 +2521,7 @@ async function showTitle() {
   window.closeGachaResultModal = closeGachaResultModal;
 
  async function searchRankedMatch() {
+  window.searchRankedMatch = searchRankedMatch;
   try {
     const myName = window.userProfile?.name || "プレイヤー";
     const deckIds = window.userProfile?.deck || [1, 2, 3, 4, 5];
