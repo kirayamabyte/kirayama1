@@ -1364,9 +1364,43 @@
   // ----------------------------------------------------
   // ここから貼り付け
   // ----------------------------------------------------
-  window.sendAdminNotice = async function() {
-    // ...お知らせ送信のコード...
+  
+  // 🟢【修正後】
+  window.saveNoticeFromAdmin = async function() {
+    if (!supabaseClient) return alert("Supabaseに接続されていません");
+    
+    const titleInput = document.getElementById("adminNoticeTitle");
+    const bodyInput = document.getElementById("adminNoticeBody");
+    
+    const title = titleInput ? titleInput.value.trim() : "";
+    const body = bodyInput ? bodyInput.value.trim() : "";
+    
+    if (!title || !body) {
+      return alert("タイトルと本文の両方を入力してください。");
+    }
+
+    try {
+      const { data, error } = await supabaseClient
+        .from('notices')
+        .insert([{ title: title, body: body }]);
+
+      if (error) {
+        alert("お知らせの送信に失敗しました: " + error.message);
+        console.error("Notice Insert Error:", error);
+      } else {
+        alert("📢 お知らせを正常に発行しました！");
+        if (titleInput) titleInput.value = "";
+        if (bodyInput) bodyInput.value = "";
+        
+        // 即座にお知らせ一覧を更新
+        await fetchNotices();
+      }
+    } catch (e) {
+      console.error("Notice Save Exception:", e);
+      alert("通信エラーが発生しました。");
+    }
   };
+  window.sendAdminNotice = window.saveNoticeFromAdmin;
 
   window.fetchNotices = async function() {
     // ...お知らせ取得のコード...
