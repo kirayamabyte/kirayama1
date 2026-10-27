@@ -2948,19 +2948,19 @@ async function showTitle() {
     return { damage: atk, effective: false };
   }
 
+ // ⌛ トークンの寿命管理（null チェック追加版）
   function updateTokenLifetimes(monsterArray, ownerName) {
-    for (let i = monsterArray.length - 1; i >= 0; i--) {
+    for (let i = 0; i < monsterArray.length; i++) {
       const m = monsterArray[i];
-      if (m.turnsLeft !== undefined) {
+      if (m && m.turnsLeft !== undefined) {
         m.turnsLeft--;
         if (m.turnsLeft <= 0) {
           addLog(`⌛ ${ownerName} の【${m.name}】は3ターン経過し消滅した！`, "important");
-          monsterArray.splice(i, 1);
+          monsterArray[i] = null; // 枠を空ける
         }
       }
     }
   }
-
   // 🎴 カードプレイ処理（モンスターの枠指定召喚対応版）
   function playCard(index) {
     if (window.gameState.turn !== "player") return;
@@ -3321,8 +3321,9 @@ async function showTitle() {
     if (window.gameState.turn !== "player") return;
 
     window.gameState.selectedAttackerIdx = null;
+    window.gameState.pendingSummonIndex = null; // 召喚選択解除
     addLog(`--- ターン終了 ---`);
-
+    
     updateTokenLifetimes(window.gameState.my.monsters, window.gameState.my.name);
 
     if (checkWinLoss()) return;
