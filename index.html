@@ -2592,20 +2592,29 @@ async function showTitle() {
       if (roomIdEl) roomIdEl.textContent = onlineRoomId;
 
       // 🌟 3. 部屋作成（DBに存在する基本カラムのみ送信）
-      const { error: insertErr } = await supabaseClient.from('rooms').insert([{
-        id: onlineRoomId,
-        status: 'waiting',
-        current_turn: 'player1',
-        p1_name: myName,
-        p1_rate: window.userProfile.rate || 1000,
-        p1_hand: window.gameState.my.hand.map(c => c.id),
-        p1_hp: 60,
-        p1_deck_count: 15,
-        p2_hp: 60,
-        p2_deck_count: 15,
-        updated_at: new Date().toISOString()
-      }]);
+      // ⏳ ホスト作成時（rooms.insert）
+await supabaseClient.from('rooms').insert([{
+  id: onlineRoomId,
+  status: 'waiting',
+  current_turn: 'player1',
+  p1_name: myName,
+  p1_rate: window.userProfile.rate || 1000,
+  p1_hp: 60,
+  p1_deck_count: 15,
+  p2_hp: 60,
+  p2_deck_count: 15,
+  updated_at: new Date().toISOString()
+}]);
 
+// ⚔️ ゲスト参戦時（rooms.update）
+await supabaseClient.from('rooms').update({
+  status: 'playing',
+  p2_name: myName,
+  p2_rate: window.userProfile.rate || 1000,
+  p2_hp: 60,
+  p2_deck_count: 15,
+  updated_at: new Date().toISOString()
+}).eq('id', onlineRoomId);
       if (insertErr) console.error("部屋作成エラー:", insertErr);
 
       subscribeRoomUpdates();
@@ -3751,6 +3760,20 @@ async function showTitle() {
   const modeBanner = document.getElementById("modeBanner");
   const myPinfo = document.querySelector("#gameScreen .player-area:last-child .pinfo");
   const oppPinfo = document.getElementById("oppPlayerInfo");
+  // 🌟 安全ガード付きの MP制限＆要素更新
+  window.gameState.my.mp = Math.min(40, window.gameState.my.mp ?? 5);
+  window.gameState.opp.mp = Math.min(40, window.gameState.opp.mp ?? 5);
+
+  // 変数を定義してから null チェックを行う
+  const myMpTextEl = document.getElementById("myMpText");
+  if (myMpTextEl) {
+    myMpTextEl.textContent = `MP ${window.gameState.my.mp}/40`;
+  }
+
+  const myMpBarEl = document.getElementById("myMpBar");
+  if (myMpBarEl) {
+    myMpBarEl.style.width = `${(window.gameState.my.mp / 40) * 100}%`;
+  }
 
   // 🌟 MP制限と初期値セーフガード（上限40）
   window.gameState.my.mp = Math.min(40, window.gameState.my.mp ?? 5);
