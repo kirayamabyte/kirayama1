@@ -873,9 +873,9 @@
 
     /* 🔍 拡大カード専用スタイル */
     .card.zoom-card {
-      width: 250px !important;
-      height: 350px !important;
-      padding: 12px !important;
+      width: 280px !important; /* 視認性向上のため少し幅を拡張 */
+      height: 380px !important;
+      padding: 14px !important;
       border-width: 3px !important;
       box-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
       transform: none !important;
@@ -891,11 +891,22 @@
     .card.zoom-card .card-cost { font-size: 1rem; }
     .card.zoom-card .card-stats-badge { font-size: 1.1rem; }
     .card.zoom-card .card-desc { font-size: 0.9rem; height: auto; max-height: 80px; line-height: 1.4; overflow-y: auto; color: #eee; }
-    .card.zoom-card .card-flavor { font-size: 0.8rem; height: auto; line-height: 1.3; margin-top: 8px; padding-top: 6px; color: #bbb; }
-    .card.zoom-card .card-type { font-size: 0.9rem; padding: 3px 8px; }
 
-    .controls { display: flex; gap: 8px; margin-top: 4px; flex-shrink: 0; }
-
+    /* 🌟 フレーバーテキストの視認性強化 */
+    .card.zoom-card .card-flavor {
+      font-size: 0.82rem !important;
+      font-style: normal !important; /* 斜体を解除して文字をくっきり表示 */
+      color: #ffd700 !important;    /* 金色に近い明るい色にして強調 */
+      line-height: 1.4 !important;
+      height: auto !important;
+      margin-top: 8px !important;
+      padding: 6px 8px !important;
+      background: rgba(0, 0, 0, 0.5) !important; /* 暗い背景枠を敷いて文字浮き立たせ */
+      border-left: 3px solid #ffd700 !important; /* ワンポイントの装飾ライン */
+      border-radius: 4px !important;
+      white-space: normal !important;
+      word-break: break-word !important;
+    }
     button.btn {
       flex: 1;
       padding: 10px 8px;
