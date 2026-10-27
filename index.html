@@ -1327,7 +1327,7 @@
         </div>
         <div class="bar mp">
           <div id="oppMpBar" class="bar-fill" style="width: 100%;"></div>
-          <div id="oppMpText" class="bar-text">MP 20/20</div>
+          <div id="oppMpText" class="bar-text">MP 40/40</div>
         </div>
       </div>
       <div id="oppMonsters" class="monster-zone"></div>
@@ -2799,8 +2799,8 @@ async function showTitle() {
           addLog(`山札からカードを1枚引きました。（残山札:${window.gameState.my.deck.length}枚）`);
           syncOnlineAction();
         }
-
-        window.gameState.my.mp = Math.min(window.gameState.my.maxHp, window.gameState.my.mp + 2);
+// 🌟 上限を 40 に設定してターン開始時に MP を加算（例: +2 や +5 など）
+  window.gameState.my.mp = Math.min(40, window.gameState.my.mp + 5);
       }
 
       const logArea = document.getElementById("logArea");
@@ -3069,6 +3069,12 @@ async function showTitle() {
   }
 
   function initGame() {
+    window.gameState.my.hp = 60;
+    window.gameState.opp.hp = 60;
+
+    // 🌟 初期MPを 5 に設定
+    window.gameState.my.mp = 5;
+    window.gameState.opp.mp = 5
     try { playBGM('battle'); } catch(e){}
     const cpuPreset = (typeof CPU_PRESETS !== 'undefined' && CPU_PRESETS[window.gameState.currentDifficulty]) 
       ? CPU_PRESETS[window.gameState.currentDifficulty] 
