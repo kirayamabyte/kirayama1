@@ -2191,6 +2191,22 @@
       });
     }
 
+    // 🌟 ここに追加！「ランクマッチ」ボタンを自動検出してクリックイベントを登録
+    const allButtons = Array.from(document.querySelectorAll('button, .btn, div[role="button"]'));
+    const rankedBtn = document.getElementById("rankedMatchBtn") 
+                   || document.getElementById("searchRankedBtn")
+                   || allButtons.find(el => el.textContent.trim().includes("ランクマッチ"));
+
+    if (rankedBtn) {
+      console.log("ランクマッチボタンを検出しました:", rankedBtn);
+      rankedBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        searchRankedMatch();
+      });
+    } else {
+      console.warn("ランクマッチボタンが見つかりませんでした。");
+    }
+
     const bindEvent = (id, fn) => {
       const el = document.getElementById(id);
       if (el) el.addEventListener("click", fn);
