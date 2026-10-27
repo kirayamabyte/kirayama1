@@ -2526,17 +2526,16 @@ async function showTitle() {
     const myName = window.userProfile?.name || "プレイヤー";
     const deckIds = window.userProfile?.deck || [1, 2, 3, 4, 5];
 
-    // 1. 待機部屋の検索（400エラー防止：基本条件のみ）
+    // 1. 待機部屋の検索（.from('rooms') を正しく追加）
     const { data: waitingRooms, error: fetchErr } = await supabaseClient
-      select('*')
+      .from('rooms')
+      .select('*')
       .eq('status', 'waiting')
       .limit(1);
 
     if (fetchErr) {
       console.warn("部屋検索スキップ（新規作成へ移行）:", fetchErr);
     }
-    if (fetchErr) console.error("部屋検索エラー:", fetchErr);
-    window.searchRankedMatch = searchRankedMatch;
 
     const validOpponentRoom = (waitingRooms && waitingRooms.length > 0) ? waitingRooms[0] : null;
 
@@ -2558,7 +2557,6 @@ async function showTitle() {
       const roomIdEl = document.getElementById("roomIdDisplay") || document.getElementById("onlineRoomId");
       if (roomIdEl) roomIdEl.textContent = onlineRoomId;
 
-      // 🌟 updateErr を正しく受け取る
       const { error: updateErr } = await supabaseClient.from('rooms').update({
         status: 'playing',
         p2_name: myName,
@@ -2590,7 +2588,6 @@ async function showTitle() {
       const roomIdEl = document.getElementById("roomIdDisplay") || document.getElementById("onlineRoomId");
       if (roomIdEl) roomIdEl.textContent = onlineRoomId;
 
-      // 🌟 insertErr を正しく受け取る（const { error: insertErr }）
       const { error: insertErr } = await supabaseClient.from('rooms').insert([{
         id: onlineRoomId,
         status: 'waiting',
@@ -2615,6 +2612,7 @@ async function showTitle() {
     console.error("searchRankedMatch 全体エラー:", err);
   }
 }
+window.searchRankedMatch = searchRankedMatch;
   async function joinOnlineRoom() {
     if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
 
