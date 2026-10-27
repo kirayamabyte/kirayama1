@@ -2213,27 +2213,43 @@
     try { playBGM('title'); } catch(e){}
   });
 
+  // 🌟 タイトルに戻る（対戦中・待機中に応じた離脱処理）
   async function showTitle() {
     if ((window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") && onlineRoomId && supabaseClient) {
       try {
+        // 現在の部屋の状態を取得して対戦中か待機中かを確認
+        const { data: roomData } = await supabaseClient
+          .from('rooms')
+          .select('status')
+          .eq('id', onlineRoomId)
+          .maybeSingle();
+
         const isP1 = onlineMyRole === 'player1';
-        const mePrefix = isP1 ? 'p1' : 'p2';
 
-        if (window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
-          const myRate = window.userProfile.rate || 1000;
-          window.userProfile.rate = Math.max(0, myRate - 32);
-          window.userProfile.losses++;
-          saveUserProfile();
+        // 1. 相手がおらず待機中（waiting）でリタイアした場合 ➔ 部屋を削除してペナルティ・勝利加算なしで戻る
+        if (roomData && roomData.status === 'waiting') {
+          await supabaseClient.from('rooms').delete().eq('id', onlineRoomId);
+        } 
+        // 2. 対戦中（playing）に自ら降参した場合 ➔ 敗北ペナルティ処理をして降参フラグを送信
+        else {
+          const mePrefix = isP1 ? 'p1' : 'p2';
 
-          if (window.gameState.mode === "event_ranked") {
-            updateEventParticipantStats(false);
+          if (window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
+            const myRate = window.userProfile.rate || 1000;
+            window.userProfile.rate = Math.max(0, myRate - 32);
+            window.userProfile.losses++;
+            saveUserProfile();
+
+            if (window.gameState.mode === "event_ranked") {
+              updateEventParticipantStats(false);
+            }
           }
-        }
 
-        await supabaseClient.from('rooms').update({
-          [`${mePrefix}_surrendered`]: true,
-          updated_at: new Date().toISOString()
-        }).eq('id', onlineRoomId);
+          await supabaseClient.from('rooms').update({
+            [`${mePrefix}_surrendered`]: true,
+            updated_at: new Date().toISOString()
+          }).eq('id', onlineRoomId);
+        }
 
       } catch (e) {
         console.error("途中離脱処理エラー:", e);
@@ -2242,6 +2258,7 @@
         onlineMyRole = null;
       }
     }
+
     if (roomPollingInterval) clearInterval(roomPollingInterval);
     document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
 
@@ -2255,6 +2272,7 @@
     document.getElementById("tradeScreen").classList.add("hidden");
     document.getElementById("customScreen").classList.add("hidden");
     document.getElementById("titleScreen").classList.remove("hidden");
+    
     updateTitleStatsUI();
     checkActiveEvent();
     try { playBGM('title'); } catch(e){}
