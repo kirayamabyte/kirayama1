@@ -2213,11 +2213,11 @@
     try { playBGM('title'); } catch(e){}
   });
 
-  // 🌟 タイトルに戻る（対戦中・待機中に応じた離脱処理）
+  // 🌟 タイトルに戻る（対戦中・待機中に応じたポイント減算処理の分離）
   async function showTitle() {
     if ((window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") && onlineRoomId && supabaseClient) {
       try {
-        // 現在の部屋の状態を取得して対戦中か待機中かを確認
+        // 現在の部屋データからステータスを取得
         const { data: roomData } = await supabaseClient
           .from('rooms')
           .select('status')
@@ -2226,12 +2226,12 @@
 
         const isP1 = onlineMyRole === 'player1';
 
-        // 1. 相手がおらず待機中（waiting）でリタイアした場合 ➔ 部屋を削除してペナルティ・勝利加算なしで戻る
-        if (roomData && roomData.status === 'waiting') {
+        // 1. 相手がおらず待機中 (waiting) の場合 ➔ レート減少ペナルティなしで部屋削除してタイトルへ
+        if (!roomData || roomData.status === 'waiting') {
           await supabaseClient.from('rooms').delete().eq('id', onlineRoomId);
         } 
-        // 2. 対戦中（playing）に自ら降参した場合 ➔ 敗北ペナルティ処理をして降参フラグを送信
-        else {
+        // 2. 相手がいて対戦中 (playing) の場合 ➔ レートを減算して降参処理
+        else if (roomData.status === 'playing') {
           const mePrefix = isP1 ? 'p1' : 'p2';
 
           if (window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
@@ -2252,7 +2252,7 @@
         }
 
       } catch (e) {
-        console.error("途中離脱処理エラー:", e);
+        console.error("離脱処理エラー:", e);
       } finally {
         onlineRoomId = null;
         onlineMyRole = null;
