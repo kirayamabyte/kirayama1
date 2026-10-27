@@ -2192,7 +2192,18 @@
     my: { name: "あなた", rate: 1000, elem: "water", hp: 60, maxHp: 60, mp: 20, maxMp: 20, monsters: [], deck: [], hand: [] },
     opp: { name: "CPU", rate: 1000, elem: "fire", hp: 60, maxHp: 60, mp: 20, maxMp: 20, monsters: [], deck: [], hand: [] }
   };
+// 【追加場所】関数の定義を上に書く
+function applyRoomData(roomData)  {
+  if (!roomData) return;
+  
+  // 例: DOM要素を書き換える処理など
+  document.getElementById('room-name').textContent = roomData.name;
+};
 
+// --- ここより下で呼び出す ---
+socket.on('room_updated', function(data) {
+  applyRoomData(data); // ここでエラーなく実行できます
+});
   document.addEventListener("DOMContentLoaded", async () => {
     loadUserProfile();
     await loadSharedCustomCards();
