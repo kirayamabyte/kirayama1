@@ -3832,7 +3832,7 @@ async function showTitle() {
   if (myMpEl) {
     // 上限を 40 に制限して表示
     window.gameState.my.mp = Math.min(40, window.gameState.my.mp);
-    myMpEl.textContent = `${window.gameState.my.mp} / 40`;
+    myMpEl.textContent = `MP ${window.gameState.my.mp}/40`;
   }
   const isMyTurn = window.gameState.turn === "player";
     const modeBanner = document.getElementById("modeBanner");
