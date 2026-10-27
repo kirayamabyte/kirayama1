@@ -150,19 +150,25 @@
     .stats-panel strong { color: var(--gold-color); }
 
    /* 📢 お知らせ枠 (視認性・応答性大幅向上版) */
+/* 📢 お知らせ枠 (潰れ防止・レスポンシブ対応完全版) */
 .notice-panel {
   background: #111827;
   border: 1px solid #00fff5;
   border-radius: 8px;
   padding: 10px 12px;
   width: 100%;
-  max-width: 440px; /* PC/スマホ共通で他の枠（rulesなど）と幅を統一 */
+  max-width: 440px; /* 横幅を他の枠と合わせて見やすく拡大 */
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 8px;
   text-align: left;
-  max-height: 180px; /* 少し高さを広げて読みやすく */
+  
+  /* ⚠️ 縦潰れを防止するための重要設定 */
+  min-height: 130px; /* 最小高さを確保して文字切れを完全に防ぐ */
+  max-height: 180px; /* 長文の時はスクロール可能にする */
+  flex-shrink: 0;   /* 親要素のflex配置による押しつぶしを無効化 */
+  
   overflow-y: auto;
   box-shadow: 0 0 12px rgba(0, 255, 245, 0.2);
 }
@@ -189,6 +195,7 @@
   top: 0;
   background: #111827;
   z-index: 2;
+  flex-shrink: 0;
 }
 
 #noticeList {
@@ -198,14 +205,14 @@
 }
 
 .notice-item {
-  font-size: 0.82rem; /* 文字サイズを少し大きく */
+  font-size: 0.82rem;
   color: #ffffff;
-  line-height: 1.5; /* 行間を広げて視認性をアップ */
+  line-height: 1.5;
   background: rgba(255, 255, 255, 0.06);
   padding: 8px 10px;
   border-radius: 6px;
   border-left: 4px solid #00fff5;
-  word-break: break-word; /* スマホでの長文・URLのはみ出しを防止 */
+  word-break: break-word; /* 長文やURLの溢れ防止 */
   overflow-wrap: anywhere;
 }
 
