@@ -2611,6 +2611,7 @@ async function showTitle() {
   }
 
   // 🌟 通信データ（相手カードの復元・名前反映・降参検知）処理
+  // 🌟 通信データ更新（待機状態での誤判定防止・降参検知完全対応版）
   function applyRoomData(roomData) {
     if (!roomData) return;
 
@@ -2623,22 +2624,19 @@ async function showTitle() {
       const isMyTurnNow = roomData.current_turn === onlineMyRole;
 
       window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 60;
-      window.gameState.my.monsters = roomData[`${mePrefix}_field`] || [];
+      window.gameState.my.monsters = roomData[`${mePrefix}_field`] || [null, null, null, null, null];
       window.gameState.my.rate = roomData[`${mePrefix}_rate`] || window.userProfile.rate || 1000;
 
       const fetchedOppName = roomData[`${oppPrefix}_name`];
       window.gameState.opp.name = fetchedOppName ? fetchedOppName : "対戦相手";
       window.gameState.opp.hp = roomData[`${oppPrefix}_hp`] ?? 60;
       
-      const rawOppMonsters = roomData[`${oppPrefix}_field`] || [];
+      const rawOppMonsters = roomData[`${oppPrefix}_field`] || [null, null, null, null, null];
       window.gameState.opp.monsters = rawOppMonsters.map(m => {
         if (!m) return null;
         const baseCard = typeof CARD_DATABASE !== 'undefined' ? CARD_DATABASE.find(c => c.id === m.id) : null;
-        return {
-          ...(baseCard || {}),
-          ...m
-        };
-      }).filter(Boolean);
+        return { ...(baseCard || {}), ...m };
+      });
 
       onlineOppRate = roomData[`${oppPrefix}_rate`] || 1000;
       window.gameState.opp.rate = onlineOppRate;
@@ -2647,20 +2645,22 @@ async function showTitle() {
         onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`];
       }
 
-      // 🏳️ 相手の降参（または切断）判定
-      const oppUpdatedAt = roomData.updated_at ? new Date(roomData.updated_at).getTime() : Date.now();
-      const now = Date.now();
-      
-      const isOpponentDisconnected = (now - oppUpdatedAt) > 120000;
-      const isOpponentSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
-
-      if (isOpponentSurrendered || (roomData.status === 'playing' && isOpponentDisconnected)) {
-        addLog(`🏳️ 相手プレイヤー（${window.gameState.opp.name}）が降参（または切断）しました！`, "important");
+      // 🚨 【重要バグ修正】必ず部屋が「対戦中 (playing)」のときのみ降参・不戦勝判定を行う
+      if (roomData.status === 'playing') {
+        const oppUpdatedAt = roomData.updated_at ? new Date(roomData.updated_at).getTime() : Date.now();
+        const now = Date.now();
         
-        window.gameState.opp.hp = 0;
-        updateUI();
-        checkWinLoss();
-        return;
+        const isOpponentDisconnected = (now - oppUpdatedAt) > 60000;
+        const isOpponentSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
+
+        if (isOpponentSurrendered || isOpponentDisconnected) {
+          addLog(`🏳️ 相手プレイヤー（${window.gameState.opp.name}）が降参（または切断）しました！`, "important");
+          
+          window.gameState.opp.hp = 0;
+          updateUI();
+          checkWinLoss();
+          return;
+        }
       }
 
       window.gameState.turn = isMyTurnNow ? "player" : "opponent";
@@ -2709,7 +2709,10 @@ async function showTitle() {
         logArea.scrollTop = logArea.scrollHeight;
       }
 
-      checkWinLoss();
+      // 対戦中のみ勝敗判定チェック
+      if (roomData.status === 'playing') {
+        checkWinLoss();
+      }
     } catch (err) {
       console.error("applyRoomData 描画エラー:", err);
     }
