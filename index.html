@@ -75,17 +75,15 @@
     .hidden { display: none !important; }
 
     /* --- タイトル画面 --- */
-   #titleScreen {
-  justify-content: flex-start;
-  align-items: center;
-  text-align: center;
-  gap: 12px;
-  padding: 16px 12px;
-  overflow-y: auto;
-  
-  /* 子要素（お知らせ枠等）が潰されるのを防ぐ設定 */
-  min-height: 0;
-}
+    #titleScreen {
+      justify-content: flex-start;
+      align-items: center;
+      text-align: center;
+      gap: 12px;
+      padding: 16px 12px;
+      overflow-y: auto;
+      min-height: 0;
+    }
 
     #titleScreen h1 {
       font-size: 2.1rem;
@@ -152,79 +150,69 @@
 
     .stats-panel strong { color: var(--gold-color); }
 
-   /* 📢 お知らせ枠 (視認性・応答性大幅向上版) */
-/* 📢 お知らせ枠 (潰れ防止・レスポンシブ対応完全版) */
-.notice-panel {
-  background: #111827;
-  border: 1px solid #00fff5;
-  border-radius: 8px;
-  padding: 10px 12px;
-  width: 100%;
-  max-width: 440px; /* 横幅を他の枠と合わせて見やすく拡大 */
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  text-align: left;
-  
- /* ⚠️ ここが超重要：縦潰れを物理的に阻止する設定 */
-  height: 150px !important;       /* 高さを150pxで固定 */
-  min-height: 150px !important;   /* 最低高さを保障 */
-  flex-shrink: 0 !important;      /* 親要素からの圧縮命令を絶対に拒否 */
-  
-  overflow-y: auto;
-  box-shadow: 0 0 12px rgba(0, 255, 245, 0.2);
-}
-/* カスタムスクロールバーで操作性を向上 */
-.notice-panel::-webkit-scrollbar {
-  width: 6px;
-}
-.notice-panel::-webkit-scrollbar-thumb {
-  background: #00adb5;
-  border-radius: 3px;
-}
-.notice-panel::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.3);
-}
+    /* 📢 お知らせ枠 (潰れ防止・レスポンシブ対応完全版) */
+    .notice-panel {
+      background: #111827;
+      border: 1px solid #00fff5;
+      border-radius: 8px;
+      padding: 10px 12px;
+      width: 100%;
+      max-width: 440px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: left;
+      height: 150px !important;
+      min-height: 150px !important;
+      flex-shrink: 0 !important;
+      overflow-y: auto;
+      box-shadow: 0 0 12px rgba(0, 255, 245, 0.2);
+    }
 
-.notice-header {
-  font-size: 0.9rem;
-  font-weight: bold;
-  color: #00fff5;
-  border-bottom: 1px solid rgba(0, 255, 245, 0.3);
-  padding-bottom: 6px;
-  position: sticky; /* スクロールしてもヘッダーを上部に固定 */
-  top: 0;
-  background: #111827;
-  z-index: 2;
-  flex-shrink: 0;
-}
+    .notice-panel::-webkit-scrollbar { width: 6px; }
+    .notice-panel::-webkit-scrollbar-thumb { background: #00adb5; border-radius: 3px; }
+    .notice-panel::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.3); }
 
-#noticeList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+    .notice-header {
+      font-size: 0.9rem;
+      font-weight: bold;
+      color: #00fff5;
+      border-bottom: 1px solid rgba(0, 255, 245, 0.3);
+      padding-bottom: 6px;
+      position: sticky;
+      top: 0;
+      background: #111827;
+      z-index: 2;
+      flex-shrink: 0;
+    }
 
-.notice-item {
-  font-size: 0.82rem;
-  color: #ffffff;
-  line-height: 1.5;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 8px 10px;
-  border-radius: 6px;
-  border-left: 4px solid #00fff5;
-  word-break: break-word; /* 長文やURLの溢れ防止 */
-  overflow-wrap: anywhere;
-}
+    #noticeList {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
 
-.notice-item strong {
-  color: #ffd700;
-  display: block;
-  margin-bottom: 4px;
-  font-size: 0.88rem;
-  letter-spacing: 0.02em;
-}
+    .notice-item {
+      font-size: 0.82rem;
+      color: #ffffff;
+      line-height: 1.5;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 8px 10px;
+      border-radius: 6px;
+      border-left: 4px solid #00fff5;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .notice-item strong {
+      color: #ffd700;
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.88rem;
+      letter-spacing: 0.02em;
+    }
+
     .event-panel {
       background: rgba(255, 140, 0, 0.12);
       border: 2px solid #ff8c00;
@@ -597,7 +585,6 @@
       border: 1px solid #555;
     }
 
-    /* 5属性デザインバッジ */
     .element-badge {
       font-size: 0.65rem;
       padding: 2px 5px;
@@ -686,7 +673,6 @@
     }
 
     .monster-card-field.exhausted { filter: grayscale(0.8); opacity: 0.55; }
-    
     .monster-card-field.stunned {
       border-color: #00adb5 !important;
       box-shadow: 0 0 10px #00adb5 !important;
@@ -843,15 +829,12 @@
       object-fit: cover;
     }
 
-    .card-img-container .icon-fallback {
-      font-size: 1.1rem;
-    }
-
+    .card-img-container .icon-fallback { font-size: 1.1rem; }
     .card-title { font-size: 0.62rem; font-weight: bold; color: #fff; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .card-cost { font-size: 0.55rem; color: #00adb5; font-weight: bold; }
     .card-stats-badge { font-size: 0.58rem; color: #ffd700; font-weight: bold; }
     .card-desc { font-size: 0.48rem; color: #ccc; line-height: 1; height: 12px; overflow: hidden; }
-    
+
     .card-flavor {
       font-size: 0.45rem;
       color: #aaa;
@@ -868,7 +851,7 @@
 
     .card-elem { font-size: 0.5rem; }
     .card-type { font-size: 0.5rem; align-self: flex-end; background: rgba(255,255,255,0.1); padding: 1px 3px; border-radius: 3px; }
-    
+
     .card-count-badge {
       position: absolute;
       top: -4px;
@@ -1361,39 +1344,20 @@
 </div>
 
 <script>
-  // ----------------------------------------------------
-  // ここから貼り付け
-  // ----------------------------------------------------
-  
-  // 🟢【修正後】
-  window.saveNoticeFromAdmin = async function() {
-    if (!supabaseClient) return alert("Supabaseに接続されていません");
-    
-    const titleInput = document.getElementById("adminNoticeTitle");
-    const bodyInput = document.getElementById("adminNoticeBody");
-    
-    const title = titleInput ? titleInput.value.trim() : "";
-    const body = bodyInput ? bodyInput.value.trim() : "";
-    
-    if (!title || !body) {
-      return alert("タイトルと本文の両方を入力してください。");
+  // --- Supabase 設定 ---
+  const SUPABASE_URL = "https://ytpxddoiinqmugoqpfqi.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0cHhkZG9paW5xbXVnb3FwZnFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4NTEwMzQsImV4cCI6MjEwODQyNzAzNH0.uhQuslASZ6TjMihJuaLm81RU7tlophYglEjMNqJ6ChY";
+
+  let supabaseClient = null;
+  try {
+    if (window.supabase) {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
+  } catch (e) {
+    console.error("Supabase初期化エラー:", e);
+  }
 
-    try {
-      const { data, error } = await supabaseClient
-        .from('notices')
-        .insert([{ title: title, body: body }]);
-
-      if (error) {
-        alert("お知らせの送信に失敗しました: " + error.message);
-        console.error("Notice Insert Error:", error);
-      } else {
-        alert("📢 お知らせを正常に発行しました！");
-        if (titleInput) titleInput.value = "";
-        if (bodyInput) bodyInput.value = "";
-        
-        // 即座にお知らせ一覧を更新
-        // 🟢【修正後】(930行目付近)
+  // 📢 お知らせ取得機能（完全統合版）
   async function fetchNotices() {
     if (!supabaseClient) return;
     try {
@@ -1428,81 +1392,44 @@
     }
   }
   window.fetchNotices = fetchNotices;
+
+  // 📢 管理者からのお知らせ発行機能
+  async function saveNoticeFromAdmin() {
+    if (!supabaseClient) return alert("Supabaseに接続されていません");
+    
+    const titleInput = document.getElementById("adminNoticeTitle");
+    const bodyInput = document.getElementById("adminNoticeBody");
+    
+    const title = titleInput ? titleInput.value.trim() : "";
+    const body = bodyInput ? bodyInput.value.trim() : "";
+    
+    if (!title || !body) {
+      return alert("タイトルと本文の両方を入力してください。");
+    }
+
+    try {
+      const { data, error } = await supabaseClient
+        .from('notices')
+        .insert([{ title: title, body: body }]);
+
+      if (error) {
+        alert("お知らせの送信に失敗しました: " + error.message);
+        console.error("Notice Insert Error:", error);
+      } else {
+        alert("📢 お知らせを正常に発行しました！");
+        if (titleInput) titleInput.value = "";
+        if (bodyInput) bodyInput.value = "";
+        await fetchNotices();
       }
     } catch (e) {
       console.error("Notice Save Exception:", e);
       alert("通信エラーが発生しました。");
     }
-  };
+  }
+  window.saveNoticeFromAdmin = saveNoticeFromAdmin;
   window.sendAdminNotice = window.saveNoticeFromAdmin;
 
-  // 🟢 お知らせ取得機能（完全修正版）
-  async function fetchNotices() {
-    if (!supabaseClient) {
-      console.warn("Supabaseクライアントが未初期化です");
-      return;
-    }
-    
-    try {
-      const { data, error } = await supabaseClient
-        .from('notices')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error("notices取得エラー:", error);
-        const list = document.getElementById("noticeList");
-        if (list) list.innerHTML = `<div class="notice-item" style="color:#ff6b6b;">取得エラー: ${error.message}</div>`;
-        return;
-      }
-
-      const list = document.getElementById("noticeList");
-      if (list) {
-        if (data && data.length > 0) {
-          list.innerHTML = "";
-          data.forEach(n => {
-            const formattedBody = (n.body || "").replace(/\n/g, "<br>");
-            list.innerHTML += `
-              <div class="notice-item">
-                <strong>📢 ${n.title}</strong>
-                <div style="margin-top:4px; color:#e0e0e0; font-size:0.8rem;">${formattedBody}</div>
-              </div>`;
-          });
-        } else {
-          list.innerHTML = `<div class="notice-item" style="color:#aaa; text-align:center;">現在新しいお知らせはありません。</div>`;
-        }
-      }
-    } catch (e) {
-      console.error("お知らせ取得例外:", e);
-    }
-  }
-  
-  // ページ読み込み完了時および画面表示時に自動実行
-  window.fetchNotices = fetchNotices;
-  window.closeRulesModal = function() {
-    var rulesModal = document.getElementById("rulesModal");
-    if (rulesModal) rulesModal.classList.remove("active");
-  };
-
-  // 🌟 2. ELEMENTS オブジェクトのマージ（SyntaxError防止）
-  if (typeof window.ELEMENTS !== 'undefined') {
-    Object.assign(window.ELEMENTS, {
-      fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
-      water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
-      wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
-      light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
-      dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
-    });
-  } else {
-    window.ELEMENTS = {
-      fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
-      water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
-      wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
-      light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
-      dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
-    };
-  }
-// 🌟 1. 画面遷移用関数の定義
+  // 🌟 1. 画面遷移用関数の定義
   window.openMarketScreen = function() {
     var titleEl = document.getElementById("titleScreen");
     var marketEl = document.getElementById("marketScreen");
@@ -1534,7 +1461,6 @@
       const userRate = window.userProfile.rate || 1000;
       const userWins = window.userProfile.wins || 0;
 
-      // 称号の解放条件リスト
       const titleDefinitions = [
         { name: "《見習いデュエリスト》", unlocked: true, desc: "初期解放" },
         { name: "《銅の決闘者》", unlocked: userRate >= 1000, desc: "ブロンズ到達 (1000 RP)" },
@@ -1567,7 +1493,6 @@
       }).join("");
     }
 
-    // バッジリストの描画
     const badgeContainer = document.getElementById("badgeListContainer");
     if (badgeContainer) {
       const badges = ["🔰", "⚔️", "🛡️", "🔥", "👑", "💎"];
@@ -1579,6 +1504,7 @@
       `).join("");
     }
   }
+
   window.selectTitle = function(title) {
     window.userProfile.equippedTitle = title;
     renderProfileCustomization();
@@ -1598,6 +1524,26 @@
     var rulesModal = document.getElementById("rulesModal");
     if (rulesModal) rulesModal.classList.remove("active");
   };
+
+  // 🌟 ELEMENTS オブジェクトのマージ
+  if (typeof window.ELEMENTS !== 'undefined') {
+    Object.assign(window.ELEMENTS, {
+      fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
+      water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
+      wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
+      light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
+      dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
+    });
+  } else {
+    window.ELEMENTS = {
+      fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
+      water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
+      wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
+      light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
+      dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
+    };
+  }
+
   // 🔍 カード拡大表示処理
   function openCardZoomModal(cardData) {
     if (!cardData) return;
@@ -1616,19 +1562,6 @@
     document.getElementById("cardZoomModal").classList.remove("active");
   }
   window.closeCardZoomModal = closeCardZoomModal;
-
-  // --- Supabase 設定 ---
-  const SUPABASE_URL = "https://ytpxddoiinqmugoqpfqi.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0cHhkZG9paW5xbXVnb3FwZnFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4NTEwMzQsImV4cCI6MjEwODQyNzAzNH0.uhQuslASZ6TjMihJuaLm81RU7tlophYglEjMNqJ6ChY";
-
-  let supabaseClient = null;
-  try {
-    if (window.supabase) {
-      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    }
-  } catch (e) {
-    console.error("Supabase初期化エラー:", e);
-  }
 
   let onlineMyRole = null;
   let onlineRoomId = null;
@@ -1783,25 +1716,6 @@
     }
   }
 
-  async function fetchNotices() {
-    if (!supabaseClient) return;
-    try {
-      const { data } = await supabaseClient.from('notices').select('*').order('created_at', { ascending: false });
-      const list = document.getElementById("noticeList");
-      if (list && data && data.length > 0) {
-        list.innerHTML = "";
-        data.forEach(n => {
-          // 本文中の改行（\n）をHTMLの改行（<br>）に自動変換する処理を追加
-          const formattedBody = (n.body || "").replace(/\n/g, "<br>");
-          list.innerHTML += `<div class="notice-item"><strong>📢 ${n.title}</strong><div style="margin-top:4px; color:#e0e0e0;">${formattedBody}</div></div>`;
-        });
-      } else if (list) {
-        list.innerHTML = `<div class="notice-item" style="color:#aaa; text-align:center;">現在新しいお知らせはありません。</div>`;
-      }
-    } catch (e) {
-      console.error("お知らせ取得エラー:", e);
-    }
-  }
   function switchAdminTab(tab) {
     document.getElementById("tabBtnEvents").classList.toggle("active", tab === 'events');
     document.getElementById("tabBtnNotices").classList.toggle("active", tab === 'notices');
@@ -1809,24 +1723,6 @@
     document.getElementById("adminFormNotice").classList.toggle("hidden", tab !== 'notices');
   }
   window.switchAdminTab = switchAdminTab;
-
-  async function saveNoticeFromAdmin() {
-    if (!supabaseClient) return alert("Supabaseに接続されていません");
-    const title = document.getElementById("adminNoticeTitle").value.trim();
-    const body = document.getElementById("adminNoticeBody").value.trim();
-    if (!title || !body) return alert("タイトルと本文を入力してください");
-
-    const { error } = await supabaseClient.from('notices').insert([{ title, body }]);
-    if (error) {
-      alert("投稿失敗: " + error.message);
-    } else {
-      alert("📢 お知らせを発行しました！");
-      document.getElementById("adminNoticeTitle").value = "";
-      document.getElementById("adminNoticeBody").value = "";
-      fetchNotices();
-    }
-  }
-  window.saveNoticeFromAdmin = saveNoticeFromAdmin;
 
   function switchMarketTab(tab) {
     document.getElementById("tabMarketBuy").classList.toggle("active", tab === 'buy');
@@ -2192,18 +2088,7 @@
     my: { name: "あなた", rate: 1000, elem: "water", hp: 60, maxHp: 60, mp: 20, maxMp: 20, monsters: [], deck: [], hand: [] },
     opp: { name: "CPU", rate: 1000, elem: "fire", hp: 60, maxHp: 60, mp: 20, maxMp: 20, monsters: [], deck: [], hand: [] }
   };
-// 【追加場所】関数の定義を上に書く
-function applyRoomData(roomData)  {
-  if (!roomData) return;
-  
-  // 例: DOM要素を書き換える処理など
-  document.getElementById('room-name').textContent = roomData.name;
-};
 
-// --- ここより下で呼び出す ---
-socket.on('room_updated', function(data) {
-  applyRoomData(data); // ここでエラーなく実行できます
-});
   document.addEventListener("DOMContentLoaded", async () => {
     loadUserProfile();
     await loadSharedCustomCards();
@@ -2257,14 +2142,11 @@ socket.on('room_updated', function(data) {
   });
 
   async function showTitle() {
-    // 🌐 オンライン対戦中に途中離脱（降参）した場合のペナルティ処理
     if ((window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") && onlineRoomId && supabaseClient) {
       try {
         const isP1 = onlineMyRole === 'player1';
         const mePrefix = isP1 ? 'p1' : 'p2';
-        const oppPrefix = isP1 ? 'p2' : 'p1';
 
-        // ランクマッチの場合はペナルティとしてレートを -32 減算
         if (window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
           const myRate = window.userProfile.rate || 1000;
           window.userProfile.rate = Math.max(0, myRate - 32);
@@ -2276,7 +2158,6 @@ socket.on('room_updated', function(data) {
           }
         }
 
-        // 相手に降参フラグを送信
         await supabaseClient.from('rooms').update({
           [`${mePrefix}_surrendered`]: true,
           updated_at: new Date().toISOString()
@@ -2379,8 +2260,6 @@ socket.on('room_updated', function(data) {
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
-  // --- 🏆 ランクマッチ自動検索（古い部屋の自動クリーンアップ付き） ---
-  // --- 🏆 ランクマッチ自動検索（放置部屋・ゴースト自動排除版） ---
   async function searchRankedMatch(isEvent = false) {
     if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
 
@@ -2396,30 +2275,26 @@ socket.on('room_updated', function(data) {
     try {
       const myName = window.userProfile.name;
 
-      // 1. 自分が過去に作って残ってしまっている古い部屋をクリーンアップ
       await supabaseClient.from('rooms').delete().eq('p1_name', myName);
       await supabaseClient.from('rooms').delete().eq('p2_name', myName);
 
-      // 2. 15分以上更新のない放置部屋（ゴースト部屋）を自動削除
       const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
       await supabaseClient.from('rooms').delete().eq('status', 'waiting').lt('updated_at', fifteenMinutesAgo);
 
-      // 3. 自分以外のプレイヤーが待機している最新の有効な部屋を検索
       let query = supabaseClient
         .from('rooms')
         .select('*')
         .eq('status', 'waiting')
         .eq('is_ranked', true)
-        .neq('p1_name', myName) // 自分自身の部屋は除外
-        .order('updated_at', { ascending: false }); // 最新の部屋を優先
+        .neq('p1_name', myName)
+        .order('updated_at', { ascending: false });
 
       const { data: waitingRooms, error: selectErr } = await query;
       if (selectErr) console.error("部屋検索エラー:", selectErr);
 
-      const validOpponentRoom = (waitingRooms || [])[0]; // 最も最近作られた有効な待機部屋を取得
+      const validOpponentRoom = (waitingRooms || [])[0];
 
       if (validOpponentRoom) {
-        // 他人のアクティブな待機部屋に入室
         onlineRoomId = validOpponentRoom.id;
         onlineMyRole = 'player2';
         hasDrawnThisTurn = false;
@@ -2441,7 +2316,6 @@ socket.on('room_updated', function(data) {
 
         subscribeRoomUpdates();
       } else {
-        // 相手がいない場合は新規待機部屋を作成して待つ
         onlineRoomId = "RANK_" + Math.random().toString(36).substring(2, 8).toUpperCase();
         onlineMyRole = 'player1';
         hasDrawnThisTurn = true;
@@ -2473,8 +2347,6 @@ socket.on('room_updated', function(data) {
     }
   }
 
-   
-  // --- フリーオンライン対戦 ---
   async function createOnlineRoom() {
     if (!supabaseClient) return alert("Supabaseの初期化に失敗しています。");
 
@@ -2599,7 +2471,7 @@ socket.on('room_updated', function(data) {
     }
   }
 
-  // 🌟 3. 通信データ（相手カードの復元・名前反映）処理
+  // 🌟 通信データ（相手カードの復元・名前反映・降参検知）処理
   function applyRoomData(roomData) {
     if (!roomData) return;
 
@@ -2619,7 +2491,6 @@ socket.on('room_updated', function(data) {
       window.gameState.opp.name = fetchedOppName ? fetchedOppName : "対戦相手";
       window.gameState.opp.hp = roomData[`${oppPrefix}_hp`] ?? 60;
       
-      // 相手のカード情報を CARD_DATABASE とマージして完全復元
       const rawOppMonsters = roomData[`${oppPrefix}_field`] || [];
       window.gameState.opp.monsters = rawOppMonsters.map(m => {
         if (!m) return null;
@@ -2636,38 +2507,31 @@ socket.on('room_updated', function(data) {
       if (roomData[`${oppPrefix}_deck_count`] !== undefined) {
         onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`];
       }
-// ====================================================
-      // ⬇️ 【ここに挿入します】切断・途中離脱の判定処理
-      // ====================================================
+
+      // 🏳️ 相手の降参（または切断）判定
       const oppUpdatedAt = roomData.updated_at ? new Date(roomData.updated_at).getTime() : Date.now();
       const now = Date.now();
       
-      // 対戦中（playing）かつ相手が15秒以上通信更新していない場合
-      if (roomData.status === 'playing') {
-        const isOpponentDisconnected = (now - oppUpdatedAt) > 60000; // 60秒以上音沙汰なし
-        const isOpponentSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
+      const isOpponentDisconnected = (now - oppUpdatedAt) > 60000;
+      const isOpponentSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
 
-        if (isOpponentDisconnected || isOpponentSurrendered) {
-          addLog(`⚠️ 相手プレイヤー（${window.gameState.opp.name}）が退出または切断しました。`, "important");
-          
-          // 自分の勝利として処理
-          window.gameState.opp.hp = 0;
-          checkWinLoss();
-          return;
-        }
+      if (isOpponentSurrendered || (roomData.status === 'playing' && isOpponentDisconnected)) {
+        addLog(`🏳️ 相手プレイヤー（${window.gameState.opp.name}）が降参（または切断）しました！`, "important");
+        
+        window.gameState.opp.hp = 0;
+        updateUI();
+        checkWinLoss();
+        return;
       }
-      // ====================================================
 
       window.gameState.turn = isMyTurnNow ? "player" : "opponent";
 
-      // 画面要素の更新
       const oppNameEl = document.getElementById("oppNameDisplay");
       const myNameEl = document.getElementById("myNameDisplay");
       if (oppNameEl) oppNameEl.textContent = window.gameState.opp.name;
       if (myNameEl) myNameEl.textContent = window.gameState.my.name;
 
       updateUI();
-      window.gameState.turn = isMyTurnNow ? "player" : "opponent";
 
       if (isMyTurnNow && previousTurn !== "player") {
         hasDrawnThisTurn = false;
@@ -2693,13 +2557,6 @@ socket.on('room_updated', function(data) {
 
         window.gameState.my.mp = Math.min(window.gameState.my.maxHp, window.gameState.my.mp + 2);
       }
-
-      // 双方のプレイヤー名を要素に確実反映
-      
-      if (oppNameEl) oppNameEl.textContent = window.gameState.opp.name;
-      if (myNameEl) myNameEl.textContent = window.gameState.my.name;
-
-      updateUI();
 
       const logArea = document.getElementById("logArea");
       if (logArea) {
@@ -2819,35 +2676,30 @@ socket.on('room_updated', function(data) {
 
     let longPressTimer = null;
     let isLongPressAction = false;
-    const LONG_PRESS_DURATION = 500; // 長押しと判定する時間（0.5秒）
+    const LONG_PRESS_DURATION = 500;
 
     if (clickHandler) {
-      // --- 📱 スマホ用タッチイベント（長押し判定） ---
       cardDiv.addEventListener("touchstart", (e) => {
         isLongPressAction = false;
         longPressTimer = setTimeout(() => {
           isLongPressAction = true;
-          // 0.5秒以上長押しされたら拡大表示を開く
           openCardZoomModal(cardData);
         }, LONG_PRESS_DURATION);
       }, { passive: true });
 
       cardDiv.addEventListener("touchend", (e) => {
         clearTimeout(longPressTimer);
-        // 長押しではなく通常の「短タップ」だった場合のみ、カード使用/選択の処理を実行
         if (!isLongPressAction) {
           clickHandler(e);
         }
       });
 
       cardDiv.addEventListener("touchmove", () => {
-        // 指を動かした（スクロールした）場合は長押しをキャンセル
         clearTimeout(longPressTimer);
       }, { passive: true });
 
-      // --- 💻 PC用マウスイベント ---
       cardDiv.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return; // 左クリックのみ対象
+        if (e.button !== 0) return;
         isLongPressAction = false;
         longPressTimer = setTimeout(() => {
           isLongPressAction = true;
@@ -2867,20 +2719,17 @@ socket.on('room_updated', function(data) {
         clearTimeout(longPressTimer);
       });
 
-      // 右クリックでの拡大表示（PC補助用）
       cardDiv.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         openCardZoomModal(cardData);
       });
     } else {
-      // モーダル内などでクリックハンドラがない場合は直接長押し/右クリックで対応
       cardDiv.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         openCardZoomModal(cardData);
       });
     }
 
-    // ...（以下、カード要素のHTML構築処理は既存のまま）...
     let statsText = '';
     if (cardData.type === 'monster') {
       statsText = `<div class="card-stats-badge">ATK:${cardData.atk}|HP:${cardData.hp}</div>`;
