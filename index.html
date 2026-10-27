@@ -3828,7 +3828,7 @@ async function showTitle() {
 
   // 🌟 updateUI 関数（位置指定召喚・各種ステータス表示の完全対応版）
   function updateUI() {
-    const myMpEl = document.getElementById("myMp");
+    const myMpEl = document.getElementById("myMpText");
   if (myMpEl) {
     // 上限を 40 に制限して表示
     window.gameState.my.mp = Math.min(40, window.gameState.my.mp);
