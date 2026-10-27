@@ -2650,37 +2650,171 @@ window.searchRankedMatch = searchRankedMatch;
     subscribeRoomUpdates();
   }
 
- function subscribeRoomUpdates() {
-  if (!onlineRoomId) return;
+ // 🌟 ランクマッチ検索・部屋作成（SyntaxError・400エラー修復版）
+  async function searchRankedMatch() {
+    try {
+      const myName = window.userProfile?.name || "プレイヤー";
+      const deckIds = window.userProfile?.deck || [1, 2, 3, 4, 5];
 
-  // 🌟 変数が未定義でもエラーにならないよう安全にチェック
-  if (typeof roomChannel !== 'undefined' && roomChannel) {
-    supabaseClient.removeChannel(roomChannel);
+      // 1. 待機部屋の検索（.from('rooms') を正常保持）
+      const { data: waitingRooms, error: fetchErr } = await supabaseClient
+        .from('rooms')
+        .select('*')
+        .eq('status', 'waiting')
+        .limit(1);
+
+      if (fetchErr) {
+        console.warn("部屋検索スキップ（新規作成へ移行）:", fetchErr);
+      }
+
+      const validOpponentRoom = (waitingRooms && waitingRooms.length > 0) ? waitingRooms[0] : null;
+
+      if (validOpponentRoom) {
+        // ⚔️ ゲスト（player2）として参加
+        onlineRoomId = validOpponentRoom.id;
+        onlineMyRole = 'player2';
+        hasDrawnThisTurn = false;
+        window.gameState.isGameStarted = true;
+
+        const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
+        window.gameState.my.hand = fullDeck.slice(0, 5);
+        window.gameState.my.deck = fullDeck.slice(5);
+
+        // 初期MP (5)
+        window.gameState.my.mp = 5;
+        window.gameState.opp.mp = 5;
+
+        const roomIdEl = document.getElementById("roomIdDisplay") || document.getElementById("onlineRoomId");
+        if (roomIdEl) roomIdEl.textContent = onlineRoomId;
+
+        const { error: updateErr } = await supabaseClient.from('rooms').update({
+          status: 'playing',
+          p2_name: myName,
+          p2_rate: window.userProfile.rate || 1000,
+          p2_hp: 60,
+          p2_deck_count: 15,
+          updated_at: new Date().toISOString()
+        }).eq('id', onlineRoomId);
+
+        if (updateErr) console.error("参加更新エラー:", updateErr);
+
+        subscribeRoomUpdates();
+
+      } else {
+        // ⏳ ホスト（player1）として部屋を作成
+        onlineRoomId = "RANK_" + Math.random().toString(36).substring(2, 8).toUpperCase();
+        onlineMyRole = 'player1';
+        hasDrawnThisTurn = true;
+        window.gameState.isGameStarted = false;
+
+        const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
+        window.gameState.my.hand = fullDeck.slice(0, 5);
+        window.gameState.my.deck = fullDeck.slice(5);
+
+        // 初期MP (5)
+        window.gameState.my.mp = 5;
+        window.gameState.opp.mp = 5;
+
+        const roomIdEl = document.getElementById("roomIdDisplay") || document.getElementById("onlineRoomId");
+        if (roomIdEl) roomIdEl.textContent = onlineRoomId;
+
+        const { error: insertErr } = await supabaseClient.from('rooms').insert([{
+          id: onlineRoomId,
+          status: 'waiting',
+          current_turn: 'player1',
+          p1_name: myName,
+          p1_rate: window.userProfile.rate || 1000,
+          p1_hp: 60,
+          p1_deck_count: 15,
+          p2_hp: 60,
+          p2_deck_count: 15,
+          updated_at: new Date().toISOString()
+        }]);
+
+        if (insertErr) console.error("部屋作成エラー:", insertErr);
+
+        subscribeRoomUpdates();
+      }
+
+      updateUI();
+
+    } catch (err) {
+      console.error("searchRankedMatch 全体エラー:", err);
+    }
   }
+  window.searchRankedMatch = searchRankedMatch;
 
-  roomChannel = supabaseClient
-    .channel('room-' + onlineRoomId)
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'rooms',
-      filter: `id=eq.${onlineRoomId}`
-    }, (payload) => {
-      if (payload.new) {
-        if (payload.new.status === 'playing') {
-          window.gameState.isGameStarted = true;
+  // 🌟 オンライン合言葉参戦
+  async function joinOnlineRoom() {
+    if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
+
+    const code = document.getElementById("onlineRoomCodeInput").value.trim().toUpperCase();
+    if (!code) return alert("合言葉を入力してください");
+
+    const { data, error } = await supabaseClient
+      .from('rooms')
+      .select('*')
+      .eq('id', code);
+
+    if (error || !data || data.length === 0) return alert("部屋が見つかりません");
+    const room = data[0];
+    if (room.status !== 'waiting') return alert("満員か対戦中の部屋です");
+
+    onlineRoomId = code;
+    onlineMyRole = 'player2';
+    window.gameState.mode = "online";
+    hasDrawnThisTurn = false;
+
+    const fullDeck = buildDeckFromIds(window.userProfile.deck);
+    window.gameState.my.hand = fullDeck.slice(0, 5);
+    window.gameState.my.deck = fullDeck.slice(5);
+
+    await supabaseClient.from('rooms').update({
+      status: 'playing',
+      p2_name: window.userProfile.name,
+      p2_rate: window.userProfile.rate || 1000,
+      p2_hand: window.gameState.my.hand.map(c => c.id),
+      p2_hp: 60,
+      p2_deck_count: 15,
+      log: [...(room.log || []), `${window.userProfile.name} が参加しました！対戦開始！`]
+    }).eq('id', onlineRoomId);
+
+    subscribeRoomUpdates();
+  }
+  window.joinOnlineRoom = joinOnlineRoom;
+
+  // 🌟 通信チャンネル接続
+  function subscribeRoomUpdates() {
+    if (!onlineRoomId || !supabaseClient) return;
+
+    if (typeof roomChannel !== 'undefined' && roomChannel) {
+      supabaseClient.removeChannel(roomChannel);
+    }
+
+    roomChannel = supabaseClient
+      .channel('room-' + onlineRoomId)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'rooms',
+        filter: `id=eq.${onlineRoomId}`
+      }, (payload) => {
+        if (payload.new) {
+          if (payload.new.status === 'playing') {
+            window.gameState.isGameStarted = true;
+          }
+          applyRoomData(payload.new);
         }
-        applyRoomData(payload.new);
-      }
-    })
-    .subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        if (typeof fetchCurrentRoomData === 'function') {
-          fetchCurrentRoomData();
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          if (typeof fetchCurrentRoomData === 'function') {
+            fetchCurrentRoomData();
+          }
         }
-      }
-    });
-}
+      });
+  }
+  window.subscribeRoomUpdates = subscribeRoomUpdates;
   // 🌟 通信データ（相手カードの復元・名前反映・降参検知）処理
   // 🌟 通信データ更新（待機状態での誤判定防止・降参検知完全対応版）
   function applyRoomData(roomData) {
