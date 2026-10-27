@@ -2399,10 +2399,13 @@ async function showTitle() {
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
+  // 🌟 ランクマッチ検索（対戦開始フラグ制御対応版）
   async function searchRankedMatch(isEvent = false) {
     if (!supabaseClient) return alert("Supabaseの接続設定に問題があります。");
 
     window.gameState.mode = isEvent ? "event_ranked" : "ranked";
+    window.gameState.isGameStarted = false; // 🔍 最初は待機状態としてフラグを初期化
+
     document.getElementById("titleScreen").classList.add("hidden");
     document.getElementById("gameScreen").classList.remove("hidden");
     
@@ -2437,6 +2440,7 @@ async function showTitle() {
         onlineRoomId = validOpponentRoom.id;
         onlineMyRole = 'player2';
         hasDrawnThisTurn = false;
+        window.gameState.isGameStarted = true; // ⚔️ 相手の部屋に入ったので対戦開始！
 
         const fullDeck = buildDeckFromIds(window.userProfile.deck);
         window.gameState.my.hand = fullDeck.slice(0, 5);
@@ -2458,6 +2462,7 @@ async function showTitle() {
         onlineRoomId = "RANK_" + Math.random().toString(36).substring(2, 8).toUpperCase();
         onlineMyRole = 'player1';
         hasDrawnThisTurn = true;
+        window.gameState.isGameStarted = false; // ⏳ 自分がホスト（待機中）なのでまだ開始前
 
         const fullDeck = buildDeckFromIds(window.userProfile.deck);
         window.gameState.my.hand = fullDeck.slice(0, 5);
@@ -2485,7 +2490,6 @@ async function showTitle() {
       console.error("searchRankedMatch 例外:", err);
     }
   }
-
   async function createOnlineRoom() {
     if (!supabaseClient) return alert("Supabaseの初期化に失敗しています。");
 
