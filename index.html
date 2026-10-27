@@ -1393,7 +1393,41 @@
         if (bodyInput) bodyInput.value = "";
         
         // 即座にお知らせ一覧を更新
-        await fetchNotices();
+        // 🟢【修正後】(930行目付近)
+  async function fetchNotices() {
+    if (!supabaseClient) return;
+    try {
+      const { data, error } = await supabaseClient
+        .from('notices')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("notices取得エラー:", error);
+        return;
+      }
+
+      const list = document.getElementById("noticeList");
+      if (list) {
+        if (data && data.length > 0) {
+          list.innerHTML = "";
+          data.forEach(n => {
+            const formattedBody = (n.body || "").replace(/\n/g, "<br>");
+            list.innerHTML += `
+              <div class="notice-item">
+                <strong>📢 ${n.title}</strong>
+                <div style="margin-top:4px; color:#e0e0e0; font-size:0.8rem;">${formattedBody}</div>
+              </div>`;
+          });
+        } else {
+          list.innerHTML = `<div class="notice-item" style="color:#aaa; text-align:center;">現在お知らせはありません。</div>`;
+        }
+      }
+    } catch (e) {
+      console.error("お知らせ取得例外:", e);
+    }
+  }
+  window.fetchNotices = fetchNotices;
       }
     } catch (e) {
       console.error("Notice Save Exception:", e);
