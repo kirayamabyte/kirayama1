@@ -2343,25 +2343,39 @@
 
   // 🌟 ランクマッチ検索・部屋作成（isEventフラグ対応）
   // 🌟 ランクマッチ検索・部屋作成（マッチング不具合修正版）
+  // 🌟 ランクマッチ検索・部屋作成（マッチング不具合完全修復版）
   async function searchRankedMatch(isEvent = false) {
     try {
+      // 共通のオンライン対戦モードとして設定
       window.gameState.mode = isEvent ? "event_ranked" : "ranked";
       const myName = window.userProfile?.name || "プレイヤー";
       const deckIds = window.userProfile?.deck || [1, 2, 3, 4, 5];
 
-      // 1. 待機中（status='waiting'）の部屋を検索
+      // 先に対戦画面へ遷移
+      document.getElementById("titleScreen").classList.add("hidden");
+      document.getElementById("gameScreen").classList.remove("hidden");
+      
+      const logArea = document.getElementById("logArea");
+      if (logArea) logArea.innerHTML = "";
+      addLog("🔍 対戦相手を探しています...", "important");
+
+      // 1. 待機中（status='waiting'）の部屋があるか検索
       const { data: waitingRooms, error: fetchErr } = await supabaseClient
         .from('rooms')
         .select('*')
         .eq('status', 'waiting')
-        .order('created_at', { ascending: true })
+        .order('updated_at', { ascending: false })
         .limit(1);
 
       if (fetchErr) {
+        addLog(`⚠️ 部屋検索エラー: ${fetchErr.message}`, "damage");
         console.error("部屋検索エラー:", fetchErr);
       }
 
-      const validOpponentRoom = (waitingRooms && waitingRooms.length > 0) ? waitingRooms[0] : null;
+      // 自分以外のプレイヤーが作った待機部屋を取得
+      const validOpponentRoom = (waitingRooms && waitingRooms.length > 0 && waitingRooms[0].p1_name !== myName) 
+        ? waitingRooms[0] 
+        : null;
 
       if (validOpponentRoom) {
         // ⚔️ 既存の部屋に「ゲスト (player2)」として参加
@@ -2376,7 +2390,6 @@
         window.gameState.my.mp = 5;
         window.gameState.opp.mp = 5;
 
-        // 相手（p1）の情報をセット
         window.gameState.opp.name = validOpponentRoom.p1_name || "対戦相手";
         onlineOppRate = validOpponentRoom.p1_rate || 1000;
 
@@ -2390,13 +2403,17 @@
           updated_at: new Date().toISOString()
         }).eq('id', onlineRoomId);
 
-        if (updateErr) console.error("参加更新エラー:", updateErr);
+        if (updateErr) {
+          addLog(`⚠️ 部屋参加エラー: ${updateErr.message}`, "damage");
+        } else {
+          addLog(`⚔️ 対戦相手【${window.gameState.opp.name}】とマッチングしました！`, "effective");
+        }
 
         subscribeRoomUpdates();
 
       } else {
         // ⏳ 部屋が存在しないため「ホスト (player1)」として新規作成
-        onlineRoomId = (isEvent ? "EVT_" : "RANK_") + Math.random().toString(36).substring(2, 8).toUpperCase();
+        onlineRoomId = "ROOM_" + Math.random().toString(36).substring(2, 8).toUpperCase();
         onlineMyRole = 'player1';
         hasDrawnThisTurn = true;
         window.gameState.isGameStarted = false;
@@ -2420,27 +2437,23 @@
           updated_at: new Date().toISOString()
         }]);
 
-        if (insertErr) console.error("部屋作成エラー:", insertErr);
+        if (insertErr) {
+          addLog(`⚠️ 部屋作成エラー: ${insertErr.message}`, "damage");
+        } else {
+          addLog(`⏳ 待機部屋を作成しました (${onlineRoomId})。相手の参加を待っています...`, "important");
+        }
 
         subscribeRoomUpdates();
-      }
-
-      // 画面表示を対戦画面に切り替え
-      document.getElementById("titleScreen").classList.add("hidden");
-      document.getElementById("gameScreen").classList.remove("hidden");
-      
-      if (!window.gameState.isGameStarted) {
-        addLog("対戦相手を探しています...（待機中）", "important");
-      } else {
-        addLog(`対戦相手【${window.gameState.opp.name}】とマッチングしました！`, "important");
       }
 
       updateUI();
 
     } catch (err) {
+      addLog(`❌ エラーが発生しました: ${err.message}`, "damage");
       console.error("searchRankedMatch 全体エラー:", err);
     }
   }
+  window.searchRankedMatch = searchRankedMatch;
   window.searchRankedMatch = searchRankedMatch;
 
   // 🌟 通信チャンネル接続（自動画面更新付き）
