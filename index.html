@@ -2548,6 +2548,9 @@ async function showTitle() {
         window.gameState.my.hand = fullDeck.slice(0, 5);
         window.gameState.my.deck = fullDeck.slice(5);
 
+        window.gameState.my.mp = 5;
+        window.gameState.opp.mp = 5;
+        
         await supabaseClient.from('rooms').update({
           status: 'playing',
           p2_name: myName,
