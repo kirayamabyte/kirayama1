@@ -872,8 +872,9 @@
     }
 
     /* 🔍 拡大カード専用スタイル */
+   /* 🔍 拡大カード専用スタイル */
     .card.zoom-card {
-      width: 280px !important; /* 視認性向上のため少し幅を拡張 */
+      width: 280px !important;
       height: 380px !important;
       padding: 14px !important;
       border-width: 3px !important;
@@ -881,7 +882,9 @@
       transform: none !important;
       cursor: default !important;
       background: #1f1f2e !important;
+      overflow: hidden !important;
     }
+
     .card.zoom-card .card-top-row { font-size: 1rem; }
     .card.zoom-card .card-elem { font-size: 0.95rem; }
     .card.zoom-card .card-rarity { font-size: 1.1rem; }
@@ -890,22 +893,34 @@
     .card.zoom-card .card-img-container .icon-fallback { font-size: 3.5rem; }
     .card.zoom-card .card-cost { font-size: 1rem; }
     .card.zoom-card .card-stats-badge { font-size: 1.1rem; }
-    .card.zoom-card .card-desc { font-size: 0.9rem; height: auto; max-height: 80px; line-height: 1.4; overflow-y: auto; color: #eee; }
+    .card.zoom-card .card-desc { font-size: 0.88rem; height: auto; max-height: 75px; line-height: 1.4; overflow-y: auto; color: #eee; }
 
-    /* 🌟 フレーバーテキストの視認性強化 */
+    /* 🌟 横スライド（マーキー風アニメーション）フレーバーテキスト */
     .card.zoom-card .card-flavor {
-      font-size: 0.82rem !important;
-      font-style: normal !important; /* 斜体を解除して文字をくっきり表示 */
-      color: #ffd700 !important;    /* 金色に近い明るい色にして強調 */
-      line-height: 1.4 !important;
-      height: auto !important;
+      font-size: 0.85rem !important;
+      font-style: normal !important;
+      color: #ffd700 !important;
+      height: 32px !important;
+      line-height: 32px !important;
       margin-top: 8px !important;
-      padding: 6px 8px !important;
-      background: rgba(0, 0, 0, 0.5) !important; /* 暗い背景枠を敷いて文字浮き立たせ */
-      border-left: 3px solid #ffd700 !important; /* ワンポイントの装飾ライン */
+      padding: 0 8px !important;
+      background: rgba(0, 0, 0, 0.6) !important;
+      border-left: 3px solid #ffd700 !important;
       border-radius: 4px !important;
-      white-space: normal !important;
-      word-break: break-word !important;
+      overflow: hidden !important; /* 枠外を隠す */
+      white-space: nowrap !important; /* 改行せず1行で表示 */
+      position: relative !important;
+    }
+
+    .card.zoom-card .card-flavor span {
+      display: inline-block !important;
+      padding-left: 100% !important; /* 右端の外側からスタート */
+      animation: marqueeSlide 10s linear infinite !important; /* 10秒かけて左へスライド */
+    }
+
+    @keyframes marqueeSlide {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
     }
     button.btn {
       flex: 1;
@@ -1594,6 +1609,7 @@
   }
 
   // 🔍 カード拡大表示処理
+  // 🔍 カード拡大表示処理（横スライドテキスト対応）
   function openCardZoomModal(cardData) {
     if (!cardData) return;
     const container = document.getElementById("zoomCardContainer");
@@ -1601,8 +1617,14 @@
 
     const cardDiv = renderCardDOM(cardData, "", null);
     cardDiv.classList.add("zoom-card");
-    container.appendChild(cardDiv);
 
+    // フレーバーテキストが存在する場合、アニメーション用spanタグで囲む
+    const flavorEl = cardDiv.querySelector(".card-flavor");
+    if (flavorEl && cardData.flavor) {
+      flavorEl.innerHTML = `<span>${cardData.flavor}</span>`;
+    }
+
+    container.appendChild(cardDiv);
     document.getElementById("cardZoomModal").classList.add("active");
   }
 
