@@ -2731,7 +2731,9 @@ async function showTitle() {
 
       const previousTurn = window.gameState.turn;
       const isMyTurnNow = roomData.current_turn === onlineMyRole;
+      window.gameState.turn = roomData.current_turn === 'player1' ? (isP1 ? 'player' : 'opp') : (isP1 ? 'opp' : 'player');
 
+      // 🌟 HP・盤面・レートの同期
       window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 60;
       window.gameState.my.monsters = roomData[`${mePrefix}_field`] || [null, null, null, null, null];
       window.gameState.my.rate = roomData[`${mePrefix}_rate`] || window.userProfile.rate || 1000;
@@ -2747,87 +2749,38 @@ async function showTitle() {
         return { ...(baseCard || {}), ...m };
       });
 
-      onlineOppRate = roomData[`${oppPrefix}_rate`] || 1000;
-      window.gameState.opp.rate = onlineOppRate;
+      // 🌟【決定修正1】MPの同期と上限40制限（DBに未保存なら初期値5をセット）
+      const myMpFromDb = roomData[`${mePrefix}_mp`];
+      const oppMpFromDb = roomData[`${oppPrefix}_mp`];
 
-      if (roomData[`${oppPrefix}_deck_count`] !== undefined) {
-        onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`];
+      if (myMpFromDb !== undefined && myMpFromDb !== null) {
+        window.gameState.my.mp = Math.min(40, myMpFromDb);
+      } else if (window.gameState.my.mp === undefined) {
+        window.gameState.my.mp = 5;
       }
 
-      // 🚨 【重要バグ修正】必ず部屋が「対戦中 (playing)」のときのみ降参・不戦勝判定を行う
-      if (roomData.status === 'playing') {
-        const oppUpdatedAt = roomData.updated_at ? new Date(roomData.updated_at).getTime() : Date.now();
-        const now = Date.now();
-        
-        const isOpponentDisconnected = (now - oppUpdatedAt) > 60000;
-        const isOpponentSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
-
-        if (isOpponentSurrendered || isOpponentDisconnected) {
-          addLog(`🏳️ 相手プレイヤー（${window.gameState.opp.name}）が降参（または切断）しました！`, "important");
-          
-          window.gameState.opp.hp = 0;
-          updateUI();
-          checkWinLoss();
-          return;
-        }
+      if (oppMpFromDb !== undefined && oppMpFromDb !== null) {
+        window.gameState.opp.mp = Math.min(40, oppMpFromDb);
+      } else if (window.gameState.opp.mp === undefined) {
+        window.gameState.opp.mp = 5;
       }
 
-      window.gameState.turn = isMyTurnNow ? "player" : "opponent";
+      // 🌟【決定修正2】手札の安全復元（カード表示消滅バグの解消）
+      const myHandIds = roomData[`${mePrefix}_hand`];
+      if (Array.isArray(myHandIds) && typeof buildDeckFromIds === 'function') {
+        window.gameState.my.hand = buildDeckFromIds(myHandIds);
+      }
 
-      const oppNameEl = document.getElementById("oppNameDisplay");
-      const myNameEl = document.getElementById("myNameDisplay");
-      if (oppNameEl) oppNameEl.textContent = window.gameState.opp.name;
-      if (myNameEl) myNameEl.textContent = window.gameState.my.name;
-
+      // 🌟 UIと手札カードの再描画を実行
       updateUI();
-
-      if (isMyTurnNow && previousTurn !== "player") {
-        hasDrawnThisTurn = false;
-
-        window.gameState.my.monsters.forEach(m => {
-          if (m) {
-            if (m.isStunned) {
-              m.isStunned = false;
-              m.canAttack = false;
-            } else {
-              m.canAttack = true;
-            }
-          }
-        });
-
-        if (!hasDrawnThisTurn && window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
-          hasDrawnThisTurn = true;
-          const drawnCard = window.gameState.my.deck.shift();
-          window.gameState.my.hand.push(drawnCard);
-          addLog(`山札からカードを1枚引きました。（残山札:${window.gameState.my.deck.length}枚）`);
-          syncOnlineAction();
-        }
-        
-// 🌟 上限を 40 に設定してターン開始時に MP を加算（例: +2 や +5 など）
-  window.gameState.my.mp = Math.min(40, (window.gameState.my.mp || 5) + 5);
+      if (typeof renderHand === 'function') {
+        renderHand();
       }
 
-      const logArea = document.getElementById("logArea");
-      if (logArea) {
-        logArea.innerHTML = "";
-        (roomData.log || []).forEach(msg => {
-          const div = document.createElement("div");
-          div.className = "log-entry";
-          div.textContent = msg;
-          logArea.appendChild(div);
-        });
-        logArea.scrollTop = logArea.scrollHeight;
-      }
-
-      // 対戦中のみ勝敗判定チェック
-      if (roomData.status === 'playing') {
-        checkWinLoss();
-      }
-    } catch (err) {
-      console.error("applyRoomData 描画エラー:", err);
+    } catch (e) {
+      console.error("applyRoomData同期エラー:", e);
     }
   }
-
   async function syncOnlineAction() {
     if (!supabaseClient) return;
 
