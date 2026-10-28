@@ -1093,7 +1093,6 @@
     </div>
 
     <div class="menu">
-      <!-- 🌟 イベントランクマッチボタン（直呼び出しで確実に動作） -->
       <button id="btnEventRanked" type="button" class="btn primary big" onclick="searchRankedMatch(true)" style="background: linear-gradient(45deg, #ff4500, #ff8c00); border-color: #ffd700;">
         🔥 イベントランクマッチ参戦
       </button>
@@ -1619,6 +1618,7 @@
   let onlineOppDeckCount = 15;
   let onlineOppRate = 1000;
   let roomPollingInterval = null;
+  let roomChannel = null;
   let currentEvent = null;
   let editingEventId = null;
 
@@ -2185,10 +2185,9 @@
     try { playBGM('title'); } catch(e){}
   });
 
-  // 🌟 強制タイトル画面復帰処理（モーダル全削除＆エラー回避）
+  // 🌟 強制タイトル画面復帰処理
   function showTitleDirect() {
     try {
-      // 1. タイマー・通信チャンネルの解除
       if (roomPollingInterval) {
         clearInterval(roomPollingInterval);
         roomPollingInterval = null;
@@ -2198,7 +2197,6 @@
         roomChannel = null;
       }
 
-      // 2. 変数の安全な初期化
       onlineRoomId = null;
       onlineMyRole = null;
       if (window.gameState) {
@@ -2208,13 +2206,11 @@
         window.gameState.pendingWeaponIndex = null;
       }
 
-      // 3. アクティブなすべてのモーダル（勝敗・カード拡大・装備選択など）を非表示にする
       document.querySelectorAll('.modal').forEach(m => {
         m.classList.remove('active');
-        m.style.display = 'none'; // インラインスタイルも強制解除
+        m.style.display = 'none';
       });
 
-      // 4. 全画面セクションを一旦非表示
       const screens = [
         "gameScreen", "casualSelectScreen", "onlineLobbyScreen", 
         "deckScreen", "gachaScreen", "adminScreen", 
@@ -2225,32 +2221,28 @@
         if (el) el.classList.add("hidden");
       });
 
-      // 5. タイトル画面を表示
       const titleEl = document.getElementById("titleScreen");
       if (titleEl) titleEl.classList.remove("hidden");
 
-      // 6. UIとBGMの更新
       updateTitleStatsUI();
       checkActiveEvent();
       try { playBGM('title'); } catch(e){}
 
     } catch (e) {
       console.error("showTitleDirect 強制実行エラー:", e);
-      // 万が一エラーが起きてもタイトル画面だけは強制表示する
       const titleEl = document.getElementById("titleScreen");
       if (titleEl) titleEl.classList.remove("hidden");
     }
   }
   window.showTitleDirect = showTitleDirect;
 
-  // 🌟 降参・タイトル復帰ボタン用処理
+  // 🌟 降参・タイトル復帰処理
   async function surrenderAndReturn() {
     try {
       const isRanked = window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked";
       const currentRoomId = onlineRoomId;
       const isP1 = onlineMyRole === 'player1';
 
-      // 対戦中に自主退室した場合のペナルティ処理
       if (currentRoomId && window.gameState.isGameStarted && isRanked) {
         const myRate = window.userProfile.rate || 1000;
         window.userProfile.rate = Math.max(0, myRate - 32);
@@ -2262,7 +2254,6 @@
         }
       }
 
-      // Supabaseへ非同期通知（レスポンスを待たずに画面遷移を優先）
       if (currentRoomId && supabaseClient) {
         const mePrefix = isP1 ? 'p1' : 'p2';
         supabaseClient.from('rooms').update({
@@ -2271,25 +2262,13 @@
         }).eq('id', currentRoomId).catch(() => {});
       }
     } catch (err) {
-      console.error("surrenderAndReturn エラー:", err);
+      console.error("surrenderAndReturn 内部エラー:", err);
     } finally {
-      // 成功・失敗にかかわらず確実にタイトルへ復帰
       showTitleDirect();
     }
   }
   window.surrenderAndReturn = surrenderAndReturn;
-
-  window.showTitle = function() {
-    surrenderAndReturn();
-  };
-    showTitleDirect();
-  
-  window.surrenderAndReturn = surrenderAndReturn;
-
-  async function showTitle() {
-    await surrenderAndReturn();
-  }
-  window.showTitle = showTitle;
+  window.showTitle = surrenderAndReturn;
 
   function openGachaScreen() {
     document.getElementById("titleScreen").classList.add("hidden");
@@ -2362,17 +2341,105 @@
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
-  // 🌟 ランクマッチ検索・部屋作成（isEventフラグ対応）
-  // 🌟 ランクマッチ検索・部屋作成（マッチング不具合修正版）
-  // 🌟 ランクマッチ検索・部屋作成（マッチング不具合完全修復版）
+  // 🌟 リアルタイム通信チャンネル接続
+  function subscribeRoomUpdates() {
+    if (!onlineRoomId || !supabaseClient) return;
+
+    if (typeof roomChannel !== 'undefined' && roomChannel) {
+      supabaseClient.removeChannel(roomChannel);
+    }
+
+    roomChannel = supabaseClient
+      .channel('room-' + onlineRoomId)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'rooms',
+        filter: `id=eq.${onlineRoomId}`
+      }, (payload) => {
+        if (payload.new) {
+          if (!window.gameState.isGameStarted && payload.new.status === 'playing') {
+            window.gameState.isGameStarted = true;
+            addLog("🎉 対戦相手が参加しました！バトル開始！", "effective");
+          }
+          applyRoomData(payload.new);
+        }
+      })
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log("Supabase Realtime 接続完了");
+        } else if (err) {
+          addLog(`⚠️ 通信エラー: ${err.message}`, "damage");
+        }
+      });
+  }
+  window.subscribeRoomUpdates = subscribeRoomUpdates;
+
+  // 🌟 部屋データの同期＆降参フラグ検知処理
+  function applyRoomData(roomData) {
+    if (!roomData) return;
+
+    try {
+      const isP1 = onlineMyRole === 'player1';
+      const mePrefix = isP1 ? 'p1' : 'p2';
+      const oppPrefix = isP1 ? 'p2' : 'p1';
+
+      const isOppSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
+      if (isOppSurrendered && window.gameState.isGameStarted && window.gameState.opp.hp > 0) {
+        addLog(`🏳️ 対戦相手が降参しました！`, "effective");
+        window.gameState.opp.hp = 0;
+        updateUI();
+        checkWinLoss();
+        return;
+      }
+
+      window.gameState.turn = roomData.current_turn === 'player1' ? (isP1 ? 'player' : 'opp') : (isP1 ? 'opp' : 'player');
+
+      window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 60;
+      window.gameState.my.monsters = roomData[`${mePrefix}_field`] || [null, null, null, null, null];
+      window.gameState.my.rate = roomData[`${mePrefix}_rate`] || window.userProfile.rate || 1000;
+
+      const fetchedOppName = roomData[`${oppPrefix}_name`];
+      window.gameState.opp.name = fetchedOppName ? fetchedOppName : "対戦相手";
+      window.gameState.opp.hp = roomData[`${oppPrefix}_hp`] ?? 60;
+      onlineOppRate = roomData[`${oppPrefix}_rate`] || 1000;
+      onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`] ?? 15;
+      
+      const rawOppMonsters = roomData[`${oppPrefix}_field`] || [null, null, null, null, null];
+      window.gameState.opp.monsters = rawOppMonsters.map(m => {
+        if (!m) return null;
+        const baseCard = typeof CARD_DATABASE !== 'undefined' ? CARD_DATABASE.find(c => c.id === m.id) : null;
+        return { ...(baseCard || {}), ...m };
+      });
+
+      const myMpFromDb = roomData[`${mePrefix}_mp`];
+      const oppMpFromDb = roomData[`${oppPrefix}_mp`];
+
+      if (myMpFromDb !== undefined && myMpFromDb !== null) {
+        window.gameState.my.mp = Math.min(40, myMpFromDb);
+      }
+      if (oppMpFromDb !== undefined && oppMpFromDb !== null) {
+        window.gameState.opp.mp = Math.min(40, oppMpFromDb);
+      }
+
+      const myHandIds = roomData[`${mePrefix}_hand`];
+      if (Array.isArray(myHandIds) && typeof buildDeckFromIds === 'function') {
+        window.gameState.my.hand = buildDeckFromIds(myHandIds);
+      }
+
+      updateUI();
+    } catch (e) {
+      console.error("applyRoomData同期エラー:", e);
+    }
+  }
+
+  // 🌟 ランクマッチ検索・部屋作成
   async function searchRankedMatch(isEvent = false) {
     try {
-      // 共通のオンライン対戦モードとして設定
       window.gameState.mode = isEvent ? "event_ranked" : "ranked";
       const myName = window.userProfile?.name || "プレイヤー";
       const deckIds = window.userProfile?.deck || [1, 2, 3, 4, 5];
 
-      // 先に対戦画面へ遷移
       document.getElementById("titleScreen").classList.add("hidden");
       document.getElementById("gameScreen").classList.remove("hidden");
       
@@ -2380,7 +2447,6 @@
       if (logArea) logArea.innerHTML = "";
       addLog("🔍 対戦相手を探しています...", "important");
 
-      // 1. 待機中（status='waiting'）の部屋があるか検索
       const { data: waitingRooms, error: fetchErr } = await supabaseClient
         .from('rooms')
         .select('*')
@@ -2393,13 +2459,11 @@
         console.error("部屋検索エラー:", fetchErr);
       }
 
-      // 自分以外のプレイヤーが作った待機部屋を取得
       const validOpponentRoom = (waitingRooms && waitingRooms.length > 0 && waitingRooms[0].p1_name !== myName) 
         ? waitingRooms[0] 
         : null;
 
       if (validOpponentRoom) {
-        // ⚔️ 既存の部屋に「ゲスト (player2)」として参加
         onlineRoomId = validOpponentRoom.id;
         onlineMyRole = 'player2';
         hasDrawnThisTurn = false;
@@ -2414,7 +2478,6 @@
         window.gameState.opp.name = validOpponentRoom.p1_name || "対戦相手";
         onlineOppRate = validOpponentRoom.p1_rate || 1000;
 
-        // DB更新（ステータスを playing に変更）
         const { error: updateErr } = await supabaseClient.from('rooms').update({
           status: 'playing',
           p2_name: myName,
@@ -2433,7 +2496,6 @@
         subscribeRoomUpdates();
 
       } else {
-        // ⏳ 部屋が存在しないため「ホスト (player1)」として新規作成
         onlineRoomId = "ROOM_" + Math.random().toString(36).substring(2, 8).toUpperCase();
         onlineMyRole = 'player1';
         hasDrawnThisTurn = true;
@@ -2475,49 +2537,7 @@
     }
   }
   window.searchRankedMatch = searchRankedMatch;
-  window.searchRankedMatch = searchRankedMatch;
 
-  // 🌟 通信チャンネル接続（自動画面更新付き）
- // 🌟 相手の降参検知・勝敗連動付きリアルタイム通信
-  // 🌟 降参・タイトル復帰（絶対に止まらない安全処理版）
-  async function surrenderAndReturn() {
-    try {
-      const isRanked = window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked";
-      const currentRoomId = onlineRoomId;
-      const isP1 = onlineMyRole === 'player1';
-
-      // 対戦中に自主退室した場合のレート・戦績ペナルティ処理
-      if (currentRoomId && window.gameState.isGameStarted && isRanked) {
-        const myRate = window.userProfile.rate || 1000;
-        window.userProfile.rate = Math.max(0, myRate - 32);
-        window.userProfile.losses++;
-        saveUserProfile();
-
-        if (window.gameState.mode === "event_ranked") {
-          updateEventParticipantStats(false);
-        }
-      }
-
-      // Supabase側の部屋ステータス更新/削除（通信エラーが起きても無視して画面遷移を進める）
-      if (currentRoomId && supabaseClient) {
-        const mePrefix = isP1 ? 'p1' : 'p2';
-        
-        // バックグラウンドで非同期送信（awaitで処理をブロックしない）
-        supabaseClient.from('rooms').update({
-          [`${mePrefix}_surrendered`]: true,
-          updated_at: new Date().toISOString()
-        }).eq('id', currentRoomId).then(({ error }) => {
-          if (error) console.warn("降参フラグ送信警告:", error.message);
-        }).catch(err => console.warn("降参通信例外:", err));
-      }
-    } catch (err) {
-      console.error("surrenderAndReturn 内部エラー:", err);
-    } finally {
-      // 通信の成功・失敗に関わらず必ずタイトル画面へ復帰させる
-      showTitleDirect();
-    }
-  }
-  window.surrenderAndReturn = surrenderAndReturn;
   async function syncOnlineAction() {
     if (!supabaseClient) return;
 
