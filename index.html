@@ -2498,7 +2498,7 @@
       const prevTurn = window.gameState.turn;
       const newTurnRole = roomData.current_turn === 'player1' ? (isP1 ? 'player' : 'opp') : (isP1 ? 'opp' : 'player');
       
-      // 相手のターンから自分のターンに回ってきたときの処理
+      // 自分のターンに回ってきた時の処理
       if (prevTurn !== 'player' && newTurnRole === 'player') {
         const myMaxMp = window.gameState.my.maxMp || 40;
         window.gameState.my.mp = Math.min(myMaxMp, window.gameState.my.mp + 2);
@@ -2520,6 +2520,13 @@
           }
         });
         addLog(`--- あなたのターン ---`, "important");
+      }
+
+      // 相手のターンに回った時のMP回復処理
+      if (prevTurn !== 'opp' && newTurnRole === 'opp') {
+        const oppMaxMp = window.gameState.opp.maxMp || 40;
+        window.gameState.opp.mp = Math.min(oppMaxMp, (window.gameState.opp.mp || 5) + 2);
+        addLog(`--- ${roomData[`${oppPrefix}_name`] || '対戦相手'} のターン ---`);
       }
 
       window.gameState.turn = newTurnRole;
@@ -3446,7 +3453,7 @@
 
     // CPUのMP自動回復 (+2)
     const oppMaxMp = window.gameState.opp.maxMp || 40;
-    window.gameState.opp.mp = Math.min(oppMaxMp, window.gameState.opp.mp + 2);
+    window.gameState.opp.mp = Math.min(oppMaxMp, (window.gameState.opp.mp || 5) + 2);
 
     window.gameState.opp.monsters.forEach(m => {
       if (m.isStunned) {
@@ -3774,8 +3781,8 @@
     const myPinfo = document.querySelector("#gameScreen .player-area:last-child .pinfo");
     const oppPinfo = document.getElementById("oppPlayerInfo");
 
-    window.gameState.my.mp = Math.min(40, window.gameState.my.mp ?? 5);
-    window.gameState.opp.mp = Math.min(40, window.gameState.opp.mp ?? 5);
+    window.gameState.my.mp = Math.min(40, Math.max(0, window.gameState.my.mp ?? 5));
+    window.gameState.opp.mp = Math.min(40, Math.max(0, window.gameState.opp.mp ?? 5));
 
     if (modeBanner) {
       if (isMyTurn) {
