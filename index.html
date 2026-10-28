@@ -3202,7 +3202,7 @@ const { data: waitingRooms, error: fetchErr } = await supabaseClient
         const btn = document.createElement("button");
         btn.className = "target-btn";
         btn.textContent = `${m.icon} ${m.name} (ATK:${m.atk})`;
-        btn.onclick = () => {
+        btn.onclick = async　() => {
           equipWeaponToMonster(window.gameState.pendingWeaponIndex, mIdx);
           closeEquipModal();
         };
