@@ -3332,11 +3332,11 @@
       }
     } else {
       addLog(`敵の【${target.name}】を撃破した！`, "important");
-      window.gameState.opp.monsters.splice(targetIdx, 1);
+      window.gameState.opp.monsters[targetIdx] = null; // nullで枠を空ける
     }
 
-    if (attacker.currentHp > 0 && attacker.splashDamage && window.gameState.opp.monsters.length > 0) {
-      const otherMonsters = window.gameState.opp.monsters.filter(m => m !== target && m.currentHp > 0);
+    if (attacker.currentHp > 0 && attacker.splashDamage && window.gameState.opp.monsters.filter(m => m && m.currentHp > 0).length > 0) {
+      const otherMonsters = window.gameState.opp.monsters.filter(m => m && m !== target && m.currentHp > 0);
       if (otherMonsters.length > 0) {
         const randomTarget = otherMonsters[Math.floor(Math.random() * otherMonsters.length)];
         let splashDmg = attacker.splashDamage;
@@ -3348,7 +3348,7 @@
         if (randomTarget.currentHp <= 0) {
           addLog(`敵の【${randomTarget.name}】を追加効果で撃破した！`, "important");
           const deadIdx = window.gameState.opp.monsters.indexOf(randomTarget);
-          if (deadIdx !== -1) window.gameState.opp.monsters.splice(deadIdx, 1);
+          if (deadIdx !== -1) window.gameState.opp.monsters[deadIdx] = null;
         }
       }
     }
@@ -3364,7 +3364,8 @@
   function attackEnemyPlayer() {
     if (window.gameState.selectedAttackerIdx === null) return;
 
-    if (window.gameState.opp.monsters.length > 0) {
+    const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => m !== null && m !== undefined && m.currentHp > 0);
+    if (activeOppMonsters.length > 0) {
       addLog("敵モンスターが存在するため直接攻撃できません！", "damage");
       return;
     }
@@ -3402,10 +3403,10 @@
     targetList.innerHTML = "";
 
     window.gameState.my.monsters.forEach((m, mIdx) => {
-      if (!m.weapon) {
+      if (m && !m.weapon) {
         const btn = document.createElement("button");
         btn.className = "target-btn";
-        btn.textContent = `${m.icon} ${m.name} (ATK:${m.atk})`;
+        btn.textContent = `${m.icon || '👾'} ${m.name} (ATK:${m.atk})`;
         btn.onclick = () => {
           equipWeaponToMonster(window.gameState.pendingWeaponIndex, mIdx);
           closeEquipModal();
@@ -3477,23 +3478,33 @@
     window.gameState.opp.mp = Math.min(oppMaxMp, (window.gameState.opp.mp || 5) + 2);
 
     window.gameState.opp.monsters.forEach(m => {
-      if (m.isStunned) {
-        m.isStunned = false;
-        m.canAttack = false;
-        addLog(`🌀 敵の【${m.name}】は行動不能から回復したが、このターンは行動できない！`);
-      } else {
-        m.canAttack = true;
+      if (m) {
+        if (m.isStunned) {
+          m.isStunned = false;
+          m.canAttack = false;
+          addLog(`🌀 敵の【${m.name}】は行動不能から回復したが、このターンは行動できない！`);
+        } else {
+          m.canAttack = true;
+        }
       }
     });
 
-    if (window.gameState.opp.monsters.length < 5) {
+    const activeOppCount = window.gameState.opp.monsters.filter(Boolean).length;
+    if (activeOppCount < 5) {
       const monsterCard = window.gameState.opp.hand.find(c => c.type === "monster" && c.costMp <= window.gameState.opp.mp);
       if (monsterCard) {
         const idx = window.gameState.opp.hand.indexOf(monsterCard);
         window.gameState.opp.mp -= monsterCard.costMp;
         const cpuMonsterCopy = JSON.parse(JSON.stringify(monsterCard));
         const newCpuMonster = { ...cpuMonsterCopy, currentHp: cpuMonsterCopy.hp, maxHp: cpuMonsterCopy.hp, weapon: null, canAttack: false, isStunned: false };
-        window.gameState.opp.monsters.push(newCpuMonster);
+        
+        const emptySlotIdx = window.gameState.opp.monsters.findIndex(m => m === null || m === undefined);
+        if (emptySlotIdx !== -1) {
+          window.gameState.opp.monsters[emptySlotIdx] = newCpuMonster;
+        } else {
+          window.gameState.opp.monsters.push(newCpuMonster);
+        }
+
         window.gameState.opp.hand.splice(idx, 1);
         addLog(`${window.gameState.opp.name} は 【${monsterCard.name}】 を召喚！`, "important");
 
@@ -3502,9 +3513,10 @@
           if (tokenCard) {
             let spawnedCount = 0;
             for (let i = 0; i < 2; i++) {
-              if (window.gameState.my.monsters.length < 5) {
+              const myEmptySlot = window.gameState.my.monsters.findIndex(m => m === null || m === undefined);
+              if (myEmptySlot !== -1) {
                 const tokenCopy = JSON.parse(JSON.stringify(tokenCard));
-                window.gameState.my.monsters.push({
+                window.gameState.my.monsters[myEmptySlot] = {
                   ...tokenCopy,
                   currentHp: tokenCopy.hp,
                   maxHp: tokenCopy.hp,
@@ -3512,7 +3524,7 @@
                   canAttack: false,
                   isStunned: false,
                   turnsLeft: tokenCopy.tokenLifetime || 3
-                });
+                };
                 spawnedCount++;
               }
             }
@@ -3521,7 +3533,7 @@
               addLog(`🌀 敵【${monsterCard.name}】の能力！ あなたの場に【${tokenCard.name}】を ${spawnedCount} 体出現させた！`, "damage");
             }
 
-            const tokenAmount = window.gameState.my.monsters.filter(m => m.id === "token_blocker").length;
+            const tokenAmount = window.gameState.my.monsters.filter(m => m && m.id === "token_blocker").length;
             if (tokenAmount > 0) {
               const buffAtk = tokenAmount * 5;
               newCpuMonster.atk += buffAtk;
@@ -3533,15 +3545,17 @@
         if (monsterCard.buffAtk) {
           let buffedCount = 0;
           window.gameState.opp.monsters.forEach(m => {
-            m.atk += card.buffAtk;
-            buffedCount++;
+            if (m) {
+              m.atk += monsterCard.buffAtk;
+              buffedCount++;
+            }
           });
           addLog(`✨ 敵の【${monsterCard.name}】の能力発動！ 敵モンスター ${buffedCount} 体の攻撃力が +${monsterCard.buffAtk} 上昇！`, "damage");
         }
       }
     }
 
-    const unequippedMonster = window.gameState.opp.monsters.find(m => !m.weapon && !m.cannotAttack);
+    const unequippedMonster = window.gameState.opp.monsters.find(m => m && !m.weapon && !m.cannotAttack);
     if (unequippedMonster) {
       const weaponCard = window.gameState.opp.hand.find(c => c.type === "weapon" && c.costMp <= window.gameState.opp.mp);
       if (weaponCard) {
@@ -3554,7 +3568,7 @@
     }
 
     window.gameState.opp.monsters.forEach((m) => {
-      if (m.currentHp <= 0 || !m.canAttack || m.isStunned || m.cannotAttack) return;
+      if (!m || m.currentHp <= 0 || !m.canAttack || m.isStunned || m.cannotAttack) return;
       let totalAtk = m.atk;
       let attackElem = m.elem;
       if (m.weapon) {
@@ -3562,18 +3576,20 @@
         attackElem = m.weapon.elem;
       }
 
-      if (window.gameState.my.monsters.length > 0) {
-        let target = window.gameState.my.monsters[0];
+      const activeMyMonsters = window.gameState.my.monsters.filter(tm => tm !== null && tm !== undefined && tm.currentHp > 0);
+
+      if (activeMyMonsters.length > 0) {
+        let target = activeMyMonsters[0];
 
         if (window.gameState.currentDifficulty === "hard") {
-          const effectiveTarget = window.gameState.my.monsters.find(tm => window.ELEMENTS[attackElem] && window.ELEMENTS[attackElem].strongTo === tm.elem);
+          const effectiveTarget = activeMyMonsters.find(tm => window.ELEMENTS[attackElem] && window.ELEMENTS[attackElem].strongTo === tm.elem);
           if (effectiveTarget) {
             target = effectiveTarget;
           } else {
-            target = window.gameState.my.monsters.reduce((prev, curr) => prev.currentHp < curr.currentHp ? prev : curr);
+            target = activeMyMonsters.reduce((prev, curr) => prev.currentHp < curr.currentHp ? prev : curr);
           }
         } else {
-          target = window.gameState.my.monsters.reduce((prev, curr) => prev.currentHp < curr.currentHp ? prev : curr);
+          target = activeMyMonsters.reduce((prev, curr) => prev.currentHp < curr.currentHp ? prev : curr);
         }
 
         const calc = calcDamage(totalAtk, attackElem, target.elem);
@@ -3618,17 +3634,17 @@
             if (m.currentHp <= 0) {
               addLog(`🎉 反撃により敵の【${m.name}】を倒した！`, "important");
               const deadOppIdx = window.gameState.opp.monsters.indexOf(m);
-              if (deadOppIdx !== -1) window.gameState.opp.monsters.splice(deadOppIdx, 1);
+              if (deadOppIdx !== -1) window.gameState.opp.monsters[deadOppIdx] = null;
             }
           }
         } else {
           addLog(`あなたの【${target.name}】は倒された！`, "damage");
           const deadIdx = window.gameState.my.monsters.indexOf(target);
-          if (deadIdx !== -1) window.gameState.my.monsters.splice(deadIdx, 1);
+          if (deadIdx !== -1) window.gameState.my.monsters[deadIdx] = null;
         }
 
-        if (m.currentHp > 0 && m.splashDamage && window.gameState.my.monsters.length > 0) {
-          const otherMyMonsters = window.gameState.my.monsters.filter(tm => tm !== target && tm.currentHp > 0);
+        if (m.currentHp > 0 && m.splashDamage) {
+          const otherMyMonsters = window.gameState.my.monsters.filter(tm => tm && tm !== target && tm.currentHp > 0);
           if (otherMyMonsters.length > 0) {
             const randomMyTarget = otherMyMonsters[Math.floor(Math.random() * otherMyMonsters.length)];
             let splashDmg = m.splashDamage;
@@ -3640,7 +3656,7 @@
             if (randomMyTarget.currentHp <= 0) {
               addLog(`あなたの【${randomMyTarget.name}】は追撃で倒された！`, "damage");
               const deadIdx = window.gameState.my.monsters.indexOf(randomMyTarget);
-              if (deadIdx !== -1) window.gameState.my.monsters.splice(deadIdx, 1);
+              if (deadIdx !== -1) window.gameState.my.monsters[deadIdx] = null;
             }
           }
         }
@@ -3662,12 +3678,14 @@
     window.gameState.turnCount++;
 
     window.gameState.my.monsters.forEach(m => {
-      if (m.isStunned) {
-        m.isStunned = false;
-        m.canAttack = false;
-        addLog(`🌀 あなたの【${m.name}】は行動不能から回復したが、このターンは行動できない！`);
-      } else {
-        m.canAttack = true;
+      if (m) {
+        if (m.isStunned) {
+          m.isStunned = false;
+          m.canAttack = false;
+          addLog(`🌀 あなたの【${m.name}】は行動不能から回復したが、このターンは行動できない！`);
+        } else {
+          m.canAttack = true;
+        }
       }
     });
 
@@ -3868,8 +3886,7 @@
 
     const oppPlayerInfo = document.getElementById("oppPlayerInfo");
     if (oppPlayerInfo) {
-      
-const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => m !== null && m !== undefined && m.currentHp > 0);
+      const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => m !== null && m !== undefined && m.currentHp > 0);
       if (window.gameState.selectedAttackerIdx !== null && activeOppMonsters.length === 0) {
         oppPlayerInfo.classList.add("selectable-target");
         oppPlayerInfo.onclick = typeof attackEnemyPlayer === 'function' ? attackEnemyPlayer : null;
