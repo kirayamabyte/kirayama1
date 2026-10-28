@@ -2498,7 +2498,7 @@
       const prevTurn = window.gameState.turn;
       const newTurnRole = roomData.current_turn === 'player1' ? (isP1 ? 'player' : 'opp') : (isP1 ? 'opp' : 'player');
       
-      // 自分のターンに回ってきた時の処理
+      // 自分のターンに回ってきた時の処理（召喚酔い解除・MP回復・ドロー）
       if (prevTurn !== 'player' && newTurnRole === 'player') {
         const myMaxMp = window.gameState.my.maxMp || 40;
         window.gameState.my.mp = Math.min(myMaxMp, window.gameState.my.mp + 2);
@@ -2515,7 +2515,7 @@
               m.canAttack = false;
               addLog(`🌀 あなたの【${m.name}】は行動不能から回復したが、このターンは行動できない！`);
             } else {
-              m.canAttack = true;
+              m.canAttack = true; // 召喚酔い解除
             }
           }
         });
@@ -2532,7 +2532,22 @@
       window.gameState.turn = newTurnRole;
 
       window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 60;
-      window.gameState.my.monsters = roomData[`${mePrefix}_field`] || [null, null, null, null, null];
+      
+      // 送信・受信時のモンスターフィールド状態を適切に合成
+      const rawMyMonsters = roomData[`${mePrefix}_field`] || [null, null, null, null, null];
+      window.gameState.my.monsters = rawMyMonsters.map((m, idx) => {
+        if (!m) return null;
+        const currentLocal = window.gameState.my.monsters[idx];
+        const baseCard = typeof CARD_DATABASE !== 'undefined' ? CARD_DATABASE.find(c => c.id === m.id) : null;
+        const merged = { ...(baseCard || {}), ...m };
+
+        // 自分のターンであれば強制的に canAttack = true（スタン等を除く）
+        if (newTurnRole === 'player' && !merged.isStunned && !merged.cannotAttack) {
+          merged.canAttack = (currentLocal && currentLocal.canAttack !== undefined) ? currentLocal.canAttack : true;
+        }
+        return merged;
+      });
+
       window.gameState.my.rate = roomData[`${mePrefix}_rate`] || window.userProfile.rate || 1000;
 
       const fetchedOppName = roomData[`${oppPrefix}_name`];
