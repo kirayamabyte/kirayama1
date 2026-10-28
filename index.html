@@ -765,6 +765,12 @@
       min-height: 115px;
     }
 
+    .controls {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
     .card {
       width: 85px;
       height: 110px;
@@ -912,8 +918,7 @@
     }
 
     button.btn {
-      flex: 1;
-      padding: 10px 8px;
+      padding: 10px 16px;
       background: #222831;
       border: 1px solid #393e46;
       color: #fff;
@@ -926,10 +931,12 @@
       position: relative;
       z-index: 50;
       min-height: 38px;
+      height: auto;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       line-height: 1.2;
+      flex: 1;
     }
 
     button.btn:hover:not(:disabled) { background: #393e46; }
@@ -938,19 +945,17 @@
     button.btn.primary:hover:not(:disabled) { background: #ff2e63; }
     button.btn.big { padding: 12px; font-size: 0.95rem; min-height: 44px; }
 
+    /* モーダル基本スタイル (縦長化防止修正) */
     .modal {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.88);
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
       display: none;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
-      gap: 14px;
       z-index: 1000;
-      border-radius: 12px;
       padding: 16px;
-      pointer-events: none;
+      box-sizing: border-box;
     }
 
     .modal.active {
@@ -958,7 +963,27 @@
       pointer-events: auto !important;
     }
 
-    .modal h2 { font-size: 1.5rem; color: var(--gold-color); }
+    /* モーダル内部ダイアログカード */
+    .modal-content {
+      background: #1a1a24;
+      border: 2px solid var(--gold-color);
+      border-radius: 12px;
+      padding: 24px 20px;
+      width: 90%;
+      max-width: 380px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+      text-align: center;
+    }
+
+    .modal-content h2, .modal h2 {
+      font-size: 1.4rem;
+      color: var(--gold-color);
+      line-height: 1.4;
+    }
 
     .rule-dialog {
       background: #1a1a24;
@@ -1379,22 +1404,28 @@
 
   <!-- 🎰 ガチャ結果モーダル -->
   <div id="gachaResultModal" class="modal">
-    <h2 style="color:var(--gold-color);">🎉 ガチャ結果</h2>
-    <div id="gachaResultContainer" class="gacha-result-grid"></div>
-    <button type="button" class="btn primary" style="width:140px; margin-top:10px;" onclick="closeGachaResultModal()">確認</button>
+    <div class="modal-content">
+      <h2 style="color:var(--gold-color);">🎉 ガチャ結果</h2>
+      <div id="gachaResultContainer" class="gacha-result-grid"></div>
+      <button type="button" class="btn primary" style="width:140px; margin-top:10px;" onclick="closeGachaResultModal()">確認</button>
+    </div>
   </div>
 
   <!-- 装備対象選択モーダル -->
   <div id="equipModal" class="modal">
-    <h3 style="color:var(--gold-color);">どのモンスターに装備させますか？</h3>
-    <div id="equipTargetList" class="target-selector"></div>
-    <button type="button" class="btn" style="margin-top:10px; max-width:140px;" onclick="closeEquipModal()">キャンセル</button>
+    <div class="modal-content">
+      <h3 style="color:var(--gold-color);">どのモンスターに装備させますか？</h3>
+      <div id="equipTargetList" class="target-selector"></div>
+      <button type="button" class="btn" style="margin-top:10px; max-width:140px;" onclick="closeEquipModal()">キャンセル</button>
+    </div>
   </div>
 
-  <!-- 勝敗モーダル -->
+  <!-- 勝敗モーダル (縦長防止修正) -->
   <div id="endModal" class="modal">
-    <h2 id="endMessage">勝利！</h2>
-    <button id="btnModalNext" type="button" class="btn primary">次へ進む</button>
+    <div class="modal-content">
+      <h2 id="endMessage">勝利！</h2>
+      <button id="btnModalNext" type="button" class="btn primary" style="width: 100%; max-width: 220px;">次へ進む</button>
+    </div>
   </div>
 </div>
 
@@ -2258,7 +2289,7 @@
   }
   window.showTitleDirect = showTitleDirect;
 
-  // 🌟 自分が「降参してタイトルへ」ボタンを押したときの処理（TypeError防止修復済み）
+  // 🌟 自分が「降参してタイトルへ」ボタンを押したときの処理
   async function surrenderAndReturn() {
     try {
       if (window.gameState.isGameEnded) {
@@ -2531,17 +2562,14 @@
       if (logArea) logArea.innerHTML = "";
       addLog(`🔍 [${isEvent ? 'イベント' : '通常'}ランクマッチ] 対戦相手を探しています...`, "important");
 
-      // 自分の古い待機部屋を削除
       await supabaseClient
         .from('rooms')
         .delete()
         .eq('p1_name', myName)
         .eq('status', 'waiting');
 
-      // 1分以内に更新があった「アクティブな部屋」のみを対象にする
       const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000).toISOString();
 
-      // アクティブな待機中部屋を検索
       const { data: waitingRooms, error: fetchErr } = await supabaseClient
         .from('rooms')
         .select('*')
@@ -2554,13 +2582,11 @@
         console.error("部屋検索エラー:", fetchErr);
       }
 
-      // 自分以外の有効な対戦相手の部屋を取得
       const validOpponentRoom = (waitingRooms && waitingRooms.length > 0)
         ? waitingRooms.find(r => r.p1_name !== myName)
         : null;
 
       if (validOpponentRoom) {
-        // 既存の有効な部屋に参加
         onlineRoomId = validOpponentRoom.id;
         onlineMyRole = 'player2';
         hasDrawnThisTurn = false;
@@ -2593,7 +2619,6 @@
         subscribeRoomUpdates();
 
       } else {
-        // 新しい待機部屋を作成
         onlineRoomId = "ROOM_" + Math.random().toString(36).substring(2, 8).toUpperCase();
         onlineMyRole = 'player1';
         hasDrawnThisTurn = true;
@@ -2623,7 +2648,6 @@
         } else {
           addLog(`⏳ 待機部屋を作成しました (${onlineRoomId})。相手の参加を待っています...`, "important");
           
-          // 待機中、10秒ごとに updated_at を更新して生存を通知
           roomHeartbeatInterval = setInterval(async () => {
             if (onlineRoomId && !window.gameState.isGameStarted) {
               await supabaseClient.from('rooms').update({
