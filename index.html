@@ -2495,7 +2495,34 @@
         return;
       }
 
-      window.gameState.turn = roomData.current_turn === 'player1' ? (isP1 ? 'player' : 'opp') : (isP1 ? 'opp' : 'player');
+      const prevTurn = window.gameState.turn;
+      const newTurnRole = roomData.current_turn === 'player1' ? (isP1 ? 'player' : 'opp') : (isP1 ? 'opp' : 'player');
+      
+      // 相手のターンから自分のターンに回ってきたときの処理
+      if (prevTurn !== 'player' && newTurnRole === 'player') {
+        const myMaxMp = window.gameState.my.maxMp || 40;
+        window.gameState.my.mp = Math.min(myMaxMp, window.gameState.my.mp + 2);
+        
+        if (window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
+          window.gameState.my.hand.push(window.gameState.my.deck.shift());
+          addLog(`山札からカードを1枚引きました。（残山札:${window.gameState.my.deck.length}枚）`);
+        }
+
+        window.gameState.my.monsters.forEach(m => {
+          if (m) {
+            if (m.isStunned) {
+              m.isStunned = false;
+              m.canAttack = false;
+              addLog(`🌀 あなたの【${m.name}】は行動不能から回復したが、このターンは行動できない！`);
+            } else {
+              m.canAttack = true;
+            }
+          }
+        });
+        addLog(`--- あなたのターン ---`, "important");
+      }
+
+      window.gameState.turn = newTurnRole;
 
       window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 60;
       window.gameState.my.monsters = roomData[`${mePrefix}_field`] || [null, null, null, null, null];
@@ -2514,19 +2541,9 @@
         return { ...(baseCard || {}), ...m };
       });
 
-      const myMpFromDb = roomData[`${mePrefix}_mp`];
       const oppMpFromDb = roomData[`${oppPrefix}_mp`];
-
-      if (myMpFromDb !== undefined && myMpFromDb !== null) {
-        window.gameState.my.mp = Math.min(40, myMpFromDb);
-      }
       if (oppMpFromDb !== undefined && oppMpFromDb !== null) {
         window.gameState.opp.mp = Math.min(40, oppMpFromDb);
-      }
-
-      const myHandIds = roomData[`${mePrefix}_hand`];
-      if (Array.isArray(myHandIds) && typeof buildDeckFromIds === 'function') {
-        window.gameState.my.hand = buildDeckFromIds(myHandIds);
       }
 
       updateUI();
@@ -2596,7 +2613,9 @@
         window.gameState.my.hand = fullDeck.slice(0, 5);
         window.gameState.my.deck = fullDeck.slice(5);
         window.gameState.my.mp = 5;
+        window.gameState.my.maxMp = 40;
         window.gameState.opp.mp = 5;
+        window.gameState.opp.maxMp = 40;
 
         window.gameState.opp.name = validOpponentRoom.p1_name || "対戦相手";
         onlineOppRate = validOpponentRoom.p1_rate || 1000;
@@ -2606,6 +2625,7 @@
           p2_name: myName,
           p2_rate: window.userProfile.rate || 1000,
           p2_hp: 60,
+          p2_mp: 5,
           p2_deck_count: window.gameState.my.deck.length,
           updated_at: new Date().toISOString()
         }).eq('id', onlineRoomId);
@@ -2628,7 +2648,9 @@
         window.gameState.my.hand = fullDeck.slice(0, 5);
         window.gameState.my.deck = fullDeck.slice(5);
         window.gameState.my.mp = 5;
+        window.gameState.my.maxMp = 40;
         window.gameState.opp.mp = 5;
+        window.gameState.opp.maxMp = 40;
 
         const { error: insertErr } = await supabaseClient.from('rooms').insert([{
           id: onlineRoomId,
@@ -2637,8 +2659,10 @@
           p1_name: myName,
           p1_rate: window.userProfile.rate || 1000,
           p1_hp: 60,
+          p1_mp: 5,
           p1_deck_count: window.gameState.my.deck.length,
           p2_hp: 60,
+          p2_mp: 5,
           p2_deck_count: 15,
           updated_at: new Date().toISOString()
         }]);
@@ -2683,6 +2707,7 @@
 
     const updateObj = {
       [`${mePrefix}_hp`]: window.gameState.my.hp,
+      [`${mePrefix}_mp`]: window.gameState.my.mp,
       [`${mePrefix}_field`]: window.gameState.my.monsters,
       [`${mePrefix}_hand`]: handIds,
       [`${mePrefix}_deck_count`]: window.gameState.my.deck.length,
@@ -3407,6 +3432,10 @@
     if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
       if (!supabaseClient) return;
       const nextRole = onlineMyRole === 'player1' ? 'player2' : 'player1';
+      
+      // 相手のターンに移行する前に自分の最新データを送信
+      await syncOnlineAction();
+
       await supabaseClient.from('rooms').update({ 
         current_turn: nextRole,
         updated_at: new Date().toISOString()
