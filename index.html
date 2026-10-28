@@ -2520,6 +2520,8 @@
           }
         });
         addLog(`--- あなたのターン ---`, "important");
+        // 自分のターンになったタイミングで解除状態を通信同期
+        syncOnlineAction();
       }
 
       // 相手のターンに回った時のMP回復処理
@@ -2541,9 +2543,13 @@
         const baseCard = typeof CARD_DATABASE !== 'undefined' ? CARD_DATABASE.find(c => c.id === m.id) : null;
         const merged = { ...(baseCard || {}), ...m };
 
-        // 自分のターンであれば強制的に canAttack = true（スタン等を除く）
-        if (newTurnRole === 'player' && !merged.isStunned && !merged.cannotAttack) {
-          merged.canAttack = (currentLocal && currentLocal.canAttack !== undefined) ? currentLocal.canAttack : true;
+        // 自分のターンであれば、相手の古い同期データで `canAttack = false` に上書きされるのを防止
+        if (newTurnRole === 'player') {
+          if (currentLocal && currentLocal.canAttack !== undefined) {
+            merged.canAttack = currentLocal.canAttack;
+          } else if (!merged.isStunned && !merged.cannotAttack) {
+            merged.canAttack = true;
+          }
         }
         return merged;
       });
@@ -2711,7 +2717,7 @@
   window.searchRankedMatch = searchRankedMatch;
 
   async function syncOnlineAction() {
-    if (!supabaseClient) return;
+    if (!supabaseClient || !onlineRoomId) return;
 
     const isP1 = onlineMyRole === 'player1';
     const mePrefix = isP1 ? 'p1' : 'p2';
