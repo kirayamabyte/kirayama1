@@ -3257,12 +3257,38 @@
       addLog(`🌀【状態異常】敵【${target.name}】は1ターンの間【行動不能】になった！`, "effective");
     }
 
-    if (target.currentHp <= 0) {
+    // ⚔️ 反撃処理：ターゲットが生存しており、行動不能でない場合に反撃
+    if (target.currentHp > 0) {
+      if (!target.isStunned) {
+        let counterAtk = target.atk;
+        let counterElem = target.elem;
+        if (target.weapon) {
+          counterAtk += target.weapon.atk;
+          counterElem = target.weapon.elem;
+        }
+
+        const counterCalc = calcDamage(counterAtk, counterElem, attacker.elem);
+        let counterDamage = counterCalc.damage;
+
+        if (attacker.halfDamage) {
+          counterDamage = Math.floor(counterDamage / 2);
+        }
+
+        attacker.currentHp -= counterDamage;
+        const counterEff = counterCalc.effective ? " ⚡【弱点反撃！】" : "";
+        addLog(`⚔️【反撃】敵【${target.name}】の反撃！ ${attacker.name} に ${counterDamage} ダメージ！${counterEff}`, "damage");
+
+        if (attacker.currentHp <= 0) {
+          addLog(`💀 反撃によりあなたの【${attacker.name}】は倒された！`, "damage");
+          window.gameState.my.monsters[window.gameState.selectedAttackerIdx] = null;
+        }
+      }
+    } else {
       addLog(`敵の【${target.name}】を撃破した！`, "important");
       window.gameState.opp.monsters.splice(targetIdx, 1);
     }
 
-    if (attacker.splashDamage && window.gameState.opp.monsters.length > 0) {
+    if (attacker.currentHp > 0 && attacker.splashDamage && window.gameState.opp.monsters.length > 0) {
       const otherMonsters = window.gameState.opp.monsters.filter(m => m !== target && m.currentHp > 0);
       if (otherMonsters.length > 0) {
         const randomTarget = otherMonsters[Math.floor(Math.random() * otherMonsters.length)];
@@ -3513,13 +3539,40 @@
           addLog(`🌀【状態異常】あなたの【${target.name}】は1ターンの間【行動不能】になった！`, "damage");
         }
 
-        if (target.currentHp <= 0) {
+        // ⚔️ 反撃処理：プレイヤーのモンスターが生存しており、行動不能でない場合に反撃
+        if (target.currentHp > 0) {
+          if (!target.isStunned) {
+            let counterAtk = target.atk;
+            let counterElem = target.elem;
+            if (target.weapon) {
+              counterAtk += target.weapon.atk;
+              counterElem = target.weapon.elem;
+            }
+
+            const counterCalc = calcDamage(counterAtk, counterElem, m.elem);
+            let counterDamage = counterCalc.damage;
+
+            if (m.halfDamage) {
+              counterDamage = Math.floor(counterDamage / 2);
+            }
+
+            m.currentHp -= counterDamage;
+            const counterEff = counterCalc.effective ? " 🔥【弱点反撃！】" : "";
+            addLog(`⚔️【反撃】あなたの【${target.name}】の反撃！ 敵【${m.name}】に ${counterDamage} ダメージ！${counterEff}`, "effective");
+
+            if (m.currentHp <= 0) {
+              addLog(`🎉 反撃により敵の【${m.name}】を倒した！`, "important");
+              const deadOppIdx = window.gameState.opp.monsters.indexOf(m);
+              if (deadOppIdx !== -1) window.gameState.opp.monsters.splice(deadOppIdx, 1);
+            }
+          }
+        } else {
           addLog(`あなたの【${target.name}】は倒された！`, "damage");
           const deadIdx = window.gameState.my.monsters.indexOf(target);
           if (deadIdx !== -1) window.gameState.my.monsters.splice(deadIdx, 1);
         }
 
-        if (m.splashDamage && window.gameState.my.monsters.length > 0) {
+        if (m.currentHp > 0 && m.splashDamage && window.gameState.my.monsters.length > 0) {
           const otherMyMonsters = window.gameState.my.monsters.filter(tm => tm !== target && tm.currentHp > 0);
           if (otherMyMonsters.length > 0) {
             const randomMyTarget = otherMyMonsters[Math.floor(Math.random() * otherMyMonsters.length)];
