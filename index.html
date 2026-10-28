@@ -2402,7 +2402,7 @@
   }
   window.subscribeRoomUpdates = subscribeRoomUpdates;
 
-  // 🌟 部屋データの同期＆降参フラグ検知処理
+  // 🌟 部屋データの同期＆降参フラグ検知処理（修正版）
   function applyRoomData(roomData) {
     if (!roomData) return;
 
@@ -2411,12 +2411,13 @@
       const mePrefix = isP1 ? 'p1' : 'p2';
       const oppPrefix = isP1 ? 'p2' : 'p1';
 
+      // 🚩 相手が降参したかどうかをチェック
       const isOppSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
-      if (isOppSurrendered && window.gameState.isGameStarted && window.gameState.opp.hp > 0) {
+      if (isOppSurrendered && window.gameState.isGameStarted) {
         addLog(`🏳️ 対戦相手が降参しました！`, "effective");
-        window.gameState.opp.hp = 0;
+        window.gameState.opp.hp = 0; // 相手のHPを0に
         updateUI();
-        checkWinLoss();
+        checkWinLoss(); // 即座に勝利判定を実行
         return;
       }
 
@@ -2455,6 +2456,8 @@
       }
 
       updateUI();
+      checkWinLoss(); // 通常のHP攻撃による決着をチェック
+
     } catch (e) {
       console.error("applyRoomData同期エラー:", e);
     }
