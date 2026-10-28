@@ -2541,11 +2541,6 @@
         return { ...(baseCard || {}), ...m };
       });
 
-      const oppMpFromDb = roomData[`${oppPrefix}_mp`];
-      if (oppMpFromDb !== undefined && oppMpFromDb !== null) {
-        window.gameState.opp.mp = Math.min(40, oppMpFromDb);
-      }
-
       updateUI();
       checkWinLoss();
 
@@ -2625,7 +2620,6 @@
           p2_name: myName,
           p2_rate: window.userProfile.rate || 1000,
           p2_hp: 60,
-          p2_mp: 5,
           p2_deck_count: window.gameState.my.deck.length,
           updated_at: new Date().toISOString()
         }).eq('id', onlineRoomId);
@@ -2659,10 +2653,8 @@
           p1_name: myName,
           p1_rate: window.userProfile.rate || 1000,
           p1_hp: 60,
-          p1_mp: 5,
           p1_deck_count: window.gameState.my.deck.length,
           p2_hp: 60,
-          p2_mp: 5,
           p2_deck_count: 15,
           updated_at: new Date().toISOString()
         }]);
@@ -2707,7 +2699,6 @@
 
     const updateObj = {
       [`${mePrefix}_hp`]: window.gameState.my.hp,
-      [`${mePrefix}_mp`]: window.gameState.my.mp,
       [`${mePrefix}_field`]: window.gameState.my.monsters,
       [`${mePrefix}_hand`]: handIds,
       [`${mePrefix}_deck_count`]: window.gameState.my.deck.length,
