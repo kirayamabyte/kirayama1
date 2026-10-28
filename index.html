@@ -3868,7 +3868,8 @@
 
     const oppPlayerInfo = document.getElementById("oppPlayerInfo");
     if (oppPlayerInfo) {
-      const activeOppMonsters = (window.gameState.opp.monsters || []).filter(Boolean);
+      
+const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => m !== null && m !== undefined && m.currentHp > 0);
       if (window.gameState.selectedAttackerIdx !== null && activeOppMonsters.length === 0) {
         oppPlayerInfo.classList.add("selectable-target");
         oppPlayerInfo.onclick = typeof attackEnemyPlayer === 'function' ? attackEnemyPlayer : null;
