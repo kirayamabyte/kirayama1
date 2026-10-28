@@ -2150,6 +2150,7 @@
     pendingWeaponIndex: null,
     pendingSummonIndex: null,
     isGameStarted: false,
+    isGameEnded: false,
     my: { name: "あなた", rate: 1000, elem: "water", hp: 60, maxHp: 60, mp: 5, maxMp: 40, monsters: [], deck: [], hand: [] },
     opp: { name: "CPU", rate: 1000, elem: "fire", hp: 60, maxHp: 60, mp: 5, maxMp: 40, monsters: [], deck: [], hand: [] }
   };
@@ -2221,6 +2222,7 @@
       onlineMyRole = null;
       if (window.gameState) {
         window.gameState.isGameStarted = false;
+        window.gameState.isGameEnded = false;
         window.gameState.selectedAttackerIdx = null;
         window.gameState.pendingSummonIndex = null;
         window.gameState.pendingWeaponIndex = null;
@@ -2256,9 +2258,14 @@
   }
   window.showTitleDirect = showTitleDirect;
 
-  // 🌟 降参・タイトル復帰処理
+  // 🌟 自分が「降参してタイトルへ」ボタンを押したときの処理
   async function surrenderAndReturn() {
     try {
+      if (window.gameState.isGameEnded) {
+        showTitleDirect();
+        return;
+      }
+
       const isRanked = window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked";
       const currentRoomId = onlineRoomId;
       const isP1 = onlineMyRole === 'player1';
@@ -2279,7 +2286,7 @@
           supabaseClient.from('rooms').delete().eq('id', currentRoomId).catch(() => {});
         } else {
           const mePrefix = isP1 ? 'p1' : 'p2';
-          supabaseClient.from('rooms').update({
+          await supabaseClient.from('rooms').update({
             [`${mePrefix}_surrendered`]: true,
             updated_at: new Date().toISOString()
           }).eq('id', currentRoomId).catch(() => {});
@@ -2405,6 +2412,9 @@
 
   // 🌟 相手降参時の不具合防止用勝利確定処理
   function triggerOpponentSurrenderWin() {
+    if (window.gameState.isGameEnded) return;
+    window.gameState.isGameEnded = true;
+
     if (roomPollingInterval) clearInterval(roomPollingInterval);
     if (roomHeartbeatInterval) clearInterval(roomHeartbeatInterval);
 
@@ -2428,12 +2438,12 @@
     window.userProfile.coins = (window.userProfile.coins || 0) + rewardCoins;
     saveUserProfile();
 
-    showEndModal(`🎉 相手の不戦勝/降参により勝利！ (+${rewardCoins} pt獲得)${rateLogMsg}`, "タイトルへ戻る");
+    showEndModal(`🎉 相手の降参により勝利！ (+${rewardCoins} pt獲得)${rateLogMsg}`, "タイトルへ戻る");
   }
 
   // 🌟 部屋データの同期＆降参フラグ検知処理
   function applyRoomData(roomData) {
-    if (!roomData) return;
+    if (!roomData || window.gameState.isGameEnded) return;
 
     try {
       const isP1 = onlineMyRole === 'player1';
@@ -2501,6 +2511,7 @@
       }
 
       window.gameState.mode = isEvent ? "event_ranked" : "ranked";
+      window.gameState.isGameEnded = false;
       const myName = window.userProfile?.name || "プレイヤー";
       const deckIds = window.userProfile?.deck || [1, 2, 3, 4, 5];
 
@@ -2659,6 +2670,7 @@
   function startCasualGame(diffKey) {
     window.gameState.mode = "casual";
     window.gameState.currentDifficulty = diffKey;
+    window.gameState.isGameEnded = false;
     document.getElementById("casualSelectScreen").classList.add("hidden");
     document.getElementById("gameScreen").classList.remove("hidden");
     initGame();
@@ -2668,6 +2680,7 @@
   function startGauntletMode() {
     window.gameState.mode = "gauntlet";
     window.gameState.gauntletStage = 0;
+    window.gameState.isGameEnded = false;
     document.getElementById("titleScreen").classList.add("hidden");
     document.getElementById("gameScreen").classList.remove("hidden");
     startGauntletStage();
@@ -2879,6 +2892,7 @@
   }
 
   function initGame() {
+    window.gameState.isGameEnded = false;
     window.gameState.my.hp = 60;
     window.gameState.opp.hp = 60;
 
@@ -3534,10 +3548,13 @@
   }
 
   function checkWinLoss() {
+    if (window.gameState.isGameEnded) return true;
+
     const isWin = window.gameState.opp.hp <= 0;
     const isLoss = window.gameState.my.hp <= 0;
 
     if (isWin || isLoss) {
+      window.gameState.isGameEnded = true;
       if (roomPollingInterval) clearInterval(roomPollingInterval);
       if (roomHeartbeatInterval) clearInterval(roomHeartbeatInterval);
       let rateLogMsg = "";
@@ -3591,10 +3608,13 @@
   }
 
   function showEndModal(msg, btnText) {
+    document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
     document.getElementById("endMessage").textContent = msg;
     const btn = document.getElementById("btnModalNext");
     btn.textContent = btnText;
-    document.getElementById("endModal").classList.add("active");
+    const endModal = document.getElementById("endModal");
+    endModal.classList.add("active");
+    endModal.style.display = "flex";
   }
 
   async function handleModalNext() {
@@ -3619,7 +3639,7 @@
       window.gameState.gauntletStage++;
       startGauntletStage();
     } else {
-      showTitle();
+      showTitleDirect();
     }
   }
 
