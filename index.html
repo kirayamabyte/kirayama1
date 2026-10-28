@@ -922,7 +922,7 @@
       pointer-events: auto !important;
       font-weight: bold;
       font-size: 0.85rem;
-      transition: background 0.2s;
+      transition: background 0.2s, opacity 0.2s;
       position: relative;
       z-index: 50;
       min-height: 38px;
@@ -932,9 +932,10 @@
       line-height: 1.2;
     }
 
-    button.btn:hover { background: #393e46; }
+    button.btn:hover:not(:disabled) { background: #393e46; }
+    button.btn:disabled { opacity: 0.45; cursor: not-allowed !important; filter: grayscale(0.6); }
     button.btn.primary { background: var(--accent-color); border-color: #ff2e63; }
-    button.btn.primary:hover { background: #ff2e63; }
+    button.btn.primary:hover:not(:disabled) { background: #ff2e63; }
     button.btn.big { padding: 12px; font-size: 0.95rem; min-height: 44px; }
 
     .modal {
@@ -1092,8 +1093,11 @@
     </div>
 
     <div class="menu">
-      <button id="btnEventRanked" type="button" class="btn primary big" onclick="searchRankedMatch(true)" style="background: linear-gradient(45deg, #ff4500, #ff8c00); border-color: #ffd700;">
-        🔥 イベントランクマッチ参戦
+      <button id="btnEventRanked" type="button" class="btn primary big" onclick="searchRankedMatch(true)" disabled style="background: linear-gradient(45deg, #ff4500, #ff8c00); border-color: #ffd700;">
+        🔥 イベントランクマッチ参戦 (開催待ち)
+      </button>
+      <button id="btnNormalRanked" type="button" class="btn primary big" onclick="searchRankedMatch(false)" style="background: linear-gradient(45deg, #2b5876, #4e4376); border-color: #00fff5;">
+        ⚔️ 通常ランクマッチ参戦
       </button>
       <button id="btnOnline" type="button" class="btn primary big" style="background:#00adb5; border-color:#00fff5;">🌐 ルーム対戦 (合言葉)</button>
       <button type="button" class="btn primary big" onclick="openMarketScreen()" style="background:#28a745; border-color:#5cb85c;">🏪 カードマーケット (出品・購入)</button>
@@ -1299,7 +1303,7 @@
 
   <!-- 対戦画面 -->
   <section id="gameScreen" class="screen hidden">
-    <div id="modeBanner" class="mode-banner">イベントランクマッチ</div>
+    <div id="modeBanner" class="mode-banner">ランクマッチ</div>
 
     <!-- 相手エリア -->
     <div class="player-area">
@@ -1946,16 +1950,28 @@
         .eq('is_active', true)
         .maybeSingle();
 
+      const btnEventRanked = document.getElementById("btnEventRanked");
+
       if (data) {
         currentEvent = data;
         document.getElementById("eventBanner").classList.remove("hidden");
         document.getElementById("eventTitle").textContent = data.title;
         
+        if (btnEventRanked) {
+          btnEventRanked.disabled = false;
+          btnEventRanked.textContent = "🔥 イベントランクマッチ参戦";
+        }
+
         updateEventTimer();
         setInterval(updateEventTimer, 10000);
         await loadEventUserStats();
       } else {
+        currentEvent = null;
         document.getElementById("eventBanner").classList.add("hidden");
+        if (btnEventRanked) {
+          btnEventRanked.disabled = true;
+          btnEventRanked.textContent = "🔥 イベントランクマッチ参戦 (開催待ち)";
+        }
       }
 
       await checkClaimableEventRewards();
@@ -2173,7 +2189,6 @@
 
     bindEvent("btnGacha", openGachaScreen);
     bindEvent("btnOnline", openOnlineLobby);
-    bindEvent("btnJoinOnlineRoom", joinOnlineRoom);
     bindEvent("btnGauntlet", startGauntletMode);
     bindEvent("btnCasual", openCasualSelect);
     bindEvent("btnDeckEdit", openDeckEditor);
@@ -2445,7 +2460,7 @@
     }
   }
 
-  // 🌟 ランクマッチ検索・部屋作成（ゴースト部屋徹底排除版）
+  // 🌟 ランクマッチ検索・部屋作成（通常/イベント対応 & ゴースト部屋排除）
   async function searchRankedMatch(isEvent = false) {
     try {
       if (roomHeartbeatInterval) {
@@ -2460,9 +2475,14 @@
       document.getElementById("titleScreen").classList.add("hidden");
       document.getElementById("gameScreen").classList.remove("hidden");
       
+      const modeBanner = document.getElementById("modeBanner");
+      if (modeBanner) {
+        modeBanner.textContent = isEvent ? "🔥 イベントランクマッチ" : "⚔️ 通常ランクマッチ";
+      }
+
       const logArea = document.getElementById("logArea");
       if (logArea) logArea.innerHTML = "";
-      addLog("🔍 対戦相手を探しています...", "important");
+      addLog(`🔍 [${isEvent ? 'イベント' : '通常'}ランクマッチ] 対戦相手を探しています...`, "important");
 
       // 自分の古い待機部屋を削除
       await supabaseClient
@@ -2471,10 +2491,10 @@
         .eq('p1_name', myName)
         .eq('status', 'waiting');
 
-      // 💡 1分以内に更新があった「アクティブな部屋」のみを対象にする
+      // 1分以内に更新があった「アクティブな部屋」のみを対象にする
       const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000).toISOString();
 
-      // 1. アクティブな待機中部屋を検索
+      // アクティブな待機中部屋を検索
       const { data: waitingRooms, error: fetchErr } = await supabaseClient
         .from('rooms')
         .select('*')
@@ -2493,7 +2513,7 @@
         : null;
 
       if (validOpponentRoom) {
-        // ⚔️ 既存の有効な部屋に参加
+        // 既存の有効な部屋に参加
         onlineRoomId = validOpponentRoom.id;
         onlineMyRole = 'player2';
         hasDrawnThisTurn = false;
@@ -2526,7 +2546,7 @@
         subscribeRoomUpdates();
 
       } else {
-        // ⏳ 新しい待機部屋を作成
+        // 新しい待機部屋を作成
         onlineRoomId = "ROOM_" + Math.random().toString(36).substring(2, 8).toUpperCase();
         onlineMyRole = 'player1';
         hasDrawnThisTurn = true;
@@ -2556,7 +2576,7 @@
         } else {
           addLog(`⏳ 待機部屋を作成しました (${onlineRoomId})。相手の参加を待っています...`, "important");
           
-          // 💓 待機中、10秒ごとに updated_at を更新して生存を通知
+          // 待機中、10秒ごとに updated_at を更新して生存を通知
           roomHeartbeatInterval = setInterval(async () => {
             if (onlineRoomId && !window.gameState.isGameStarted) {
               await supabaseClient.from('rooms').update({
