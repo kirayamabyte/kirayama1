@@ -2459,10 +2459,9 @@
         console.error("部屋検索エラー:", fetchErr);
       }
 
-      const validOpponentRoom = (waitingRooms && waitingRooms.length > 0 && waitingRooms[0].p1_name !== myName) 
-        ? waitingRooms[0] 
-        : null;
-
+      const validOpponentRoom = (waitingRooms && waitingRooms.length > 0)
+        ? waitingRooms.find(r => r.p1_name !== myName)
+  :   null;
       if (validOpponentRoom) {
         onlineRoomId = validOpponentRoom.id;
         onlineMyRole = 'player2';
@@ -2535,7 +2534,15 @@
       addLog(`❌ エラーが発生しました: ${err.message}`, "damage");
       console.error("searchRankedMatch 全体エラー:", err);
     }
-  }
+  }// 10分以上更新のない「ゴースト部屋」を除外するための基準時刻
+const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+const { data: waitingRooms, error: fetchErr } = await supabaseClient
+  .from('rooms')
+  .select('*')
+  .eq('status', 'waiting')
+  .gt('updated_at', tenMinutesAgo)
+  .order('updated_at', { ascending: false });
   window.searchRankedMatch = searchRankedMatch;
 
   async function syncOnlineAction() {
