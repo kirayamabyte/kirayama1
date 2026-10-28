@@ -2925,7 +2925,9 @@
     window.gameState.opp.hp = 60;
 
     window.gameState.my.mp = 5;
+    window.gameState.my.maxMp = 40;
     window.gameState.opp.mp = 5;
+    window.gameState.opp.maxMp = 40;
     try { playBGM('battle'); } catch(e){}
     const cpuPreset = (typeof CPU_PRESETS !== 'undefined' && CPU_PRESETS[window.gameState.currentDifficulty]) 
       ? CPU_PRESETS[window.gameState.currentDifficulty] 
@@ -2936,7 +2938,7 @@
     window.gameState.turnCount = 1;
     window.gameState.selectedAttackerIdx = null;
     
-    window.gameState.my.hp = 60; window.gameState.my.maxHp = 60; window.gameState.my.mp = 5; window.gameState.my.monsters = []; window.gameState.my.elem = "water";
+    window.gameState.my.hp = 60; window.gameState.my.maxHp = 60; window.gameState.my.mp = 5; window.gameState.my.maxMp = 40; window.gameState.my.monsters = []; window.gameState.my.elem = "water";
     window.gameState.my.name = window.userProfile.name;
     window.gameState.my.rate = window.userProfile.rate || 1000;
     document.getElementById("myNameDisplay").textContent = window.gameState.my.name;
@@ -2944,7 +2946,7 @@
     window.gameState.opp.name = cpuPreset.name;
     window.gameState.opp.rate = cpuPreset.rate || 1200;
     window.gameState.opp.elem = cpuPreset.elem;
-    window.gameState.opp.hp = 60; window.gameState.opp.maxHp = 60; window.gameState.opp.mp = 5; window.gameState.opp.monsters = [];
+    window.gameState.opp.hp = 60; window.gameState.opp.maxHp = 60; window.gameState.opp.mp = 5; window.gameState.opp.maxMp = 40; window.gameState.opp.monsters = [];
     document.getElementById("oppNameDisplay").textContent = window.gameState.opp.name;
 
     const oppElemElem = document.getElementById("oppElem");
@@ -3109,7 +3111,8 @@
           addLog(`${card.name}！ HPが ${card.heal} 回復！`);
         }
         if (card.mpRecover) {
-          window.gameState.my.mp = Math.min(window.gameState.my.maxMp, window.gameState.my.mp + card.mpRecover);
+          const maxMp = window.gameState.my.maxMp || 40;
+          window.gameState.my.mp = Math.min(maxMp, window.gameState.my.mp + card.mpRecover);
           addLog(`${card.name}！ MPが ${card.mpRecover} 回復！`);
         }
         window.gameState.my.hand.splice(index, 1);
@@ -3421,6 +3424,10 @@
 
     updateTokenLifetimes(window.gameState.opp.monsters, window.gameState.opp.name);
 
+    // CPUのMP自動回復 (+2)
+    const oppMaxMp = window.gameState.opp.maxMp || 40;
+    window.gameState.opp.mp = Math.min(oppMaxMp, window.gameState.opp.mp + 2);
+
     window.gameState.opp.monsters.forEach(m => {
       if (m.isStunned) {
         m.isStunned = false;
@@ -3616,7 +3623,9 @@
       }
     });
 
-    window.gameState.my.mp = Math.min(window.gameState.my.maxHp, window.gameState.my.mp + 2);
+    // プレイヤーのターン開始時：MP自動回復 (+2)
+    const myMaxMp = window.gameState.my.maxMp || 40;
+    window.gameState.my.mp = Math.min(myMaxMp, window.gameState.my.mp + 2);
 
     if (window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
       window.gameState.my.hand.push(window.gameState.my.deck.shift());
