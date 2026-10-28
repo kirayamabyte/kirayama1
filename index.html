@@ -3330,9 +3330,10 @@
           window.gameState.my.monsters[window.gameState.selectedAttackerIdx] = null;
         }
       }
-    } else {
+    } // attackEnemyMonster 内の倒した時の処理
+    if (target.currentHp <= 0) {
       addLog(`敵の【${target.name}】を撃破した！`, "important");
-      window.gameState.opp.monsters[targetIdx] = null; // nullで枠を空ける
+      window.gameState.opp.monsters[targetIdx] = null; // 確実に null に上書き
     }
 
     if (attacker.currentHp > 0 && attacker.splashDamage && window.gameState.opp.monsters.filter(m => m && m.currentHp > 0).length > 0) {
@@ -3364,7 +3365,8 @@
   function attackEnemyPlayer() {
     if (window.gameState.selectedAttackerIdx === null) return;
 
-    const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => m !== null && m !== undefined && m.currentHp > 0);
+    // 存命中の敵モンスターを厳密に抽出（null/undefinedおよびHP0以下を除外）
+    const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0);
     if (activeOppMonsters.length > 0) {
       addLog("敵モンスターが存在するため直接攻撃できません！", "damage");
       return;
@@ -3396,7 +3398,6 @@
 
     checkWinLoss();
   }
-
   function openEquipModal(handIndex) {
     window.gameState.pendingWeaponIndex = handIndex;
     const targetList = document.getElementById("equipTargetList");
@@ -3884,9 +3885,13 @@
       if (oppRateDisplay) oppRateDisplay.textContent = `${window.gameState.opp.rate || 1000} RP`;
     }
 
+    // updateUI() 内の該当部分
     const oppPlayerInfo = document.getElementById("oppPlayerInfo");
     if (oppPlayerInfo) {
-      const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => m !== null && m !== undefined && m.currentHp > 0);
+      // 生きている敵モンスターの数を正しくカウント
+      const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0);
+      
+      // 自分の攻撃モンスターが選択されており、かつ生きている敵モンスターが0体の時だけターゲット可能にする
       if (window.gameState.selectedAttackerIdx !== null && activeOppMonsters.length === 0) {
         oppPlayerInfo.classList.add("selectable-target");
         oppPlayerInfo.onclick = typeof attackEnemyPlayer === 'function' ? attackEnemyPlayer : null;
