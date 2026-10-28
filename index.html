@@ -2549,6 +2549,7 @@ async function searchRankedMatch(isEvent = false) {
   } catch (err) {
     addLog(`❌ エラーが発生しました: ${err.message}`, "damage");
     console.error("searchRankedMatch 全体エラー:", err);
+    await supabaseClient.from('rooms').delete()
   }
 }
 window.searchRankedMatch = searchRankedMatch;
