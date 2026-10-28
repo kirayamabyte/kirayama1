@@ -13,6 +13,8 @@
 
 // ⭕ const / let / var を付けずに直接プロパティを設定・上書きします
 // cards1.js の一番上にこれを追加してください
+// cards1.js の一番上に追記
+
 const ELEMENTS = {
   fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
   water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
@@ -237,8 +239,23 @@ voice: "",
     summonFromDeck: true, // 🔮 追加能力: 山札からランダム召喚
     image: "M_kounotomodachi.pmg", 
     voice: ""
-  }
+  },
+  // 例：CARD_DATABASE 内に追加
+{
+  id: "h5",
+  name: "がめおの財布",
+  type: "magic",
+  elem: "light",
+  rarity: 1,
+  costMp: 3,
+  drawCount: 2, // 👈 引く枚数を指定
+  icon: "🏺",
+  desc: "山札からカードを2枚引く。",
+  flavor:"大丈夫大丈夫がめおさんが出してくれるよ",
+  image:"M_gameowallet.jpg"
+}
 ];
+
 // userProfile の初期化部分またはロジックで ownedCards を持たせます
 window.userProfile = {
   name: "あなた",

@@ -3135,7 +3135,43 @@
         }
 
         window.gameState.my.mp -= card.costMp;
+if (card.type === "magic") {
+      if (card.summonFromDeck) {
+        // ... (既存の緊急召喚処理)
+      } else {
+        window.gameState.my.mp -= card.costMp;
 
+        // 🟢 【追加】ドロー効果の処理
+        if (card.drawCount) {
+          let drawn = 0;
+          for (let i = 0; i < card.drawCount; i++) {
+            // 手札上限（例: 6枚）未満かつ山札がある場合にドロー
+            if (window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
+              window.gameState.my.hand.push(window.gameState.my.deck.shift());
+              drawn++;
+            }
+          }
+          if (drawn > 0) {
+            addLog(`🔮【${card.name}】発動！ 山札からカードを ${drawn} 枚引いた！`, "effective");
+          } else {
+            addLog(`🔮【${card.name}】発動！ (手札がいっぱいか、山札がありません)`, "damage");
+          }
+        }
+
+        if (card.heal) {
+          window.gameState.my.hp = Math.min(window.gameState.my.maxHp, window.gameState.my.hp + card.heal);
+          addLog(`${card.name}！ HPが ${card.heal} 回復！`);
+        }
+        if (card.mpRecover) {
+          const maxMp = window.gameState.my.maxMp || 40;
+          window.gameState.my.mp = Math.min(maxMp, window.gameState.my.mp + card.mpRecover);
+          addLog(`${card.name}！ MPが ${card.mpRecover} 回復！`);
+        }
+        
+        // 使用した魔法カードを手札から取り除く
+        window.gameState.my.hand.splice(index, 1);
+      }
+    }
         const randomIndex = monsterIndicesInDeck[Math.floor(Math.random() * monsterIndicesInDeck.length)];
         const summonedCard = window.gameState.my.deck.splice(randomIndex, 1)[0];
         const summonedCopy = JSON.parse(JSON.stringify(summonedCard));
