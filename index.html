@@ -2149,6 +2149,7 @@
     selectedAttackerIdx: null,
     pendingWeaponIndex: null,
     pendingSummonIndex: null,
+    isGameStarted: false,
     my: { name: "あなた", rate: 1000, elem: "water", hp: 60, maxHp: 60, mp: 5, maxMp: 40, monsters: [], deck: [], hand: [] },
     opp: { name: "CPU", rate: 1000, elem: "fire", hp: 60, maxHp: 60, mp: 5, maxMp: 40, monsters: [], deck: [], hand: [] }
   };
@@ -2402,7 +2403,35 @@
   }
   window.subscribeRoomUpdates = subscribeRoomUpdates;
 
-  // 🌟 部屋データの同期＆降参フラグ検知処理（修正版）
+  // 🌟 相手降参時の不具合防止用勝利確定処理
+  function triggerOpponentSurrenderWin() {
+    if (roomPollingInterval) clearInterval(roomPollingInterval);
+    if (roomHeartbeatInterval) clearInterval(roomHeartbeatInterval);
+
+    let rateLogMsg = "";
+    if (window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
+      const myRate = window.userProfile.rate || 1000;
+      const oppRate = onlineOppRate || 1000;
+      const rateChange = calculateRateChange(myRate, oppRate, true);
+
+      window.userProfile.rate = Math.max(0, myRate + rateChange);
+      const sign = rateChange >= 0 ? "+" : "";
+      rateLogMsg = ` [レート: ${myRate} ➔ ${window.userProfile.rate} (${sign}${rateChange})]`;
+
+      if (window.gameState.mode === "event_ranked") {
+        updateEventParticipantStats(true);
+      }
+    }
+
+    window.userProfile.wins++;
+    const rewardCoins = 100;
+    window.userProfile.coins = (window.userProfile.coins || 0) + rewardCoins;
+    saveUserProfile();
+
+    showEndModal(`🎉 相手の不戦勝/降参により勝利！ (+${rewardCoins} pt獲得)${rateLogMsg}`, "タイトルへ戻る");
+  }
+
+  // 🌟 部屋データの同期＆降参フラグ検知処理
   function applyRoomData(roomData) {
     if (!roomData) return;
 
@@ -2411,13 +2440,13 @@
       const mePrefix = isP1 ? 'p1' : 'p2';
       const oppPrefix = isP1 ? 'p2' : 'p1';
 
-      // 🚩 相手が降参したかどうかをチェック
+      // 🚩 相手が降参したかどうかを直接判定
       const isOppSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
-      if (isOppSurrendered && window.gameState.isGameStarted) {
+      if (isOppSurrendered) {
         addLog(`🏳️ 対戦相手が降参しました！`, "effective");
-        window.gameState.opp.hp = 0; // 相手のHPを0に
+        window.gameState.opp.hp = 0;
         updateUI();
-        checkWinLoss(); // 即座に勝利判定を実行
+        triggerOpponentSurrenderWin();
         return;
       }
 
@@ -2456,7 +2485,7 @@
       }
 
       updateUI();
-      checkWinLoss(); // 通常のHP攻撃による決着をチェック
+      checkWinLoss();
 
     } catch (e) {
       console.error("applyRoomData同期エラー:", e);
@@ -3505,10 +3534,6 @@
   }
 
   function checkWinLoss() {
-    if (window.gameState.mode !== "casual" && window.gameState.mode !== "gauntlet" && !window.gameState.isGameStarted) {
-      return false;
-    }
-
     const isWin = window.gameState.opp.hp <= 0;
     const isLoss = window.gameState.my.hp <= 0;
 
