@@ -1617,6 +1617,7 @@
   let onlineOppDeckCount = 15;
   let onlineOppRate = 1000;
   let roomPollingInterval = null;
+  let roomHeartbeatInterval = null;
   let roomChannel = null;
   let currentEvent = null;
   let editingEventId = null;
@@ -2191,6 +2192,10 @@
         clearInterval(roomPollingInterval);
         roomPollingInterval = null;
       }
+      if (roomHeartbeatInterval) {
+        clearInterval(roomHeartbeatInterval);
+        roomHeartbeatInterval = null;
+      }
       if (typeof roomChannel !== 'undefined' && roomChannel && supabaseClient) {
         supabaseClient.removeChannel(roomChannel);
         roomChannel = null;
@@ -2363,6 +2368,10 @@
         if (payload.new) {
           if (!window.gameState.isGameStarted && payload.new.status === 'playing') {
             window.gameState.isGameStarted = true;
+            if (roomHeartbeatInterval) {
+              clearInterval(roomHeartbeatInterval);
+              roomHeartbeatInterval = null;
+            }
             addLog("🎉 対戦相手が参加しました！バトル開始！", "effective");
           }
           applyRoomData(payload.new);
@@ -2436,9 +2445,14 @@
     }
   }
 
-  // 🌟 ランクマッチ検索・部屋作成（ゴースト部屋排除＆安全マッチング対応）
+  // 🌟 ランクマッチ検索・部屋作成（ゴースト部屋徹底排除版）
   async function searchRankedMatch(isEvent = false) {
     try {
+      if (roomHeartbeatInterval) {
+        clearInterval(roomHeartbeatInterval);
+        roomHeartbeatInterval = null;
+      }
+
       window.gameState.mode = isEvent ? "event_ranked" : "ranked";
       const myName = window.userProfile?.name || "プレイヤー";
       const deckIds = window.userProfile?.deck || [1, 2, 3, 4, 5];
@@ -2450,22 +2464,22 @@
       if (logArea) logArea.innerHTML = "";
       addLog("🔍 対戦相手を探しています...", "important");
 
-      // 自分が以前作成した古い待機部屋があればお掃除削除
+      // 自分の古い待機部屋を削除
       await supabaseClient
         .from('rooms')
         .delete()
         .eq('p1_name', myName)
         .eq('status', 'waiting');
 
-      // 10分以上更新のない「ゴースト部屋」を除外するために基準時刻を作成
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      // 💡 1分以内に更新があった「アクティブな部屋」のみを対象にする
+      const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000).toISOString();
 
-      // 1. アクティブな待機中（status='waiting'）の部屋を検索
+      // 1. アクティブな待機中部屋を検索
       const { data: waitingRooms, error: fetchErr } = await supabaseClient
         .from('rooms')
         .select('*')
         .eq('status', 'waiting')
-        .gt('updated_at', tenMinutesAgo)
+        .gt('updated_at', oneMinuteAgo)
         .order('updated_at', { ascending: false });
 
       if (fetchErr) {
@@ -2473,13 +2487,13 @@
         console.error("部屋検索エラー:", fetchErr);
       }
 
-      // 自分以外の有効な対戦相手の部屋を厳格に取得
+      // 自分以外の有効な対戦相手の部屋を取得
       const validOpponentRoom = (waitingRooms && waitingRooms.length > 0)
         ? waitingRooms.find(r => r.p1_name !== myName)
         : null;
 
       if (validOpponentRoom) {
-        // ⚔️ 既存の有効な部屋に「ゲスト (player2)」として参加
+        // ⚔️ 既存の有効な部屋に参加
         onlineRoomId = validOpponentRoom.id;
         onlineMyRole = 'player2';
         hasDrawnThisTurn = false;
@@ -2512,7 +2526,7 @@
         subscribeRoomUpdates();
 
       } else {
-        // ⏳ 部屋が存在しないか古い部屋しかなかったため「ホスト (player1)」として新規作成
+        // ⏳ 新しい待機部屋を作成
         onlineRoomId = "ROOM_" + Math.random().toString(36).substring(2, 8).toUpperCase();
         onlineMyRole = 'player1';
         hasDrawnThisTurn = true;
@@ -2541,6 +2555,18 @@
           addLog(`⚠️ 部屋作成エラー: ${insertErr.message}`, "damage");
         } else {
           addLog(`⏳ 待機部屋を作成しました (${onlineRoomId})。相手の参加を待っています...`, "important");
+          
+          // 💓 待機中、10秒ごとに updated_at を更新して生存を通知
+          roomHeartbeatInterval = setInterval(async () => {
+            if (onlineRoomId && !window.gameState.isGameStarted) {
+              await supabaseClient.from('rooms').update({
+                updated_at: new Date().toISOString()
+              }).eq('id', onlineRoomId);
+            } else {
+              clearInterval(roomHeartbeatInterval);
+              roomHeartbeatInterval = null;
+            }
+          }, 10000);
         }
 
         subscribeRoomUpdates();
@@ -3465,6 +3491,7 @@
 
     if (isWin || isLoss) {
       if (roomPollingInterval) clearInterval(roomPollingInterval);
+      if (roomHeartbeatInterval) clearInterval(roomHeartbeatInterval);
       let rateLogMsg = "";
 
       if (window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
@@ -3524,6 +3551,7 @@
 
   async function handleModalNext() {
     if (roomPollingInterval) clearInterval(roomPollingInterval);
+    if (roomHeartbeatInterval) clearInterval(roomHeartbeatInterval);
     document.getElementById("endModal").classList.remove("active");
 
     if ((window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") && onlineRoomId && supabaseClient) {
