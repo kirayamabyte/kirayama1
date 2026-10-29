@@ -236,6 +236,29 @@
       z-index: 20;
     }
 
+    /* CPU対戦モードのまとめパネル枠 */
+    .cpu-mode-group {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 215, 0, 0.4);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .cpu-mode-group .group-title {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: var(--gold-color);
+      border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+      padding-bottom: 4px;
+      text-align: center;
+      letter-spacing: 0.05em;
+    }
+
     details.rules {
       width: 100%;
       max-width: 440px;
@@ -1133,6 +1156,7 @@
         <span>連戦最高: <strong id="statGauntlet" style="color:#ffd700;">0</strong> ステージ</span>
       </div>
       <div class="stats-row">
+        <span>タワー最高: <strong id="statTower" style="color:#a855f7;">0</strong> 階</span>
         <span>コイン: 🪙 <strong id="statCoins" style="color:#ffd700;">1000</strong>pt</span>
       </div>
     </div>
@@ -1158,12 +1182,21 @@
         ⚔️ 通常ランクマッチ参戦
       </button>
       <button id="btnOnline" type="button" class="btn primary big" style="background:#00adb5; border-color:#00fff5;">🌐 ルーム対戦 (合言葉)</button>
+
+      <!-- ⚔️ CPU対戦モードまとめ枠 -->
+      <div class="cpu-mode-group">
+        <div class="group-title">⚔️ CPU対戦モード</div>
+        <button id="btnCasual" type="button" class="btn big">⚔️ カジュアルモード</button>
+        <button id="btnGauntlet" type="button" class="btn primary big">🔥 連戦モード (3ステージ)</button>
+        <button id="btnTower" type="button" class="btn primary big" style="background: linear-gradient(45deg, #8a2be2, #4a00e0); border-color: #a855f7;">
+          🏰 赤城バトルタワー (50階勝ち抜き)
+        </button>
+      </div>
+
       <button type="button" class="btn primary big" onclick="openMarketScreen()" style="background:#28a745; border-color:#5cb85c;">🏪 カードマーケット (出品・購入)</button>
       <button type="button" class="btn primary big" onclick="openTradeScreen()" style="background:#17a2b8; border-color:#17a2b8;">🤝 カードトレード (直接交換)</button>
       <button type="button" class="btn big" onclick="openProfileCustomScreen()" style="background:#8a2be2; border-color:#a855f7;">🏷️ 称号・バッジ設定</button>
       <button id="btnGacha" type="button" class="btn primary big" style="background:#ff9900; border-color:#ffcc00;">🎰 ガチャを引く</button>
-      <button id="btnGauntlet" type="button" class="btn primary big">🔥 連戦モード (CPU)</button>
-      <button id="btnCasual" type="button" class="btn big">⚔️ カジュアルモード (CPU)</button>
       <button id="btnDeckEdit" type="button" class="btn">🎴 デッキ編集</button>
       <button type="button" class="btn big" onclick="openRulesModal()" style="background:#00adb5; border-color:#00fff5;">📜 公式ルールを確認</button>
     </div>
@@ -1787,6 +1820,9 @@
     wins: 0,
     losses: 0,
     bestGauntletStage: 0,
+    towerFloor: 1,
+    towerInProgress: false,
+    bestTowerFloor: 0,
     coins: 1000,
     equippedTitle: "《見習いデュエリスト》",
     equippedBadge: "🔰",
@@ -2161,6 +2197,9 @@
         if (window.userProfile.rate === undefined) window.userProfile.rate = 1000;
         if (!window.userProfile.equippedTitle) window.userProfile.equippedTitle = "《見習いデュエリスト》";
         if (!window.userProfile.equippedBadge) window.userProfile.equippedBadge = "🔰";
+        if (window.userProfile.towerFloor === undefined) window.userProfile.towerFloor = 1;
+        if (window.userProfile.towerInProgress === undefined) window.userProfile.towerInProgress = false;
+        if (window.userProfile.bestTowerFloor === undefined) window.userProfile.bestTowerFloor = 0;
       } catch (e) { console.error("データロードエラー", e); }
     }
     updateTitleStatsUI();
@@ -2185,6 +2224,9 @@
     const statGauntlet = document.getElementById("statGauntlet");
     if (statGauntlet) statGauntlet.textContent = window.userProfile.bestGauntletStage;
 
+    const statTower = document.getElementById("statTower");
+    if (statTower) statTower.textContent = window.userProfile.bestTowerFloor;
+
     const statCoins = document.getElementById("statCoins");
     if (statCoins) statCoins.textContent = window.userProfile.coins;
 
@@ -2203,6 +2245,15 @@
 
     const statRank = document.getElementById("statRank");
     if (statRank) statRank.textContent = getRankName(rate);
+
+    const btnTower = document.getElementById("btnTower");
+    if (btnTower) {
+      if (window.userProfile.towerInProgress) {
+        btnTower.textContent = `🏰 赤城バトルタワー (第${window.userProfile.towerFloor}階から再開)`;
+      } else {
+        btnTower.textContent = `🏰 赤城バトルタワー (50階勝ち抜き)`;
+      }
+    }
   }
 
   window.gameState = {
@@ -2257,6 +2308,7 @@
     bindEvent("btnGacha", openGachaScreen);
     bindEvent("btnOnline", openOnlineLobby);
     bindEvent("btnGauntlet", startGauntletMode);
+    bindEvent("btnTower", handleTowerButtonClick);
     bindEvent("btnCasual", openCasualSelect);
     bindEvent("btnDeckEdit", openDeckEditor);
     bindEvent("btnSaveDeck", saveDeckAndReturn);
@@ -2793,6 +2845,40 @@
     initGame();
   }
 
+  /* 🏰 赤城バトルタワー処理 */
+  function handleTowerButtonClick() {
+    if (window.userProfile.towerInProgress) {
+      if (confirm(`第 ${window.userProfile.towerFloor} 階から再開しますか？\n(「キャンセル」を押すと第1階からやり直します)`)) {
+        startTowerMode(window.userProfile.towerFloor);
+      } else {
+        startTowerMode(1);
+      }
+    } else {
+      startTowerMode(1);
+    }
+  }
+
+  function startTowerMode(floor) {
+    window.gameState.mode = "tower";
+    window.userProfile.towerFloor = floor;
+    window.userProfile.towerInProgress = true;
+    saveUserProfile();
+
+    if (floor <= 20) {
+      window.gameState.currentDifficulty = "easy";
+    } else if (floor <= 40) {
+      window.gameState.currentDifficulty = "normal";
+    } else {
+      window.gameState.currentDifficulty = "hard";
+    }
+
+    window.gameState.isGameEnded = false;
+    document.getElementById("titleScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+
+    initGame();
+  }
+
   function openDeckEditor() {
     document.getElementById("titleScreen").classList.add("hidden");
     document.getElementById("deckScreen").classList.remove("hidden");
@@ -3041,9 +3127,14 @@
       ? GAUNTLET_STAGES[window.gameState.gauntletStage].stage
       : 1;
 
-    const bannerText = window.gameState.mode === "gauntlet" 
-      ? `🔥 連戦モード ステージ ${gauntletStageText}/3 : VS ${cpuPreset.name}`
-      : `カジュアルモード [${window.gameState.currentDifficulty.toUpperCase()}] VS ${cpuPreset.name}`;
+    let bannerText = "";
+    if (window.gameState.mode === "tower") {
+      bannerText = `🏰 赤城バトルタワー 第${window.userProfile.towerFloor}/50階`;
+    } else if (window.gameState.mode === "gauntlet") {
+      bannerText = `🔥 連戦モード ステージ ${gauntletStageText}/3 : VS ${cpuPreset.name}`;
+    } else {
+      bannerText = `カジュアルモード [${window.gameState.currentDifficulty.toUpperCase()}] VS ${cpuPreset.name}`;
+    }
       
     document.getElementById("modeBanner").textContent = `${bannerText} (${isPlayerFirst ? '先攻' : '後攻'})`;
 
@@ -3860,9 +3951,28 @@
         window.userProfile.wins++;
         const rewardCoins = 100;
         window.userProfile.coins = (window.userProfile.coins || 0) + rewardCoins;
-        saveUserProfile();
 
-        if (window.gameState.mode === "gauntlet") {
+        if (window.gameState.mode === "tower") {
+          const currentFloor = window.userProfile.towerFloor;
+          if (currentFloor > window.userProfile.bestTowerFloor) {
+            window.userProfile.bestTowerFloor = currentFloor;
+          }
+
+          if (currentFloor >= 50) {
+            window.userProfile.towerInProgress = false;
+            window.userProfile.towerFloor = 1;
+            saveUserProfile();
+            showEndModal(`🎉 👑 赤城バトルタワー 50階完全制覇！ 👑 (+${rewardCoins} pt獲得)`, "タイトルへ戻る");
+          } else if (currentFloor % 10 === 0) {
+            window.userProfile.towerFloor = currentFloor + 1;
+            saveUserProfile();
+            showEndModal(`🏰 第${currentFloor}階クリア！ 休憩ポイントです。\n進捗は自動保存されました。 (+${rewardCoins} pt獲得)`, `次へ進む (第${currentFloor + 1}階へ)`);
+          } else {
+            window.userProfile.towerFloor = currentFloor + 1;
+            saveUserProfile();
+            showEndModal(`🏰 第${currentFloor}階 突破！ (+${rewardCoins} pt獲得)`, `次へ進む (第${currentFloor + 1}階へ)`);
+          }
+        } else if (window.gameState.mode === "gauntlet") {
           const currentStageNum = window.gameState.gauntletStage + 1;
           if (currentStageNum > window.userProfile.bestGauntletStage) {
             window.userProfile.bestGauntletStage = currentStageNum;
@@ -3877,9 +3987,15 @@
             showEndModal(`🎉 連戦モード完全覇者！ (+${rewardCoins} pt獲得)`, "タイトルへ戻る");
           }
         } else {
+          saveUserProfile();
           showEndModal(`🎉 あなたの勝利！ (+${rewardCoins} pt獲得)${rateLogMsg}`, "タイトルへ戻る");
         }
       } else if (isLoss) {
+        if (window.gameState.mode === "tower") {
+          addLog(`🏰 赤城バトルタワー 挑戦失敗... (到達: 第${window.userProfile.towerFloor}階)`, "damage");
+          window.userProfile.towerInProgress = false;
+          window.userProfile.towerFloor = 1;
+        }
         window.userProfile.losses++;
         saveUserProfile();
         showEndModal(`💀 敗北しました...${rateLogMsg}`, "タイトルへ戻る");
@@ -3918,7 +4034,9 @@
 
     const maxGauntletLength = typeof GAUNTLET_STAGES !== 'undefined' ? GAUNTLET_STAGES.length : 3;
 
-    if (window.gameState.mode === "gauntlet" && window.gameState.my.hp > 0 && window.gameState.gauntletStage < maxGauntletLength - 1) {
+    if (window.gameState.mode === "tower" && window.gameState.my.hp > 0 && window.userProfile.towerInProgress) {
+      startTowerMode(window.userProfile.towerFloor);
+    } else if (window.gameState.mode === "gauntlet" && window.gameState.my.hp > 0 && window.gameState.gauntletStage < maxGauntletLength - 1) {
       window.gameState.gauntletStage++;
       startGauntletStage();
     } else {
