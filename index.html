@@ -2498,7 +2498,7 @@
       
       if (prevTurn !== 'player' && newTurnRole === 'player') {
         const myMaxMp = window.gameState.my.maxMp || 40;
-        window.gameState.my.mp = Math.min(myMaxMp, window.gameState.my.mp + 2);
+        window.gameState.my.mp = Math.min(myMaxMp, window.gameState.my.mp + 5);
         
         if (window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
           window.gameState.my.hand.push(window.gameState.my.deck.shift());
@@ -2522,7 +2522,7 @@
 
       if (prevTurn !== 'opp' && newTurnRole === 'opp') {
         const oppMaxMp = window.gameState.opp.maxMp || 40;
-        window.gameState.opp.mp = Math.min(oppMaxMp, (window.gameState.opp.mp || 5) + 2);
+        window.gameState.opp.mp = Math.min(oppMaxMp, (window.gameState.opp.mp || 5) + 5);
         addLog(`--- ${roomData[`${oppPrefix}_name`] || '対戦相手'} のターン ---`);
       }
 
