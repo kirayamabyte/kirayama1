@@ -945,7 +945,6 @@
     button.btn.primary:hover:not(:disabled) { background: #ff2e63; }
     button.btn.big { padding: 12px; font-size: 0.95rem; min-height: 44px; }
 
-    /* モーダル基本スタイル (縦長化防止修正) */
     .modal {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
@@ -963,7 +962,6 @@
       pointer-events: auto !important;
     }
 
-    /* モーダル内部ダイアログカード */
     .modal-content {
       background: #1a1a24;
       border: 2px solid var(--gold-color);
@@ -1420,7 +1418,7 @@
     </div>
   </div>
 
-  <!-- 勝敗モーダル (縦長防止修正) -->
+  <!-- 勝敗モーダル -->
   <div id="endModal" class="modal">
     <div class="modal-content">
       <h2 id="endMessage">勝利！</h2>
@@ -1734,6 +1732,7 @@
               costMp: dbCard.cost_mp,
               atk: dbCard.atk,
               hp: dbCard.hp,
+              drawCount: dbCard.draw_count || null,
               icon: dbCard.icon,
               image: dbCard.image,
               desc: dbCard.desc_text,
@@ -2233,7 +2232,7 @@
     try { playBGM('title'); } catch(e){}
   });
 
-  // 🌟 強制タイトル画面復帰処理
+  // 強制タイトル画面復帰処理
   function showTitleDirect() {
     try {
       if (roomPollingInterval) {
@@ -2289,7 +2288,7 @@
   }
   window.showTitleDirect = showTitleDirect;
 
-  // 🌟 自分が「降参してタイトルへ」ボタンを押したときの処理
+  // 降参・戻る
   async function surrenderAndReturn() {
     try {
       if (window.gameState.isGameEnded) {
@@ -2407,7 +2406,7 @@
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
-  // 🌟 リアルタイム通信チャンネル接続
+  // リアルタイム通信チャンネル接続
   function subscribeRoomUpdates() {
     if (!onlineRoomId || !supabaseClient) return;
 
@@ -2445,7 +2444,7 @@
   }
   window.subscribeRoomUpdates = subscribeRoomUpdates;
 
-  // 🌟 相手降参時の不具合防止用勝利確定処理
+  // 相手降参時の不具合防止用勝利確定処理
   function triggerOpponentSurrenderWin() {
     if (window.gameState.isGameEnded) return;
     window.gameState.isGameEnded = true;
@@ -2476,7 +2475,7 @@
     showEndModal(`🎉 相手の降参により勝利！ (+${rewardCoins} pt獲得)${rateLogMsg}`, "タイトルへ戻る");
   }
 
-  // 🌟 部屋データの同期＆降参フラグ検知処理
+  // 部屋データの同期＆降参フラグ検知処理
   function applyRoomData(roomData) {
     if (!roomData || window.gameState.isGameEnded) return;
 
@@ -2485,7 +2484,6 @@
       const mePrefix = isP1 ? 'p1' : 'p2';
       const oppPrefix = isP1 ? 'p2' : 'p1';
 
-      // 🚩 相手が降参したかどうかを直接判定
       const isOppSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
       if (isOppSurrendered) {
         addLog(`🏳️ 対戦相手が降参しました！`, "effective");
@@ -2498,7 +2496,6 @@
       const prevTurn = window.gameState.turn;
       const newTurnRole = roomData.current_turn === 'player1' ? (isP1 ? 'player' : 'opp') : (isP1 ? 'opp' : 'player');
       
-      // 自分のターンに回ってきた時の処理（召喚酔い解除・MP回復・ドロー）
       if (prevTurn !== 'player' && newTurnRole === 'player') {
         const myMaxMp = window.gameState.my.maxMp || 40;
         window.gameState.my.mp = Math.min(myMaxMp, window.gameState.my.mp + 2);
@@ -2515,16 +2512,14 @@
               m.canAttack = false;
               addLog(`🌀 あなたの【${m.name}】は行動不能から回復したが、このターンは行動できない！`);
             } else {
-              m.canAttack = true; // 召喚酔い解除
+              m.canAttack = true;
             }
           }
         });
         addLog(`--- あなたのターン ---`, "important");
-        // 自分のターンになったタイミングで解除状態を通信同期
         syncOnlineAction();
       }
 
-      // 相手のターンに回った時のMP回復処理
       if (prevTurn !== 'opp' && newTurnRole === 'opp') {
         const oppMaxMp = window.gameState.opp.maxMp || 40;
         window.gameState.opp.mp = Math.min(oppMaxMp, (window.gameState.opp.mp || 5) + 2);
@@ -2535,7 +2530,6 @@
 
       window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 60;
       
-      // 送信・受信時のモンスターフィールド状態を適切に合成
       const rawMyMonsters = roomData[`${mePrefix}_field`] || [null, null, null, null, null];
       window.gameState.my.monsters = rawMyMonsters.map((m, idx) => {
         if (!m) return null;
@@ -2543,7 +2537,6 @@
         const baseCard = typeof CARD_DATABASE !== 'undefined' ? CARD_DATABASE.find(c => c.id === m.id) : null;
         const merged = { ...(baseCard || {}), ...m };
 
-        // 自分のターンであれば、相手の古い同期データで `canAttack = false` に上書きされるのを防止
         if (newTurnRole === 'player') {
           if (currentLocal && currentLocal.canAttack !== undefined) {
             merged.canAttack = currentLocal.canAttack;
@@ -2577,7 +2570,6 @@
     }
   }
 
-  // 🌟 ランクマッチ検索・部屋作成（通常/イベント対応 & ゴースト部屋排除）
   async function searchRankedMatch(isEvent = false) {
     try {
       if (roomHeartbeatInterval) {
@@ -3135,43 +3127,7 @@
         }
 
         window.gameState.my.mp -= card.costMp;
-if (card.type === "magic") {
-      if (card.summonFromDeck) {
-        // ... (既存の緊急召喚処理)
-      } else {
-        window.gameState.my.mp -= card.costMp;
 
-        // 🟢 【追加】ドロー効果の処理
-        if (card.drawCount) {
-          let drawn = 0;
-          for (let i = 0; i < card.drawCount; i++) {
-            // 手札上限（例: 6枚）未満かつ山札がある場合にドロー
-            if (window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
-              window.gameState.my.hand.push(window.gameState.my.deck.shift());
-              drawn++;
-            }
-          }
-          if (drawn > 0) {
-            addLog(`🔮【${card.name}】発動！ 山札からカードを ${drawn} 枚引いた！`, "effective");
-          } else {
-            addLog(`🔮【${card.name}】発動！ (手札がいっぱいか、山札がありません)`, "damage");
-          }
-        }
-
-        if (card.heal) {
-          window.gameState.my.hp = Math.min(window.gameState.my.maxHp, window.gameState.my.hp + card.heal);
-          addLog(`${card.name}！ HPが ${card.heal} 回復！`);
-        }
-        if (card.mpRecover) {
-          const maxMp = window.gameState.my.maxMp || 40;
-          window.gameState.my.mp = Math.min(maxMp, window.gameState.my.mp + card.mpRecover);
-          addLog(`${card.name}！ MPが ${card.mpRecover} 回復！`);
-        }
-        
-        // 使用した魔法カードを手札から取り除く
-        window.gameState.my.hand.splice(index, 1);
-      }
-    }
         const randomIndex = monsterIndicesInDeck[Math.floor(Math.random() * monsterIndicesInDeck.length)];
         const summonedCard = window.gameState.my.deck.splice(randomIndex, 1)[0];
         const summonedCopy = JSON.parse(JSON.stringify(summonedCard));
@@ -3186,6 +3142,23 @@ if (card.type === "magic") {
         window.gameState.my.hand.splice(index, 1);
       } else {
         window.gameState.my.mp -= card.costMp;
+
+        // 🟢 【追加】ドロー効果（山札からカードを引く）
+        if (card.drawCount) {
+          let drawn = 0;
+          for (let i = 0; i < card.drawCount; i++) {
+            if (window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
+              window.gameState.my.hand.push(window.gameState.my.deck.shift());
+              drawn++;
+            }
+          }
+          if (drawn > 0) {
+            addLog(`🔮【${card.name}】発動！ 山札からカードを ${drawn} 枚引いた！`, "effective");
+          } else {
+            addLog(`🔮【${card.name}】発動！ (手札がいっぱいか山札がありません)`, "damage");
+          }
+        }
+
         if (card.heal) {
           window.gameState.my.hp = Math.min(window.gameState.my.maxHp, window.gameState.my.hp + card.heal);
           addLog(`${card.name}！ HPが ${card.heal} 回復！`);
@@ -3340,7 +3313,7 @@ if (card.type === "magic") {
       addLog(`🌀【状態異常】敵【${target.name}】は1ターンの間【行動不能】になった！`, "effective");
     }
 
-    // ⚔️ 反撃処理：ターゲットが生存しており、行動不能でない場合に反撃
+    // ⚔️ 反撃処理
     if (target.currentHp > 0) {
       if (!target.isStunned) {
         let counterAtk = target.atk;
@@ -3366,14 +3339,13 @@ if (card.type === "magic") {
           window.gameState.my.monsters[window.gameState.selectedAttackerIdx] = null;
         }
       }
-    } // attackEnemyMonster 内の倒した時の処理
-    if (target.currentHp <= 0) {
+    } else {
       addLog(`敵の【${target.name}】を撃破した！`, "important");
-      window.gameState.opp.monsters[targetIdx] = null; // 確実に null に上書き
+      window.gameState.opp.monsters[targetIdx] = null; // 確実に null クリア
     }
 
-    if (attacker.currentHp > 0 && attacker.splashDamage && window.gameState.opp.monsters.filter(m => m && m.currentHp > 0).length > 0) {
-      const otherMonsters = window.gameState.opp.monsters.filter(m => m && m !== target && m.currentHp > 0);
+    if (attacker.currentHp > 0 && attacker.splashDamage && window.gameState.opp.monsters.filter(m => Boolean(m) && m.currentHp > 0).length > 0) {
+      const otherMonsters = window.gameState.opp.monsters.filter(m => Boolean(m) && m !== target && m.currentHp > 0);
       if (otherMonsters.length > 0) {
         const randomTarget = otherMonsters[Math.floor(Math.random() * otherMonsters.length)];
         let splashDmg = attacker.splashDamage;
@@ -3401,7 +3373,7 @@ if (card.type === "magic") {
   function attackEnemyPlayer() {
     if (window.gameState.selectedAttackerIdx === null) return;
 
-    // 存命中の敵モンスターを厳密に抽出（null/undefinedおよびHP0以下を除外）
+    // 生きている敵モンスターを厳密にチェック
     const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0);
     if (activeOppMonsters.length > 0) {
       addLog("敵モンスターが存在するため直接攻撃できません！", "damage");
@@ -3434,6 +3406,7 @@ if (card.type === "magic") {
 
     checkWinLoss();
   }
+
   function openEquipModal(handIndex) {
     window.gameState.pendingWeaponIndex = handIndex;
     const targetList = document.getElementById("equipTargetList");
@@ -3490,7 +3463,6 @@ if (card.type === "magic") {
       if (!supabaseClient) return;
       const nextRole = onlineMyRole === 'player1' ? 'player2' : 'player1';
       
-      // 相手のターンに移行する前に自分の最新データを送信
       await syncOnlineAction();
 
       await supabaseClient.from('rooms').update({ 
@@ -3510,7 +3482,6 @@ if (card.type === "magic") {
 
     updateTokenLifetimes(window.gameState.opp.monsters, window.gameState.opp.name);
 
-    // CPUのMP自動回復 (+2)
     const oppMaxMp = window.gameState.opp.maxMp || 40;
     window.gameState.opp.mp = Math.min(oppMaxMp, (window.gameState.opp.mp || 5) + 2);
 
@@ -3647,7 +3618,7 @@ if (card.type === "magic") {
           addLog(`🌀【状態異常】あなたの【${target.name}】は1ターンの間【行動不能】になった！`, "damage");
         }
 
-        // ⚔️ 反撃処理：プレイヤーのモンスターが生存しており、行動不能でない場合に反撃
+        // ⚔️ 反撃処理
         if (target.currentHp > 0) {
           if (!target.isStunned) {
             let counterAtk = target.atk;
@@ -3726,7 +3697,6 @@ if (card.type === "magic") {
       }
     });
 
-    // プレイヤーのターン開始時：MP自動回復 (+2)
     const myMaxMp = window.gameState.my.maxMp || 40;
     window.gameState.my.mp = Math.min(myMaxMp, window.gameState.my.mp + 2);
 
@@ -3921,13 +3891,9 @@ if (card.type === "magic") {
       if (oppRateDisplay) oppRateDisplay.textContent = `${window.gameState.opp.rate || 1000} RP`;
     }
 
-    // updateUI() 内の該当部分
     const oppPlayerInfo = document.getElementById("oppPlayerInfo");
     if (oppPlayerInfo) {
-      // 生きている敵モンスターの数を正しくカウント
       const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0);
-      
-      // 自分の攻撃モンスターが選択されており、かつ生きている敵モンスターが0体の時だけターゲット可能にする
       if (window.gameState.selectedAttackerIdx !== null && activeOppMonsters.length === 0) {
         oppPlayerInfo.classList.add("selectable-target");
         oppPlayerInfo.onclick = typeof attackEnemyPlayer === 'function' ? attackEnemyPlayer : null;
