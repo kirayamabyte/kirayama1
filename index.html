@@ -103,7 +103,7 @@
       max-width: 320px;
     }
 
-    .field input, .field-input, textarea.field-input {
+    .field input, .field-input, textarea.field-input, select.field-input {
       padding: 8px 12px;
       border-radius: 6px;
       border: 1px solid #444;
@@ -1207,6 +1207,10 @@
     </div>
 
     <div class="menu">
+      <button id="btnPresentBox" type="button" class="btn primary big" onclick="openPresentBoxModal()" style="background:#00adb5; border-color:#00fff5;">
+        🎁 プレゼントボックス <span id="presentBadge" style="background:#e94560; color:#fff; border-radius:50%; padding:2px 6px; font-size:0.7rem; display:none;">0</span>
+      </button>
+
       <button id="btnEventRanked" type="button" class="btn primary big" onclick="searchRankedMatch(true)" disabled style="background: linear-gradient(45deg, #ff4500, #ff8c00); border-color: #ffd700;">
         🔥 イベントランクマッチ参戦 (開催待ち)
       </button>
@@ -1306,6 +1310,7 @@
     <div class="admin-tabs">
       <button id="tabBtnEvents" type="button" class="admin-tab-btn active" onclick="switchAdminTab('events')">🏆 イベント</button>
       <button id="tabBtnNotices" type="button" class="admin-tab-btn" onclick="switchAdminTab('notices')">📢 お知らせ</button>
+      <button id="tabBtnPresents" type="button" class="admin-tab-btn" onclick="switchAdminTab('presents')">🎁 配布</button>
     </div>
 
     <!-- イベント管理フォーム -->
@@ -1356,6 +1361,27 @@
         <textarea id="adminNoticeBody" class="field-input" rows="3" placeholder="お知らせ内容を入力..."></textarea>
       </label>
       <button type="button" class="btn primary" onclick="saveNoticeFromAdmin()">📢 お知らせ発行</button>
+    </div>
+
+    <!-- 🎁 プレゼント一括・個別配布フォーム -->
+    <div id="adminFormPresent" class="admin-form hidden">
+      <div style="font-weight:bold; color:var(--gold-color); font-size:0.85rem;">🎁 プレゼント配布（裏技コマンド対応）</div>
+      <label>対象ユーザー (空欄で全員配布 / 裏技: キラヤマがき)
+        <input id="adminPresentUser" class="field-input" placeholder="例: あなた（空欄で全員）">
+      </label>
+      <label>配布タイトル
+        <input id="adminPresentTitle" class="field-input" placeholder="例: 運営からの特別プレゼント">
+      </label>
+      <label>配布タイプ
+        <select id="adminPresentType" class="field-input">
+          <option value="coin">🪙 コイン</option>
+          <option value="card">🎴 カード</option>
+        </select>
+      </label>
+      <label id="presentValueLabel">配布枚数 / カードID
+        <input id="adminPresentValue" class="field-input" placeholder="例: 500 (コイン数) または m_volcano_dragon (カードID)">
+      </label>
+      <button type="button" class="btn primary" onclick="sendPresentFromAdmin()" style="background:#00adb5; border-color:#00fff5;">🚀 プレゼントを送信</button>
     </div>
 
     <button type="button" class="btn" onclick="showTitle()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
@@ -1482,6 +1508,20 @@
       </div>
     </div>
   </section>
+
+  <!-- 🎁 プレゼントボックスモーダル -->
+  <div id="presentBoxModal" class="modal">
+    <div class="modal-content" style="max-width: 480px; max-height: 80vh;">
+      <h2 style="color:var(--gold-color);">🎁 プレゼントボックス</h2>
+      <div id="presentList" style="width:100%; max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+        <div style="color:#aaa; font-size:0.8rem;">読み込み中...</div>
+      </div>
+      <div style="display:flex; gap:8px; width:100%; margin-top:10px;">
+        <button type="button" class="btn primary" onclick="claimAllPresents()">🎁 一括受け取り</button>
+        <button type="button" class="btn" onclick="closePresentBoxModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
 
   <!-- 🎲 ファクトリー：デッキ構築・補強モーダル -->
   <div id="draftPickModal" class="modal">
@@ -1647,6 +1687,216 @@
     }
   }
   window.saveNoticeFromAdmin = saveNoticeFromAdmin;
+
+  // --- 📅 デイリーログインボーナス機能 ---
+  async function checkDailyBonus() {
+    const today = new Date().toLocaleDateString('ja-JP');
+    const lastLogin = localStorage.getItem("akagi_last_login_date");
+
+    if (lastLogin !== today) {
+      const dailyRewardCoins = 500;
+      window.userProfile.coins = (window.userProfile.coins || 0) + dailyRewardCoins;
+      localStorage.setItem("akagi_last_login_date", today);
+      saveUserProfile();
+
+      if (supabaseClient) {
+        await supabaseClient.from('presents').insert([{
+          user_name: window.userProfile.name,
+          title: "📅 ログインボーナス",
+          message: `${today} のデイリーログインボーナス！`,
+          reward_type: "coin",
+          reward_value: String(dailyRewardCoins),
+          is_claimed: true
+        }]);
+      }
+
+      alert(`🎉 【デイリーログインボーナス】\n本日分のログインボーナスとして 🪙 ${dailyRewardCoins} pt を獲得しました！`);
+    }
+  }
+
+  // --- 🎁 プレゼントボックス機能 ---
+  let userPresents = [];
+
+  async function fetchUserPresents() {
+    if (!supabaseClient) return;
+    const myName = window.userProfile.name;
+
+    try {
+      const { data, error } = await supabaseClient
+        .from('presents')
+        .select('*')
+        .or(`user_name.eq.${myName},user_name.eq.ALL`)
+        .eq('is_claimed', false)
+        .order('created_at', { ascending: false });
+
+      if (error) return console.error("プレゼント取得エラー:", error);
+
+      userPresents = data || [];
+      
+      const badge = document.getElementById("presentBadge");
+      if (badge) {
+        if (userPresents.length > 0) {
+          badge.textContent = userPresents.length;
+          badge.style.display = "inline-block";
+        } else {
+          badge.style.display = "none";
+        }
+      }
+    } catch (e) {
+      console.error("fetchUserPresents 例外:", e);
+    }
+  }
+
+  async function openPresentBoxModal() {
+    await fetchUserPresents();
+    const listEl = document.getElementById("presentList");
+    if (!listEl) return;
+
+    listEl.innerHTML = "";
+    if (userPresents.length === 0) {
+      listEl.innerHTML = `<div style="color:#aaa; font-size:0.85rem; padding:20px;">現在受け取れるプレゼントはありません。</div>`;
+    } else {
+      userPresents.forEach(p => {
+        let rewardStr = p.reward_type === 'coin' ? `🪙 ${p.reward_value} pt` : `🎴 カード: ${getCardNameById(p.reward_value)}`;
+        listEl.innerHTML += `
+          <div style="background:rgba(255,255,255,0.05); border:1px solid #444; border-radius:6px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; text-align:left;">
+            <div>
+              <div style="font-weight:bold; color:var(--gold-color); font-size:0.85rem;">${p.title}</div>
+              <div style="font-size:0.75rem; color:#fff;">${rewardStr}</div>
+            </div>
+            <button type="button" class="btn primary" style="font-size:0.75rem; padding:4px 8px;" onclick="claimPresent('${p.id}')">受け取る</button>
+          </div>
+        `;
+      });
+    }
+
+    document.getElementById("presentBoxModal").classList.add("active");
+  }
+  window.openPresentBoxModal = openPresentBoxModal;
+
+  function closePresentBoxModal() {
+    document.getElementById("presentBoxModal").classList.remove("active");
+  }
+  window.closePresentBoxModal = closePresentBoxModal;
+
+  function getCardNameById(cardId) {
+    const card = CARD_DATABASE.find(c => c.id === cardId);
+    return card ? card.name : cardId;
+  }
+
+  async function claimPresent(presentId) {
+    const present = userPresents.find(p => p.id === presentId);
+    if (!present) return;
+
+    if (present.reward_type === 'coin') {
+      const amount = parseInt(present.reward_value) || 0;
+      window.userProfile.coins = (window.userProfile.coins || 0) + amount;
+    } else if (present.reward_type === 'card') {
+      if (!window.userProfile.inventory) window.userProfile.inventory = [];
+      window.userProfile.inventory.push(present.reward_value);
+    }
+
+    saveUserProfile();
+
+    if (supabaseClient) {
+      await supabaseClient.from('presents').update({ is_claimed: true }).eq('id', presentId);
+    }
+
+    alert(`🎁 【${present.title}】を受け取りました！`);
+    await openPresentBoxModal();
+    updateTitleStatsUI();
+  }
+  window.claimPresent = claimPresent;
+
+  async function claimAllPresents() {
+    if (userPresents.length === 0) return;
+
+    let addedCoins = 0;
+    let addedCardsCount = 0;
+
+    for (const present of userPresents) {
+      if (present.reward_type === 'coin') {
+        addedCoins += parseInt(present.reward_value) || 0;
+      } else if (present.reward_type === 'card') {
+        if (!window.userProfile.inventory) window.userProfile.inventory = [];
+        window.userProfile.inventory.push(present.reward_value);
+        addedCardsCount++;
+      }
+
+      if (supabaseClient) {
+        await supabaseClient.from('presents').update({ is_claimed: true }).eq('id', present.id);
+      }
+    }
+
+    if (addedCoins > 0) window.userProfile.coins = (window.userProfile.coins || 0) + addedCoins;
+    saveUserProfile();
+
+    alert(`🎁 すべてのプレゼントを受け取りました！\n(合計: 🪙 ${addedCoins} pt / 🎴 カード ${addedCardsCount} 枚)`);
+    await openPresentBoxModal();
+    updateTitleStatsUI();
+  }
+  window.claimAllPresents = claimAllPresents;
+
+  // --- ⚙️ 管理者用：プレゼント送信（裏技「キラヤマがき」対応） ---
+  async function sendPresentFromAdmin() {
+    if (!supabaseClient) return alert("Supabaseに接続されていません");
+
+    const userInput = document.getElementById("adminPresentUser").value.trim();
+    const titleInput = document.getElementById("adminPresentTitle").value.trim();
+    const type = document.getElementById("adminPresentType").value;
+    const valueInput = document.getElementById("adminPresentValue").value.trim();
+
+    // 🌟 裏技コマンド判定：「キラヤマがき」と入力された場合
+    if (userInput === "キラヤマがき" || titleInput === "キラヤマがき" || valueInput === "キラヤマがき") {
+      const targetUser = (userInput && userInput !== "キラヤマがき") ? userInput : window.userProfile.name;
+      
+      const { error } = await supabaseClient.from('presents').insert([{
+        user_name: targetUser,
+        title: "⚡ 裏技発動！キラヤマがきの特別コイン",
+        reward_type: "coin",
+        reward_value: "999999",
+        is_claimed: false
+      }]);
+
+      if (error) {
+        alert("裏技配布エラー: " + error.message);
+      } else {
+        alert(`🎉 ✨裏技発動✨ 【キラヤマがき】により コイン 999,999 pt が (${targetUser}) のプレゼントボックスに届きました！`);
+        document.getElementById("adminPresentUser").value = "";
+        document.getElementById("adminPresentTitle").value = "";
+        document.getElementById("adminPresentValue").value = "";
+        await fetchUserPresents();
+      }
+      return;
+    }
+
+    // 通常のプレゼント配布処理
+    const user = userInput || "ALL"; // 空欄なら全員配布
+    const title = titleInput;
+    const value = valueInput;
+
+    if (!title || !value) {
+      return alert("タイトルと配布内容（数値またはカードID）を入力してください。");
+    }
+
+    const { error } = await supabaseClient.from('presents').insert([{
+      user_name: user,
+      title: title,
+      reward_type: type,
+      reward_value: value,
+      is_claimed: false
+    }]);
+
+    if (error) {
+      alert("配布エラー: " + error.message);
+    } else {
+      alert(`🎉 プレゼント【${title}】を (${user === 'ALL' ? '全員' : user}) へ正常に配布しました！`);
+      document.getElementById("adminPresentTitle").value = "";
+      document.getElementById("adminPresentValue").value = "";
+      await fetchUserPresents();
+    }
+  }
+  window.sendPresentFromAdmin = sendPresentFromAdmin;
 
   window.openMarketScreen = function() {
     var titleEl = document.getElementById("titleScreen");
@@ -1956,8 +2206,11 @@
   function switchAdminTab(tab) {
     document.getElementById("tabBtnEvents").classList.toggle("active", tab === 'events');
     document.getElementById("tabBtnNotices").classList.toggle("active", tab === 'notices');
+    document.getElementById("tabBtnPresents").classList.toggle("active", tab === 'presents');
+    
     document.getElementById("adminFormEvent").classList.toggle("hidden", tab !== 'events');
     document.getElementById("adminFormNotice").classList.toggle("hidden", tab !== 'notices');
+    document.getElementById("adminFormPresent").classList.toggle("hidden", tab !== 'presents');
   }
   window.switchAdminTab = switchAdminTab;
 
@@ -2405,6 +2658,10 @@
     await syncProfileFromSupabase();
     await checkActiveEvent();
     fetchNotices();
+    
+    // 📅 デイリーログインボーナス＆未受領プレゼントチェック
+    await checkDailyBonus();
+    await fetchUserPresents();
 
     const unlockAudio = () => {
       try {
@@ -2425,6 +2682,7 @@
         saveUserProfile();
         await syncProfileToSupabase();
         await checkActiveEvent();
+        await fetchUserPresents();
       });
     }
 
@@ -2436,7 +2694,6 @@
     bindEvent("btnGacha", openGachaScreen);
     bindEvent("btnOnline", openOnlineLobby);
     
-    // ★ オンラインロビー用ボタンバインド追加
     bindEvent("btnCreateOnlineRoom", createOnlineRoom);
     bindEvent("btnJoinOnlineRoom", joinOnlineRoom);
 
@@ -2498,6 +2755,7 @@
 
       updateTitleStatsUI();
       checkActiveEvent();
+      fetchUserPresents();
       try { playBGM('title'); } catch(e){}
 
     } catch (e) {
@@ -2570,7 +2828,6 @@
     document.getElementById("onlineLobbyScreen").classList.remove("hidden");
   }
 
-  // ★ 🌐 フリー部屋作成 (合言葉)
   async function createOnlineRoom() {
     if (!supabaseClient) return alert("Supabaseに接続されていません");
     
@@ -2627,7 +2884,6 @@
   }
   window.createOnlineRoom = createOnlineRoom;
 
-  // ★ 🌐 フリー部屋参加 (合言葉)
   async function joinOnlineRoom() {
     if (!supabaseClient) return alert("Supabaseに接続されていません");
 
@@ -2687,7 +2943,6 @@
   }
   window.joinOnlineRoom = joinOnlineRoom;
 
-  // ガチャ抽選関数（⭐3 の時 0.0001% で虹色化）
   function drawGachaCard() {
     const rand = Math.random() * 100;
     let targetRarity = 1;
