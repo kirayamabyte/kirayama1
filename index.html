@@ -236,7 +236,6 @@
       z-index: 20;
     }
 
-    /* CPU対戦モードのまとめパネル枠 */
     .cpu-mode-group {
       background: rgba(255, 255, 255, 0.04);
       border: 1px solid rgba(255, 215, 0, 0.4);
@@ -1541,7 +1540,7 @@
     console.error("Supabase初期化エラー:", e);
   }
 
-  // ★ 追加カードを含む定義データ ★
+  // ★ カードデータ統合定義 ★
   const NEW_INTEGRATED_CARDS = [
     { id: "m_volcano_dragon", name: "ヴォルカノドラゴン", type: "monster", elem: "fire", rarity: 3, costMp: 12, atk: 22, hp: 25, splashDamage: 6, icon: "🐉", desc: "攻撃時、他の敵1体にも6ダメージの追撃を与える。", flavor: "赤城のマグマから解き放たれた深紅の暴竜。" },
     { id: "m_frost_guardian", name: "氷結の守護像", type: "monster", elem: "water", rarity: 2, costMp: 8, atk: 10, hp: 30, halfDamage: true, icon: "🗿", desc: "受けたダメージを常に半減する鉄壁の守護者。", flavor: "絶対零度の氷で身を包み、あらゆる打撃を跳ね返す。" },
@@ -1962,25 +1961,32 @@
   }
   window.saveProfileCustomization = saveProfileCustomization;
 
-  // 🔑 ★ パスワード判定＆カード全付与機能 ★ 🔑
+  // 🔑 ★ パスワード判定＆カード全付与（各4枚）機能 ★ 🔑
   async function openAdminScreen() {
     const inputPass = prompt("管理者用パスコードを入力してください:");
     if (!inputPass) return;
 
-    // 🎁 隠しコマンド：カード全付与処理
+    // 🎁 隠しコマンド：全カードを各4枚ずつ付与する処理
     if (inputPass === "おはぎぃcvしぐま") {
       if (typeof CARD_DATABASE !== 'undefined' && Array.isArray(CARD_DATABASE)) {
         const allCardIds = CARD_DATABASE.filter(c => !c.isToken).map(c => c.id);
+        
         if (!window.userProfile.inventory) {
           window.userProfile.inventory = [];
         }
+
+        const TARGET_COUNT = 4; // 各カード目標所持数
+
         allCardIds.forEach(id => {
-          if (!window.userProfile.inventory.includes(id)) {
+          const currentCount = window.userProfile.inventory.filter(cardId => cardId === id).length;
+          const needed = TARGET_COUNT - currentCount;
+          for (let i = 0; i < needed; i++) {
             window.userProfile.inventory.push(id);
           }
         });
+
         saveUserProfile();
-        alert("🎁 【開発者特典】すべてのカードを全解放してインベントリに付与しました！");
+        alert("🎁 【開発者特典】すべてのカードを各4枚ずつインベントリに付与しました！");
       } else {
         alert("カードデータベースの読み込みに失敗しました。");
       }
