@@ -991,7 +991,7 @@
       border-radius: 12px;
       padding: 24px 20px;
       width: 90%;
-      max-width: 380px;
+      max-width: 440px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -1004,6 +1004,15 @@
       font-size: 1.4rem;
       color: var(--gold-color);
       line-height: 1.4;
+    }
+
+    .draft-pick-container {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      width: 100%;
+      overflow-x: auto;
+      padding: 8px 0;
     }
 
     .rule-dialog {
@@ -1190,7 +1199,7 @@
           🏰 赤城バトルタワー (50階勝ち抜き)
         </button>
         <button id="btnDraftTower" type="button" class="btn primary big" style="background: linear-gradient(45deg, #11998e, #38ef7d); border-color: #5cdb95;">
-          🎲 赤城ドラフトバトル (ランダムデッキ50階)
+          🎲 赤城ドラフトバトル (デッキ選択・強化50階)
         </button>
       </div>
 
@@ -1449,6 +1458,16 @@
     </div>
   </section>
 
+  <!-- 🎲 ドラフト：デッキ構築・補強モーダル -->
+  <div id="draftPickModal" class="modal">
+    <div class="modal-content">
+      <h2 id="draftModalTitle">🎲 1枚選んでデッキに追加</h2>
+      <p id="draftModalDesc" style="font-size:0.8rem; color:#aaa;">カードをタップしてデッキに編成しよう</p>
+      <div id="draftPickContainer" class="draft-pick-container"></div>
+      <div id="draftDeckProgress" style="font-size:0.85rem; color:var(--gold-color); font-weight:bold;">選択数: 0 / 10</div>
+    </div>
+  </div>
+
   <!-- 📜 ルール確認ダイアログモーダル -->
   <div id="rulesModal" class="modal">
     <div class="rule-dialog">
@@ -1520,7 +1539,6 @@
       { id: "sp_elixir", name: "赤城の霊薬", type: "magic", elem: "wood", rarity: 1, costMp: 6, heal: 20, mpRecover: 10, icon: "🧪", desc: "自分のHPを20回復し、MPを10回復する。", flavor: "赤城山に自生する希少な薬草から精製された秘薬。" }
     ];
   } else {
-    // 既存データベースが存在する場合の追記補完
     const newCards = [
       { id: "m_volcano_dragon", name: "ヴォルカノドラゴン", type: "monster", elem: "fire", rarity: 3, costMp: 12, atk: 22, hp: 25, splashDamage: 6, icon: "🐉", desc: "攻撃時、他の敵1体にも6ダメージの追撃を与える。", flavor: "赤城のマグマから解き放たれた深紅の暴竜。" },
       { id: "m_frost_guardian", name: "氷結の守護像", type: "monster", elem: "water", rarity: 2, costMp: 8, atk: 10, hp: 30, halfDamage: true, icon: "🗿", desc: "受けたダメージを常に半減する鉄壁の守護者。", flavor: "絶対零度の氷で身を包み、あらゆる打撃を跳ね返す。" },
@@ -1632,6 +1650,8 @@
     if (titleContainer) {
       const userRate = window.userProfile.rate || 1000;
       const userWins = window.userProfile.wins || 0;
+      const bestTower = window.userProfile.bestTowerFloor || 0;
+      const bestDraft = window.userProfile.bestDraftFloor || 0;
 
       const titleDefinitions = [
         { name: "《見習いデュエリスト》", unlocked: true, desc: "初期解放" },
@@ -1641,16 +1661,13 @@
         { name: "《カードマスター》", unlocked: userRate >= 2500, desc: "マスター到達 (2500 RP)" },
         { name: "《百戦錬磨》", unlocked: userWins >= 10, desc: "通算10勝達成" },
         { name: "《無敗の伝承》", unlocked: userWins >= 50, desc: "通算50勝達成" },
-      
-    { name: "《タワーチャレンジャー》", unlocked: bestTower >= 10, desc: "タワー10階到達" },
-    { name: "《塔の極限者》", unlocked: bestTower >= 30, desc: "タワー30階到達" },
-    { name: "《赤城タワーマスター》", unlocked: bestTower >= 50, desc: "タワー50階完全制覇" },
-    
-    // --- 🎲 ドラフト勝利報酬称号 ---
-    { name: "《ドラフト挑戦者》", unlocked: bestDraft >= 10, desc: "ドラフト10階到達" },
-    { name: "《即興の戦術家》", unlocked: bestDraft >= 30, desc: "ドラフト30階到達" },
-    { name: "《ドラフトレジェンド》", unlocked: bestDraft >= 50, desc: "ドラフト50階完全制覇" }
-  ];
+        { name: "《タワーチャレンジャー》", unlocked: bestTower >= 10, desc: "タワー10階到達" },
+        { name: "《塔の極限者》", unlocked: bestTower >= 30, desc: "タワー30階到達" },
+        { name: "《赤城タワーマスター》", unlocked: bestTower >= 50, desc: "タワー50階完全制覇" },
+        { name: "《ドラフト挑戦者》", unlocked: bestDraft >= 10, desc: "ドラフト10階到達" },
+        { name: "《即興の戦術家》", unlocked: bestDraft >= 30, desc: "ドラフト30階到達" },
+        { name: "《ドラフトレジェンド》", unlocked: bestDraft >= 50, desc: "ドラフト50階完全制覇" }
+      ];
 
       titleContainer.innerHTML = titleDefinitions.map(t => {
         const isEquipped = window.userProfile.equippedTitle === t.name;
@@ -2308,7 +2325,7 @@
       if (window.userProfile.draftInProgress) {
         btnDraftTower.textContent = `🎲 赤城ドラフト (第${window.userProfile.draftFloor}階から再開)`;
       } else {
-        btnDraftTower.textContent = `🎲 赤城ドラフトバトル (ランダムデッキ50階)`;
+        btnDraftTower.textContent = `🎲 赤城ドラフトバトル (デッキ選択・強化50階)`;
       }
     }
   }
@@ -2933,38 +2950,77 @@
     initGame();
   }
 
-  /* 🎲 赤城ドラフトバトル処理 */
+  /* 🎲 赤城ドラフトバトル処理（選定・ピック機能） */
   function handleDraftButtonClick() {
     if (window.userProfile.draftInProgress) {
       if (confirm(`第 ${window.userProfile.draftFloor} 階から再開しますか？\n(「キャンセル」を押すと新デッキで第1階から直します)`)) {
-        startDraftMode(window.userProfile.draftFloor, false);
+        startDraftGame(window.userProfile.draftFloor);
       } else {
-        startDraftMode(1, true);
+        startNewDraftSetup();
       }
     } else {
-      startDraftMode(1, true);
+      startNewDraftSetup();
     }
   }
 
-  function generateRandomDraftDeck() {
+  function startNewDraftSetup() {
+    window.userProfile.draftFloor = 1;
+    window.userProfile.draftInProgress = true;
+    window.userProfile.draftDeck = [];
+    saveUserProfile();
+    showDraftPickStep();
+  }
+
+  function showDraftPickStep() {
+    const modal = document.getElementById("draftPickModal");
+    const container = document.getElementById("draftPickContainer");
+    const progress = document.getElementById("draftDeckProgress");
+
+    container.innerHTML = "";
+    const currentCount = window.userProfile.draftDeck.length;
+    progress.textContent = `デッキ枚数: ${currentCount} / 10枚`;
+
     const pool = CARD_DATABASE.filter(c => !c.isToken);
-    const newDeck = [];
-    for (let i = 0; i < 20; i++) {
-      const randomCard = pool[Math.floor(Math.random() * pool.length)];
-      newDeck.push(randomCard.id);
+    for (let i = 0; i < 3; i++) {
+      const randCard = pool[Math.floor(Math.random() * pool.length)];
+      container.appendChild(renderCardDOM(randCard, "選択", () => {
+        window.userProfile.draftDeck.push(randCard.id);
+        if (window.userProfile.draftDeck.length < 10) {
+          showDraftPickStep();
+        } else {
+          modal.classList.remove("active");
+          saveUserProfile();
+          startDraftGame(1);
+        }
+      }));
     }
-    return newDeck;
+    modal.classList.add("active");
   }
 
-  function startDraftMode(floor, generateNewDeck = false) {
+  function showDraftUpgradeStep() {
+    const modal = document.getElementById("draftPickModal");
+    const container = document.getElementById("draftPickContainer");
+
+    container.innerHTML = "";
+    document.getElementById("draftModalTitle").textContent = "🎉 5戦クリア！ デッキ強化タイム";
+
+    const pool = CARD_DATABASE.filter(c => !c.isToken);
+    for (let i = 0; i < 3; i++) {
+      const randCard = pool[Math.floor(Math.random() * pool.length)];
+      container.appendChild(renderCardDOM(randCard, "追加", () => {
+        window.userProfile.draftDeck.push(randCard.id);
+        modal.classList.remove("active");
+        saveUserProfile();
+        startDraftGame(window.userProfile.draftFloor);
+      }));
+    }
+    modal.classList.add("active");
+  }
+
+  function startDraftGame(floor) {
     window.gameState.mode = "draft";
     window.userProfile.draftFloor = floor;
     window.userProfile.draftInProgress = true;
-
-    if (generateNewDeck || !window.userProfile.draftDeck || window.userProfile.draftDeck.length !== 20) {
-      window.userProfile.draftDeck = generateRandomDraftDeck();
-    }
-
     saveUserProfile();
 
     if (floor <= 20) {
@@ -4045,45 +4101,59 @@
         const rewardCoins = 100;
         window.userProfile.coins = (window.userProfile.coins || 0) + rewardCoins;
 
+        let newTitleUnlocked = "";
+
         if (window.gameState.mode === "draft") {
           const currentFloor = window.userProfile.draftFloor;
-          if (currentFloor > window.userProfile.bestDraftFloor) {
+          if (currentFloor > (window.userProfile.bestDraftFloor || 0)) {
             window.userProfile.bestDraftFloor = currentFloor;
           }
+
+          if (currentFloor === 10) newTitleUnlocked = "《ドラフト挑戦者》";
+          if (currentFloor === 30) newTitleUnlocked = "《即興の戦術家》";
+          if (currentFloor === 50) newTitleUnlocked = "《ドラフトレジェンド》";
+
+          let titleMsg = newTitleUnlocked ? `\n🎉 称号【${newTitleUnlocked}】を獲得しました！` : "";
 
           if (currentFloor >= 50) {
             window.userProfile.draftInProgress = false;
             window.userProfile.draftFloor = 1;
             saveUserProfile();
-            showEndModal(`🎉 👑 赤城ドラフト 50階完全制覇！ 👑 (+${rewardCoins} pt獲得)`, "タイトルへ戻る");
-          } else if (currentFloor % 10 === 0) {
+            showEndModal(`🎉 👑 赤城ドラフト 50階完全制覇！ 👑 (+${rewardCoins} pt獲得)${titleMsg}`, "タイトルへ戻る");
+          } else if (currentFloor % 5 === 0) {
             window.userProfile.draftFloor = currentFloor + 1;
             saveUserProfile();
-            showEndModal(`🎲 第${currentFloor}階クリア！ 休憩ポイントです。\n進捗は自動保存されました。 (+${rewardCoins} pt獲得)`, `次へ進む (第${currentFloor + 1}階へ)`);
+            showEndModal(`🎲 第${currentFloor}階突破！ 5戦クリア達成！ デッキ補強へ！ (+${rewardCoins} pt獲得)${titleMsg}`, `カード追加へ進む`);
           } else {
             window.userProfile.draftFloor = currentFloor + 1;
             saveUserProfile();
-            showEndModal(`🎲 第${currentFloor}階 突破！ (+${rewardCoins} pt獲得)`, `次へ進む (第${currentFloor + 1}階へ)`);
+            showEndModal(`🎲 第${currentFloor}階 突破！ (+${rewardCoins} pt獲得)${titleMsg}`, `次へ進む (第${currentFloor + 1}階へ)`);
           }
         } else if (window.gameState.mode === "tower") {
           const currentFloor = window.userProfile.towerFloor;
-          if (currentFloor > window.userProfile.bestTowerFloor) {
+          if (currentFloor > (window.userProfile.bestTowerFloor || 0)) {
             window.userProfile.bestTowerFloor = currentFloor;
           }
+
+          if (currentFloor === 10) newTitleUnlocked = "《タワーチャレンジャー》";
+          if (currentFloor === 30) newTitleUnlocked = "《塔の極限者》";
+          if (currentFloor === 50) newTitleUnlocked = "《赤城タワーマスター》";
+
+          let titleMsg = newTitleUnlocked ? `\n🎉 称号【${newTitleUnlocked}】を獲得しました！` : "";
 
           if (currentFloor >= 50) {
             window.userProfile.towerInProgress = false;
             window.userProfile.towerFloor = 1;
             saveUserProfile();
-            showEndModal(`🎉 👑 赤城バトルタワー 50階完全制覇！ 👑 (+${rewardCoins} pt獲得)`, "タイトルへ戻る");
+            showEndModal(`🎉 👑 赤城バトルタワー 50階完全制覇！ 👑 (+${rewardCoins} pt獲得)${titleMsg}`, "タイトルへ戻る");
           } else if (currentFloor % 10 === 0) {
             window.userProfile.towerFloor = currentFloor + 1;
             saveUserProfile();
-            showEndModal(`🏰 第${currentFloor}階クリア！ 休憩ポイントです。\n進捗は自動保存されました。 (+${rewardCoins} pt獲得)`, `次へ進む (第${currentFloor + 1}階へ)`);
+            showEndModal(`🏰 第${currentFloor}階クリア！ 休憩ポイントです。\n進捗は自動保存されました。 (+${rewardCoins} pt獲得)${titleMsg}`, `次へ進む (第${currentFloor + 1}階へ)`);
           } else {
             window.userProfile.towerFloor = currentFloor + 1;
             saveUserProfile();
-            showEndModal(`🏰 第${currentFloor}階 突破！ (+${rewardCoins} pt獲得)`, `次へ進む (第${currentFloor + 1}階へ)`);
+            showEndModal(`🏰 第${currentFloor}階 突破！ (+${rewardCoins} pt獲得)${titleMsg}`, `次へ進む (第${currentFloor + 1}階へ)`);
           }
         } else if (window.gameState.mode === "gauntlet") {
           const currentStageNum = window.gameState.gauntletStage + 1;
@@ -4152,7 +4222,11 @@
     const maxGauntletLength = typeof GAUNTLET_STAGES !== 'undefined' ? GAUNTLET_STAGES.length : 3;
 
     if (window.gameState.mode === "draft" && window.gameState.my.hp > 0 && window.userProfile.draftInProgress) {
-      startDraftMode(window.userProfile.draftFloor, false);
+      if ((window.userProfile.draftFloor - 1) % 5 === 0) {
+        showDraftUpgradeStep();
+      } else {
+        startDraftGame(window.userProfile.draftFloor);
+      }
     } else if (window.gameState.mode === "tower" && window.gameState.my.hp > 0 && window.userProfile.towerInProgress) {
       startTowerMode(window.userProfile.towerFloor);
     } else if (window.gameState.mode === "gauntlet" && window.gameState.my.hp > 0 && window.gameState.gauntletStage < maxGauntletLength - 1) {
