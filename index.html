@@ -3001,7 +3001,7 @@
 
     // ★3が当たった際、0.1% (0.001) の確率で虹仕様化
     if (targetRarity === 3) {
-      if (Math.random() < 0.001) {
+      if (Math.random() < 0.1) {
         cardInstance.isRainbow = true;
         cardInstance.name = `🌈 ${cardInstance.name}`;
       }
