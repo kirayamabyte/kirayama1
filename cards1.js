@@ -1,277 +1,5092 @@
-/**
- * 赤城ユタカードバトル - カードデータベース
- * 
- * カードの種類(type): 
- *  - "monster" : モンスター (costMp, atk, hp, elem 必須)
- *  - "weapon"  : 武器 (costMp, atk, elem 必須)
- *  - "magic"   : 魔法 (costMp, heal または mpRecover, elem 必須)
- * 
- * 拡張プロパティ:
- *  - image : イラスト画像のファイルパス (例: "images/cards/m1.png")
- *  - voice : 使用時・攻撃時のボイス音声ファイルパス (例: "audio/voices/m1.mp3")
- */
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>赤城ユタカードバトル - 完全機能統合版</title>
+  <style>
+    :root {
+      --bg-color: #1a1a24;
+      --card-bg: #2a2a38;
+      --accent-color: #e94560;
+      --text-color: #e0e0e0;
+      --gold-color: #ffd700;
+      --panel-bg: #0f0f15;
+    }
 
-// ⭕ const / let / var を付けずに直接プロパティを設定・上書きします
-// cards1.js の一番上にこれを追加してください
-// cards1.js の一番上に追記
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
 
-const ELEMENTS = {
-  fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
-  water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
-  wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
-  light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
-  dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
-};
-const CARD_DATABASE = [
-  // --- モンスターカード ---
-  { 
-    id: "m1", 
-    name: "赤城の竜神", 
-    type: "monster", 
-    costMp: 5, 
-    atk: 8, 
-    hp: 15, 
-    elem: "fire", 
-    desc: "火のドラゴン守護神", 
-    icon: "🐉",
-    image: "", // 例: "images/cards/m1.png"
-    voice: ""  // 例: "audio/voices/m1.mp3"
-  },
-  { 
-    id: "m2", 
-    name: "水鏡のこう", 
-    type: "monster", 
-    costMp: 4, 
-    atk: 5, 
-    hp: 20, 
-    elem: "water", 
-    desc: "高耐久の水精霊", 
-    icon: "🧜‍♀️",
-    image: "", 
-    voice: "" 
-  },
-  { 
-    id: "m3", 
-    name: "どんぐりこう",   
-    type: "monster", 
-    costMp: 6, 
-    atk: 6, 
-    hp: 16, 
-    elem: "wood",
-    rarity: 2,
-    desc: "攻撃時、選ばなかった他の敵にランダムで5ダメージ！", 
-    flavor: "「りんちしてやる」",
-    icon: "森",
-    splashDamage: 5, // ⚡ 追加効果: 攻撃対象以外の敵に与えるダメージ量
-    image: "M_Dongurikou.png", 
-    voice: "" 
-  },
-{ 
-    id: "m4", 
-    name: " フィーバーこうくん(こう神)", 
-    type: "monster", 
-    costMp: 10, 
-    atk: 10, 
-    hp: 27,
-    elem: "fire", 
-    rarity: 2,
-    desc: "【防御力】受けるダメージを半減する！", 
-    flavor: "「欲張った奴から消えていく、配信者なんてそんなもんだ！！」", 
-    icon: "🛡️",
-    halfDamage: true, // 🛡️ 追加能力: 被ダメージ半減
-    image: "", 
-    voice: "" 
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+    }
 
-  },
-  {
-  id: "m5",
-  name: "でぃあぼろす",
-  type: "monster",      // もしくは魔法カード(magic)でも可
-  elem: "water",
-  rarity: 2,
-  costMp: 6,
-  atk: 5,
-  hp: 20,
-  icon: "🧙‍♂️",
-  buffAtk: 5,           // 召喚時に味方全体（または自分以外）のATKを+5する値
-  desc: "召喚時、味方全員の攻撃力を+5する。",
-flavor: "「お前の青春応援するぜ！...俺も青春したかったな！」", 
- image: "M_diaseisyunn.png", 
-voice: "",
-  },
-// cards1.js の CARD_DATABASE に追加
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
 
-// ① 特殊能力を持つモンスター
-{
-  id: "m6",
-  name: "アシンメトリーユタ",
-  type: "monster",
-  elem: "wood",
-  rarity: 3,
-  costMp: 10,
-  atk: 10,
-  hp: 20,
-  icon: "🧙‍♂️",
-  desc: "召喚時:相手の場に[拘束体]を2体出す。相手の場に[拘束体]がいる数×5 ATKアップ。3ターン後[拘束体]は消滅。",
-  
-  // フラグ設定
-  spawnEnemyTokens: true // トークン生成フラグ
-},
+    #gameContainer {
+      width: 100%;
+      max-width: 820px;
+      height: 100vh;
+      height: 100svh;
+      background: var(--panel-bg);
+      border: 1px solid #333;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      position: relative;
+    }
 
-// ② 相手の場に生成される攻撃不能トークン
-{
-  id: "token_blocker",
-  name: "拘束体",
-  type: "monster",
-  elem: "wood",
-  rarity: 1,
-  costMp: 0,
-  atk: 0,
-  hp: 10,
-  icon: "🗿",
-  desc: "攻撃不可。発生から3ターン後に消滅する。",
-  
-  // フラグ設定
-  cannotAttack: true, // 攻撃不可フラグ
-  tokenLifetime: 3     // 生存ターン数（3ターン）
-},
+    @media (min-width: 600px) {
+      #gameContainer {
+        height: 98vh;
+        border-radius: 12px;
+        border-width: 2px;
+        padding: 10px;
+      }
+    }
 
+    .screen {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      z-index: 10;
+    }
 
+    .hidden { display: none !important; }
 
-  // --- 武器カード ---
-  { 
-    id: "w1", 
-    name: "名言の剣",   
-    type: "weapon",  
-    costMp: 0, 
-    atk: 6,  
-    elem: "wood",  
-    desc: "装備: 攻撃力+6", 
-    icon: "⚔️",
-    image: "", 
-    voice: "" 
-  },
-  { 
-    id: "w2", 
-    name: "火炎の言葉", 
-    type: "weapon",  
-    costMp: 3, 
-    atk: 12, 
-    elem: "fire",  
-    desc: "装備: 攻撃力+12", 
-    icon: "🔥",
-    image: "", 
-    voice: "" 
-  },
-  { 
-    id: "w3", 
-    name: "水流の智恵", 
-    type: "weapon",  
-    costMp: 3, 
-    atk: 12, 
-    elem: "water", 
-    desc: "装備: 攻撃力+12", 
-    icon: "🌊",
-    image: "", 
-    voice: "" 
-  },
-  { 
-    id: "w4", 
-    name: "風刃の閃き", 
-    type: "weapon",  
-    costMp: 3, 
-    atk: 12, 
-    elem: "wood",  
-    desc: "装備: 攻撃力+12", 
-    icon: "🍃",
-    image: "", 
-    voice: "" 
-  },
+    /* --- タイトル画面 --- */
+    #titleScreen {
+      justify-content: flex-start;
+      align-items: center;
+      text-align: center;
+      gap: 12px;
+      padding: 16px 12px;
+      overflow-y: auto;
+      min-height: 0;
+    }
 
-  // --- 魔法カード ---
-  { 
-    id: "h1", 
-    name: "恵みの光",   
-    type: "magic",   
-    costMp: 4, 
-    heal: 15, 
-    elem: "wood", 
-    desc: "自分のHPを15回復", 
-    icon: "✨",
-    image: "", 
-    voice: "" 
-  },
-  
-  { 
-    id: "h2", 
-    name: "瞑想",       
-    type: "magic",   
-    costMp: 0, 
-    mpRecover: 6, 
-    elem: "water", 
-    desc: "自分のMPを6回復", 
-    icon: "🧘",
-    image: "", 
-    voice: "" 
-  },
-  { 
-    id: "h3", 
-    name: "タイムアウト",   
-    type: "magic",   
-    costMp: 4, 
-    elem: "wood",
-    rarity: 2, 
-    desc: "発動時、相手モンスターを1ターン行動不能にする！", 
-    icon: "✨",
-    applyStun: true,
-    image: "", 
-    voice: "" 
-  },
-  {
-  id: "h4", 
-    name: "こうくんトークン", 
-    type: "magic", 
-    costMp: 4, 
-    rarity:1,
-    desc: "山札からランダムでモンスター1体を召喚！(召喚酔いなし)", 
-    flavor: "「おれのともだち出てこいこうくん！！」", 
-    icon: "🌀",
-    summonFromDeck: true, // 🔮 追加能力: 山札からランダム召喚
-    image: "M_kounotomodachi.pmg", 
-    voice: ""
-  },
-  // 例：CARD_DATABASE 内に追加
-{
-  id: "h5",
-  name: "がめおの財布",
-  type: "magic",
-  elem: "light",
-  rarity: 1,
-  costMp: 3,
-  drawCount: 2, // 👈 引く枚数を指定
-  icon: "🏺",
-  desc: "山札からカードを2枚引く。",
-  flavor:"大丈夫大丈夫がめおさんが出してくれるよ",
-  image:"M_gameowallet.jpg"
-}
-];
+    #titleScreen h1 {
+      font-size: 2.1rem;
+      color: var(--gold-color);
+      text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    }
 
-// userProfile の初期化部分またはロジックで ownedCards を持たせます
-window.userProfile = {
-  name: "あなた",
-  wins: 0,
-  losses: 0,
-  bestGauntletStage: 0,
-  points: 1000, // 🪙 ガチャ用ポイント（初期1000pt）
-  deck: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : [],
-  ownedCards: [] // 🎴 所持カードIDリスト
-};
-// 初期デッキ定義 (20枚)
-function getDefault20CardDeck() {
-  return [
-    "m1", "m1", "m1", "m2", "m2", "m2", "m3", "m3",
-    "w1", "w1", "w2", "w2", "w3", "w3", "w4", "w4",
-    "h1", "h1", "h2", "h2"
+    .sub { color: #aaa; font-size: 0.85rem; }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.85rem;
+      color: #ccc;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .field input, .field-input, textarea.field-input, select.field-input {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #15151e;
+      color: #fff;
+      text-align: center;
+      font-size: 0.95rem;
+      width: 100%;
+      font-family: inherit;
+    }
+
+    .stats-panel {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      color: #bbb;
+      width: 100%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .user-title-badge {
+      font-size: 0.75rem;
+      color: #00fff5;
+      background: rgba(0, 173, 181, 0.2);
+      border: 1px solid #00adb5;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: bold;
+    }
+
+    .user-badge-icon { font-size: 1.1rem; margin-left: 4px; }
+
+    .stats-row {
+      display: flex;
+      justify-content: space-around;
+      width: 100%;
+    }
+
+    .stats-panel strong { color: var(--gold-color); }
+
+    .notice-panel {
+      background: #111827;
+      border: 1px solid #00fff5;
+      border-radius: 8px;
+      padding: 10px 12px;
+      width: 100%;
+      max-width: 440px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: left;
+      height: 150px !important;
+      min-height: 150px !important;
+      flex-shrink: 0 !important;
+      overflow-y: auto;
+      box-shadow: 0 0 12px rgba(0, 255, 245, 0.2);
+    }
+
+    .notice-panel::-webkit-scrollbar { width: 6px; }
+    .notice-panel::-webkit-scrollbar-thumb { background: #00adb5; border-radius: 3px; }
+    .notice-panel::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.3); }
+
+    .notice-header {
+      font-size: 0.9rem;
+      font-weight: bold;
+      color: #00fff5;
+      border-bottom: 1px solid rgba(0, 255, 245, 0.3);
+      padding-bottom: 6px;
+      position: sticky;
+      top: 0;
+      background: #111827;
+      z-index: 2;
+      flex-shrink: 0;
+    }
+
+    #noticeList {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .notice-item {
+      font-size: 0.82rem;
+      color: #ffffff;
+      line-height: 1.5;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 8px 10px;
+      border-radius: 6px;
+      border-left: 4px solid #00fff5;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .notice-item strong {
+      color: #ffd700;
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.88rem;
+      letter-spacing: 0.02em;
+    }
+
+    .event-panel {
+      background: rgba(255, 140, 0, 0.12);
+      border: 2px solid #ff8c00;
+      border-radius: 8px;
+      padding: 10px 12px;
+      width: 100%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+      box-shadow: 0 0 12px rgba(255, 140, 0, 0.3);
+    }
+
+    .menu {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      max-width: 320px;
+      position: relative;
+      z-index: 20;
+    }
+
+    .cpu-mode-group {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 215, 0, 0.4);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .cpu-mode-group .group-title {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: var(--gold-color);
+      border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+      padding-bottom: 4px;
+      text-align: center;
+      letter-spacing: 0.05em;
+    }
+
+    details.rules {
+      width: 100%;
+      max-width: 440px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 8px 12px;
+      text-align: left;
+      font-size: 0.8rem;
+    }
+
+    details.rules summary { cursor: pointer; font-weight: bold; color: var(--gold-color); }
+    details.rules ul { margin-top: 6px; padding-left: 18px; line-height: 1.4; color: #ccc; }
+
+    .market-tabs, .admin-tabs {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      max-width: 440px;
+      margin-bottom: 8px;
+    }
+
+    .market-tab-btn, .admin-tab-btn {
+      flex: 1;
+      padding: 8px;
+      font-size: 0.8rem;
+      background: #222;
+      border: 1px solid #444;
+      color: #aaa;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .market-tab-btn.active, .admin-tab-btn.active {
+      background: #00adb5;
+      color: #fff;
+      border-color: #00fff5;
+      font-weight: bold;
+    }
+
+    .market-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+      width: 100%;
+      max-width: 600px;
+      overflow-y: auto;
+      padding: 4px;
+    }
+
+    .trade-container {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      max-width: 600px;
+      justify-content: space-between;
+    }
+
+    .trade-box {
+      flex: 1;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      min-height: 180px;
+    }
+
+    .trade-box-title {
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: var(--gold-color);
+      border-bottom: 1px solid #333;
+      width: 100%;
+      padding-bottom: 4px;
+      text-align: center;
+    }
+
+    .custom-section {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 10px;
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: left;
+    }
+
+    .custom-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 8px;
+      max-height: 180px;
+      overflow-y: auto;
+      padding: 2px;
+    }
+
+    #adminScreen {
+      justify-content: flex-start;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .admin-form {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 14px;
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: left;
+      flex-shrink: 0;
+    }
+
+    .admin-form label {
+      font-size: 0.75rem;
+      color: #aaa;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .admin-list-container {
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .admin-event-item {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 8px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+    }
+
+    .admin-event-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      text-align: left;
+    }
+
+    .admin-event-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .admin-btn-sm {
+      padding: 4px 8px;
+      font-size: 0.7rem;
+      border-radius: 4px;
+      border: 1px solid #555;
+      background: #222;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    #gachaScreen {
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    #gachaScreen h2 { color: var(--gold-color); font-size: 1.8rem; }
+
+    .gacha-box {
+      background: rgba(255,255,255,0.05);
+      border: 2px solid var(--gold-color);
+      border-radius: 12px;
+      padding: 20px;
+      width: 100%;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+    }
+
+    #onlineLobbyScreen {
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+    }
+
+    #onlineLobbyScreen h2 { color: var(--gold-color); }
+
+    .join-group {
+      display: flex;
+      gap: 6px;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    #casualSelectScreen {
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+    }
+
+    #casualSelectScreen h2 { color: var(--gold-color); }
+
+    #deckScreen {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .deck-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.05);
+      padding: 6px 12px;
+      border-radius: 6px;
+      flex-shrink: 0;
+      margin-bottom: 6px;
+    }
+
+    .deck-header h2 { font-size: 1.1rem; color: var(--gold-color); }
+    .deck-count { font-weight: bold; font-size: 0.85rem; }
+    .deck-count.valid { color: #52c41a; }
+    .deck-count.invalid { color: #ff4d4f; }
+
+    .deck-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-right: 2px;
+    }
+
+    .section-title { font-size: 0.8rem; color: #aaa; border-bottom: 1px solid #333; padding-bottom: 2px; }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
+      gap: 6px;
+      padding: 2px;
+    }
+
+    .deck-controls {
+      display: flex;
+      gap: 8px;
+      padding-top: 8px;
+      margin-top: 4px;
+      border-top: 1px solid #333;
+      flex-shrink: 0;
+      background: var(--panel-bg);
+    }
+
+    #gameScreen {
+      justify-content: space-between;
+      overflow: hidden;
+    }
+
+    .mode-banner {
+      background: rgba(255, 215, 0, 0.15);
+      border: 1px solid var(--gold-color);
+      color: var(--gold-color);
+      text-align: center;
+      font-size: 0.75rem;
+      font-weight: bold;
+      padding: 3px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+    }
+
+    .player-area {
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .pinfo {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: bold;
+      position: relative;
+      padding: 3px;
+      border-radius: 6px;
+      transition: background 0.2s, border 0.2s;
+    }
+
+    .pinfo.selectable-target {
+      outline: 2px dashed #ff4444;
+      border-radius: 6px;
+      cursor: pointer;
+      background: rgba(255, 0, 0, 0.2);
+      animation: pulseTarget 1s infinite alternate;
+    }
+
+    .pname { min-width: 65px; color: #fff; font-size: 0.85rem; }
+
+    .rate-badge {
+      font-size: 0.65rem;
+      background: rgba(255, 215, 0, 0.2);
+      color: var(--gold-color);
+      padding: 2px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--gold-color);
+      white-space: nowrap;
+    }
+
+    .deck-badge {
+      font-size: 0.65rem;
+      background: #333;
+      padding: 2px 5px;
+      border-radius: 4px;
+      color: #fff;
+      border: 1px solid #555;
+    }
+
+    .element-badge {
+      font-size: 0.65rem;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    .elem-fire { background: #800000; color: #ff9999; border: 1px solid #ff4444; }
+    .elem-water { background: #003366; color: #99ccff; border: 1px solid #3388ff; }
+    .elem-wood { background: #004d1a; color: #99ff99; border: 1px solid #33cc33; }
+    .elem-light { background: #665200; color: #fff3a0; border: 1px solid #ffd700; }
+    .elem-dark { background: #2b003b; color: #e2a0ff; border: 1px solid #b100e8; }
+
+    .bar {
+      flex: 1;
+      height: 14px;
+      background: #333;
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .bar-fill { height: 100%; transition: width 0.3s ease; }
+    .bar.hp .bar-fill { background: linear-gradient(90deg, #ff416c, #ff4b2b); }
+    .bar.mp .bar-fill { background: linear-gradient(90deg, #2193b0, #6dd5ed); }
+
+    .bar-text {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem; color: #fff; text-shadow: 1px 1px 2px #000;
+    }
+
+    .monster-zone {
+      display: flex;
+      gap: 4px;
+      min-height: 58px;
+      justify-content: space-between;
+    }
+
+    .monster-slot {
+      flex: 1;
+      min-width: 0;
+      border: 2px dashed rgba(255,255,255,0.15);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.2);
+      min-height: 54px;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .monster-slot.selectable-target {
+      border: 2px solid #ff4444;
+      box-shadow: 0 0 10px #ff4444;
+      animation: pulseTarget 1s infinite alternate;
+    }
+
+    .monster-slot.attacker-selected {
+      border: 2px solid var(--gold-color);
+      box-shadow: 0 0 12px var(--gold-color);
+    }
+
+    @keyframes pulseTarget {
+      from { transform: scale(0.98); }
+      to { transform: scale(1.02); }
+    }
+
+    .monster-card-field {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #3d0000, #800000);
+      border: 2px solid var(--gold-color);
+      border-radius: 6px;
+      padding: 2px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      align-items: center;
+      color: #fff;
+      box-shadow: 0 0 6px rgba(255, 215, 0, 0.3);
+      animation: popIn 0.3s ease;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .monster-card-field.exhausted { filter: grayscale(0.8); opacity: 0.55; }
+    .monster-card-field.stunned {
+      border-color: #00adb5 !important;
+      box-shadow: 0 0 10px #00adb5 !important;
+    }
+
+    .status-stunned-badge {
+      position: absolute;
+      top: 1px;
+      right: 1px;
+      background: #00adb5;
+      color: #fff;
+      font-size: 0.5rem;
+      padding: 1px 2px;
+      border-radius: 3px;
+      font-weight: bold;
+      animation: flashStun 1s infinite alternate;
+    }
+
+    .status-taunt-badge {
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      background: #ffd700;
+      color: #000;
+      font-size: 0.5rem;
+      padding: 1px 2px;
+      border-radius: 3px;
+      font-weight: bold;
+    }
+
+    .timer-badge {
+      position: absolute;
+      bottom: 1px;
+      right: 1px;
+      background: #e94560;
+      color: #fff;
+      font-size: 0.5rem;
+      padding: 1px 2px;
+      border-radius: 3px;
+      font-weight: bold;
+    }
+
+    @keyframes flashStun {
+      from { opacity: 0.7; }
+      to { opacity: 1; }
+    }
+
+    .monster-header {
+      font-size: 0.62rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .monster-stats { font-size: 0.58rem; color: #ffd700; font-weight: bold; display: flex; gap: 2px; }
+
+    .equipped-weapon {
+      font-size: 0.5rem;
+      color: #ff9999;
+      background: rgba(0,0,0,0.5);
+      padding: 1px 2px;
+      border-radius: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 95%;
+    }
+
+    .field-center {
+      flex: 1;
+      margin: 4px 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .log-area {
+      height: 95px;
+      min-height: 45px;
+      max-height: 150px;
+      resize: vertical;
+      background: #050508;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 6px;
+      font-size: 0.72rem;
+      overflow-y: auto;
+      color: #aaa;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .log-entry { line-height: 1.25; }
+    .log-entry.important { color: #ffd700; font-weight: bold; }
+    .log-entry.damage { color: #ff6b6b; }
+    .log-entry.effective { color: #ff9900; font-weight: bold; }
+
+    .hand-area {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 2px 0;
+      min-height: 115px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .card {
+      width: 85px;
+      height: 110px;
+      background: var(--card-bg);
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 3px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: pointer !important;
+      pointer-events: auto !important;
+      transition: transform 0.2s, border-color 0.2s;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 2;
+      overflow: hidden;
+    }
+
+    .card:hover { transform: translateY(-4px); border-color: #fff; }
+    .card.monster { border: 2px solid var(--gold-color); background: #2f2519; }
+    .card.weapon { border: 2px solid #e94560; }
+    .card.magic { border: 2px solid #00adb5; }
+
+    /* 🌈 0.0001% 確率の虹色ホログラム装飾 */
+    .card.rainbow-card {
+      border: 2px solid transparent !important;
+      border-image: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3) 1 !important;
+      background: linear-gradient(135deg, rgba(255,0,0,0.25), rgba(0,255,255,0.25), rgba(255,0,255,0.25)) !important;
+      animation: rainbowGlow 2s linear infinite alternate !important;
+      box-shadow: 0 0 12px rgba(255, 215, 0, 0.8), inset 0 0 8px rgba(255, 255, 255, 0.5) !important;
+    }
+
+    @keyframes rainbowGlow {
+      0% { filter: hue-rotate(0deg) brightness(1.1); }
+      100% { filter: hue-rotate(360deg) brightness(1.4); }
+    }
+
+    .card-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+    }
+
+    .card-rarity {
+      font-size: 0.5rem;
+      color: var(--gold-color);
+      font-weight: bold;
+      line-height: 1;
+    }
+
+    .card-img-container {
+      width: 100%;
+      height: 34px;
+      background: rgba(0,0,0,0.4);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      margin: 1px 0;
+    }
+
+    .card-img-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .card-img-container .icon-fallback { font-size: 1.1rem; }
+    .card-title { font-size: 0.62rem; font-weight: bold; color: #fff; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-cost { font-size: 0.55rem; color: #00adb5; font-weight: bold; }
+    .card-stats-badge { font-size: 0.58rem; color: #ffd700; font-weight: bold; }
+    .card-desc { font-size: 0.48rem; color: #ccc; line-height: 1; height: 12px; overflow: hidden; }
+
+    .card-flavor {
+      font-size: 0.45rem;
+      color: #aaa;
+      font-style: italic;
+      line-height: 1;
+      height: 11px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      border-top: 1px dashed rgba(255,255,255,0.15);
+      padding-top: 1px;
+      margin-top: 1px;
+    }
+
+    .card-elem { font-size: 0.5rem; }
+    .card-type { font-size: 0.5rem; align-self: flex-end; background: rgba(255,255,255,0.1); padding: 1px 3px; border-radius: 3px; }
+
+    .card-count-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #e94560;
+      color: #fff;
+      font-size: 0.6rem;
+      font-weight: bold;
+      border-radius: 50%;
+      width: 17px;
+      height: 17px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #fff;
+      z-index: 5;
+    }
+
+    .card.zoom-card {
+      width: 280px !important;
+      height: 380px !important;
+      padding: 14px !important;
+      border-width: 3px !important;
+      box-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
+      transform: none !important;
+      cursor: default !important;
+      background: #1f1f2e !important;
+      overflow: hidden !important;
+    }
+
+    .card.zoom-card .card-top-row { font-size: 1rem; }
+    .card.zoom-card .card-elem { font-size: 0.95rem; }
+    .card.zoom-card .card-rarity { font-size: 1.1rem; }
+    .card.zoom-card .card-title { font-size: 1.2rem; line-height: 1.3; font-weight: bold; white-space: normal; }
+    .card.zoom-card .card-img-container { height: 120px !important; margin: 8px 0 !important; }
+    .card.zoom-card .card-img-container .icon-fallback { font-size: 3.5rem; }
+    .card.zoom-card .card-cost { font-size: 1rem; }
+    .card.zoom-card .card-stats-badge { font-size: 1.1rem; }
+    .card.zoom-card .card-desc { font-size: 0.88rem; height: auto; max-height: 75px; line-height: 1.4; overflow-y: auto; color: #eee; }
+
+    .card.zoom-card .card-flavor {
+      font-size: 0.85rem !important;
+      font-style: normal !important;
+      color: #ffd700 !important;
+      height: 32px !important;
+      line-height: 32px !important;
+      margin-top: 8px !important;
+      padding: 0 8px !important;
+      background: rgba(0, 0, 0, 0.6) !important;
+      border-left: 3px solid #ffd700 !important;
+      border-radius: 4px !important;
+      overflow: hidden !important;
+      white-space: nowrap !important;
+      position: relative !important;
+    }
+
+    .card.zoom-card .card-flavor span {
+      display: inline-block !important;
+      padding-left: 100% !important;
+      animation: marqueeSlide 10s linear infinite !important;
+    }
+
+    @keyframes marqueeSlide {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
+    }
+
+    button.btn {
+      padding: 10px 16px;
+      background: #222831;
+      border: 1px solid #393e46;
+      color: #fff;
+      border-radius: 6px;
+      cursor: pointer !important;
+      pointer-events: auto !important;
+      font-weight: bold;
+      font-size: 0.85rem;
+      transition: background 0.2s, opacity 0.2s;
+      position: relative;
+      z-index: 50;
+      min-height: 38px;
+      height: auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.2;
+      flex: 1;
+    }
+
+    button.btn:hover:not(:disabled) { background: #393e46; }
+    button.btn:disabled { opacity: 0.45; cursor: not-allowed !important; filter: grayscale(0.6); }
+    button.btn.primary { background: var(--accent-color); border-color: #ff2e63; }
+    button.btn.primary:hover:not(:disabled) { background: #ff2e63; }
+    button.btn.big { padding: 12px; font-size: 0.95rem; min-height: 44px; }
+
+    .modal {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+
+    .modal.active {
+      display: flex !important;
+      pointer-events: auto !important;
+    }
+
+    .modal-content {
+      background: #1a1a24;
+      border: 2px solid var(--gold-color);
+      border-radius: 12px;
+      padding: 24px 20px;
+      width: 90%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+      text-align: center;
+    }
+
+    .modal-content h2, .modal h2 {
+      font-size: 1.4rem;
+      color: var(--gold-color);
+      line-height: 1.4;
+    }
+
+    .draft-pick-container {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      width: 100%;
+      overflow-x: auto;
+      padding: 8px 0;
+      flex-wrap: wrap;
+    }
+
+    .rule-dialog {
+      background: #1a1a24;
+      border: 2px solid var(--gold-color);
+      border-radius: 12px;
+      padding: 16px;
+      width: 100%;
+      max-width: 360px;
+      max-height: 75vh;
+      overflow-y: auto;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .gacha-result-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      max-height: 60vh;
+      overflow-y: auto;
+      padding: 10px;
+    }
+
+    .target-selector { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
+    .target-btn {
+      padding: 8px 12px;
+      background: #393e46;
+      border: 1px solid var(--gold-color);
+      color: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    .admin-entry-btn {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      font-size: 0.75rem;
+      color: #777;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      z-index: 30;
+    }
+
+    .pinfo.active-turn-me {
+      border: 2px solid #00fff5 !important;
+      box-shadow: 0 0 15px rgba(0, 255, 245, 0.6) !important;
+      animation: turnPulseMe 1.5s infinite alternate;
+    }
+
+    .pinfo.active-turn-opp {
+      border: 2px solid #ff4444 !important;
+      box-shadow: 0 0 15px rgba(255, 68, 68, 0.6) !important;
+      animation: turnPulseOpp 1.5s infinite alternate;
+    }
+
+    @keyframes turnPulseMe {
+      from { box-shadow: 0 0 8px rgba(0, 255, 245, 0.4); }
+      to { box-shadow: 0 0 18px rgba(0, 255, 245, 0.9); }
+    }
+
+    @keyframes turnPulseOpp {
+      from { box-shadow: 0 0 8px rgba(255, 68, 68, 0.4); }
+      to { box-shadow: 0 0 18px rgba(255, 68, 68, 0.9); }
+    }
+
+    .mode-banner.my-turn-banner {
+      background: rgba(0, 255, 245, 0.2) !important;
+      border-color: #00fff5 !important;
+      color: #00fff5 !important;
+      font-weight: bold;
+    }
+
+    .mode-banner.opp-turn-banner {
+      background: rgba(255, 68, 68, 0.2) !important;
+      border-color: #ff4444 !important;
+      color: #ff4444 !important;
+      font-weight: bold;
+    }
+
+    .damage-popup {
+      position: absolute;
+      z-index: 999;
+      font-weight: 900;
+      font-size: 1.5rem;
+      pointer-events: none;
+      animation: floatUpFade 0.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+      text-shadow: 0 0 6px rgba(0,0,0,0.9), 2px 2px 0 #000;
+    }
+
+    .damage-popup.normal { color: #ff4d4f; }
+    .damage-popup.effective { color: #ff9c6e; font-size: 1.8rem; text-shadow: 0 0 10px #ff4d4f; }
+    .damage-popup.heal { color: #52c41a; }
+
+    @keyframes floatUpFade {
+      0% { opacity: 0; transform: translate(-50%, 0) scale(0.5); }
+      20% { opacity: 1; transform: translate(-50%, -15px) scale(1.3); }
+      100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
+    }
+
+    .card {
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s !important;
+    }
+
+    .card:hover {
+      transform: translateY(-8px) scale(1.03) !important;
+      box-shadow: 0 8px 20px rgba(0, 255, 245, 0.4);
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="cards1.js"></script>
+  <script src="cpu_decks.js"></script>
+</head>
+<body>
+
+<div id="gameContainer">
+  <!-- タイトル画面 -->
+  <section id="titleScreen" class="screen">
+    <h1>赤城ユタカードバトル</h1>
+    <p class="sub">Supabase連動！全国のデュエリストとレートを競い合おう！</p>
+    
+    <label class="field">プレイヤー名
+      <input id="nameInput" maxlength="12" placeholder="なまえを入力" value="あなた">
+    </label>
+
+    <div class="stats-panel">
+      <div>
+        <span id="statTitle" class="user-title-badge">《見習いデュエリスト》</span>
+        <span id="statBadge" class="user-badge-icon">🔰</span>
+      </div>
+      <div class="stats-row">
+        <span>ランク: <strong id="statRank" style="color:#ffd700;">🥉 ブロンズ</strong></span>
+        <span>レート: <strong id="statRate">1000</strong> RP</span>
+      </div>
+      <div class="stats-row">
+        <span>戦績: <strong id="statWins">0</strong>勝 <strong id="statLosses">0</strong>敗</span>
+        <span>連戦最高: <strong id="statGauntlet" style="color:#ffd700;">0</strong> ステージ</span>
+      </div>
+      <div class="stats-row">
+        <span>タワー最高: <strong id="statTower" style="color:#a855f7;">0</strong> 階</span>
+        <span>ファクトリー最高: <strong id="statDraft" style="color:#38ef7d;">0</strong> 階</span>
+      </div>
+      <div class="stats-row">
+        <span>コイン: 🪙 <strong id="statCoins" style="color:#ffd700;">1000</strong>pt</span>
+      </div>
+    </div>
+
+    <!-- 📢 お知らせ枠 -->
+    <div id="noticeContainer" class="notice-panel">
+      <div class="notice-header">📢 運営からのお知らせ</div>
+      <div id="noticeList"><div class="notice-item">お知らせを読み込み中...</div></div>
+    </div>
+
+    <!-- 期間限定イベントバナー表示エリア -->
+    <div id="eventBanner" class="event-panel hidden">
+      <div style="font-weight: bold; color: var(--gold-color); font-size: 0.95rem;" id="eventTitle">🏆 開催中のイベント</div>
+      <div style="font-size: 0.75rem; color: #ffeb3b;" id="eventTimer">残り時間: 計算中...</div>
+      <div style="font-size: 0.72rem; color: #aaa;" id="eventMyStats">イベント戦績: 0勝 0敗</div>
+    </div>
+
+    <div class="menu">
+      <button id="btnPresentBox" type="button" class="btn primary big" onclick="openPresentBoxModal()" style="background:#00adb5; border-color:#00fff5;">
+        🎁 プレゼントボックス <span id="presentBadge" style="background:#e94560; color:#fff; border-radius:50%; padding:2px 6px; font-size:0.7rem; display:none;">0</span>
+      </button>
+
+      <button id="btnEventRanked" type="button" class="btn primary big" onclick="searchRankedMatch(true)" disabled style="background: linear-gradient(45deg, #ff4500, #ff8c00); border-color: #ffd700;">
+        🔥 イベントランクマッチ参戦 (開催待ち)
+      </button>
+      <button id="btnNormalRanked" type="button" class="btn primary big" onclick="searchRankedMatch(false)" style="background: linear-gradient(45deg, #2b5876, #4e4376); border-color: #00fff5;">
+        ⚔️ 通常ランクマッチ参戦
+      </button>
+      <button id="btnOnline" type="button" class="btn primary big" style="background:#00adb5; border-color:#00fff5;">🌐 ルーム対戦 (合言葉)</button>
+
+      <!-- ⚔️ CPU対戦モードまとめ枠 -->
+      <div class="cpu-mode-group">
+        <div class="group-title">⚔️ CPU対戦モード</div>
+        <button id="btnCasual" type="button" class="btn big">⚔️ カジュアルモード</button>
+        <button id="btnGauntlet" type="button" class="btn primary big">🔥 連戦モード (3ステージ)</button>
+        <button id="btnTower" type="button" class="btn primary big" style="background: linear-gradient(45deg, #8a2be2, #4a00e0); border-color: #a855f7;">
+          🏰 赤城バトルタワー (50階勝ち抜き)
+        </button>
+        <button id="btnDraftTower" type="button" class="btn primary big" style="background: linear-gradient(45deg, #11998e, #38ef7d); border-color: #5cdb95;">
+          🎲 赤城ファクトリーバトル (デッキ選択・強化50階)
+        </button>
+      </div>
+
+      <button type="button" class="btn primary big" onclick="openMarketScreen()" style="background:#28a745; border-color:#5cb85c;">🏪 カードマーケット (出品・購入)</button>
+      <button type="button" class="btn primary big" onclick="openTradeScreen()" style="background:#17a2b8; border-color:#17a2b8;">🤝 カードトレード (直接交換)</button>
+      <button type="button" class="btn big" onclick="openProfileCustomScreen()" style="background:#8a2be2; border-color:#a855f7;">🏷️ 称号・バッジ設定</button>
+      <button id="btnGacha" type="button" class="btn primary big" style="background:#ff9900; border-color:#ffcc00;">🎰 ガチャを引く</button>
+      <button id="btnDeckEdit" type="button" class="btn">🎴 デッキ編集・カード図鑑</button>
+      <button type="button" class="btn big" onclick="openRulesModal()" style="background:#00adb5; border-color:#00fff5;">📜 公式ルールを確認</button>
+    </div>
+
+    <details class="rules">
+      <summary>属性相性＆弱点ダメージ仕様</summary>
+      <ul>
+        <li><b>3すくみ相性</b>：🔥火 ➔ 🌿木 ➔ 💧水 ➔ 🔥火 （弱点属性へ1.5倍ダメージ！）</li>
+        <li><b>光・闇相関</b>：✨光 ⇄ 💀闇 （お互いの弱点を突き合う1.5倍の特効関係！）</li>
+        <li><b>戦略ポイント</b>：敵モンスターの属性を見極めて弱点特攻で一気に撃破しよう！</li>
+      </ul>
+    </details>
+
+    <button type="button" class="admin-entry-btn" onclick="openAdminScreen()">⚙️ 管理者</button>
+  </section>
+
+  <!-- 🏪 カードマーケット画面 -->
+  <section id="marketScreen" class="screen hidden" style="align-items: center; padding: 12px; gap: 8px;">
+    <h2 style="color:var(--gold-color);">🏪 プレイヤーマーケット</h2>
+    <div style="font-size:0.8rem; color:#aaa;">所持コイン: 🪙 <strong id="marketCoinDisplay">1000</strong> pt</div>
+
+    <div class="market-tabs">
+      <button id="tabMarketBuy" type="button" class="market-tab-btn active" onclick="switchMarketTab('buy')">🛒 カードを買う</button>
+      <button id="tabMarketSell" type="button" class="market-tab-btn" onclick="switchMarketTab('sell')">📦 出品・自分のカード</button>
+    </div>
+
+    <div id="marketBuyArea" class="market-grid"></div>
+    <div id="marketSellArea" class="market-grid hidden"></div>
+
+    <button type="button" class="btn" onclick="showTitle()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
+  </section>
+
+  <!-- 🤝 カードトレード画面 -->
+  <section id="tradeScreen" class="screen hidden" style="align-items: center; padding: 12px; gap: 8px;">
+    <h2 style="color:#00fff5;">🤝 カードトレード (交換)</h2>
+    <div id="tradeTargetForm" style="display:flex; gap:6px; width:100%; max-width:320px;">
+      <input id="tradePartnerInput" class="field-input" placeholder="相手のプレイヤー名">
+      <button type="button" class="btn primary" onclick="alert('申請を送信しました')" style="width:110px;">申請を送る</button>
+    </div>
+
+    <div class="trade-container">
+      <div class="trade-box">
+        <div class="trade-box-title">あなたの提出カード</div>
+        <div id="myTradeCardSlot" style="font-size:0.75rem; color:#aaa;">(未選択)</div>
+      </div>
+      <div class="trade-box">
+        <div class="trade-box-title">相手の提出カード</div>
+        <div id="partnerTradeCardSlot" style="font-size:0.75rem; color:#aaa;">(選択待ち)</div>
+      </div>
+    </div>
+
+    <button type="button" class="btn" onclick="showTitle()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
+  </section>
+
+  <!-- 🏷️ 称号・バッジ設定画面 -->
+  <section id="customScreen" class="screen hidden" style="align-items: center; padding: 12px; gap: 10px;">
+    <h2 style="color:var(--gold-color);">🏷️ プロフィール設定</h2>
+    <div class="custom-section">
+      <div style="font-size:0.85rem; font-weight:bold; color:#00fff5;">獲得称号一覧</div>
+      <div id="titleListContainer" class="custom-grid"></div>
+    </div>
+    <div class="custom-section">
+      <div style="font-size:0.85rem; font-weight:bold; color:var(--gold-color);">獲得バッジ一覧</div>
+      <div id="badgeListContainer" class="custom-grid"></div>
+    </div>
+    <button type="button" class="btn primary" onclick="saveProfileCustomization()" style="max-width:200px; margin-top:8px;">保存して戻る</button>
+  </section>
+
+  <!-- ⚙️ 管理者専用画面 -->
+  <section id="adminScreen" class="screen hidden">
+    <h2 style="color:var(--gold-color);">⚙️ 管理者画面</h2>
+    <div class="admin-tabs">
+      <button id="tabBtnEvents" type="button" class="admin-tab-btn active" onclick="switchAdminTab('events')">🏆 イベント</button>
+      <button id="tabBtnNotices" type="button" class="admin-tab-btn" onclick="switchAdminTab('notices')">📢 お知らせ</button>
+      <button id="tabBtnPresents" type="button" class="admin-tab-btn" onclick="switchAdminTab('presents')">🎁 配布</button>
+    </div>
+
+    <!-- イベント管理フォーム -->
+    <div id="adminFormEvent">
+      <div class="admin-form">
+        <div id="adminFormHeader" style="font-weight:bold; color:var(--gold-color); font-size:0.85rem;">新規イベント作成</div>
+        <label>イベントID (英数字)
+          <input id="adminEvtId" class="field-input" placeholder="例: EVT_SEASON_02">
+        </label>
+
+        <label>イベントタイトル
+          <input id="adminEvtTitle" class="field-input" placeholder="例: 🔥 炎属性限定バトルカップ">
+        </label>
+
+        <label>開始日時
+          <input id="adminEvtStart" type="datetime-local" class="field-input">
+        </label>
+
+        <label>終了日時
+          <input id="adminEvtEnd" type="datetime-local" class="field-input">
+        </label>
+
+        <label>達成・参加報酬コイン (pt)
+          <input id="adminEvtCoins" type="number" class="field-input" value="1000">
+        </label>
+
+        <div style="display:flex; gap:6px; margin-top:4px;">
+          <button id="btnSaveAdminEvent" type="button" class="btn primary" onclick="saveEventFromAdmin()" style="background:#ff8c00; border-color:#ffd700;">
+            🚀 イベントを作成・公開
+          </button>
+          <button id="btnCancelAdminEdit" type="button" class="btn hidden" onclick="resetAdminForm()">
+            キャンセル
+          </button>
+        </div>
+      </div>
+
+      <div style="font-size:0.8rem; color:#aaa; width:100%; max-width:400px; text-align:left; margin-top:6px;">登録済みイベント一覧</div>
+      <div id="adminEventList" class="admin-list-container"></div>
+    </div>
+
+    <!-- お知らせ管理フォーム -->
+    <div id="adminFormNotice" class="admin-form hidden">
+      <div style="font-weight:bold; color:var(--gold-color); font-size:0.85rem;">新規お知らせ作成</div>
+      <label>タイトル
+        <input id="adminNoticeTitle" class="field-input" placeholder="例: メンテナンスのお知らせ">
+      </label>
+      <label>本文
+        <textarea id="adminNoticeBody" class="field-input" rows="3" placeholder="お知らせ内容を入力..."></textarea>
+      </label>
+      <button type="button" class="btn primary" onclick="saveNoticeFromAdmin()">📢 お知らせ発行</button>
+    </div>
+
+    <!-- 🎁 プレゼント一括・個別配布フォーム -->
+    <div id="adminFormPresent" class="admin-form hidden">
+      <div style="font-weight:bold; color:var(--gold-color); font-size:0.85rem;">🎁 プレゼント配布（裏技コマンド対応）</div>
+      <label>対象ユーザー (空欄で全員配布 / 裏技: キラヤマがき)
+        <input id="adminPresentUser" class="field-input" placeholder="例: あなた（空欄で全員）">
+      </label>
+      <label>配布タイトル
+        <input id="adminPresentTitle" class="field-input" placeholder="例: 運営からの特別プレゼント">
+      </label>
+      <label>配布タイプ
+        <select id="adminPresentType" class="field-input">
+          <option value="coin">🪙 コイン</option>
+          <option value="card">🎴 カード</option>
+        </select>
+      </label>
+      <label id="presentValueLabel">配布枚数 / カードID
+        <input id="adminPresentValue" class="field-input" placeholder="例: 500 (コイン数) または m_volcano_dragon (カードID)">
+      </label>
+      <button type="button" class="btn primary" onclick="sendPresentFromAdmin()" style="background:#00adb5; border-color:#00fff5;">🚀 プレゼントを送信</button>
+    </div>
+
+    <button type="button" class="btn" onclick="showTitle()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
+  </section>
+
+  <!-- 🎰 ガチャ画面 -->
+  <section id="gachaScreen" class="screen hidden">
+    <h2>🎰 カードガチャ</h2>
+    <p style="color:#aaa; font-size:0.85rem;">コインを使ってカードを獲得しよう！</p>
+    
+    <div class="gacha-box">
+      <div style="font-size:1.1rem;">所持コイン: 🪙 <strong id="gachaCoinDisplay" style="color:var(--gold-color);">1000</strong> pt</div>
+      <div style="font-size:0.75rem; color:#bbb; line-height:1.4; text-align:left;">
+        【提供割合】<br>
+        ⭐3 : 10%（超激レア 🌈 0.0001%）<br>
+        ⭐2 : 30%<br>
+        ⭐1 : 60%
+      </div>
+      <button type="button" class="btn primary big" onclick="executeGacha(1)" style="width:100%; background:#e94560;">1回引く (100pt)</button>
+      <button type="button" class="btn primary big" onclick="executeGacha(10)" style="width:100%; background:#ff9900; border-color:#ffcc00;">10連ガチャ (1000pt)</button>
+    </div>
+
+    <button type="button" class="btn" onclick="showTitle()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
+  </section>
+
+  <!-- オンラインロビー画面 -->
+  <section id="onlineLobbyScreen" class="screen hidden">
+    <h2>🌐 ルーム対戦 (フリー)</h2>
+    <div class="menu">
+      <button id="btnCreateOnlineRoom" type="button" class="btn primary">部屋を作成する</button>
+      <div class="join-group">
+        <input id="onlineRoomCodeInput" placeholder="6桁の合言葉" style="width:120px; text-align:center; padding:8px; border-radius:6px; border:1px solid #444; background:#15151e; color:#fff;">
+        <button id="btnJoinOnlineRoom" type="button" class="btn">部屋に入る</button>
+      </div>
+      <button type="button" class="btn" onclick="showTitle()" style="margin-top:10px;">タイトルに戻る</button>
+    </div>
+    <div id="onlineStatusText" style="color:var(--gold-color); font-size:0.9rem; margin-top:10px; text-align:center;"></div>
+  </section>
+
+  <!-- カジュアル難易度選択画面 -->
+  <section id="casualSelectScreen" class="screen hidden">
+    <h2>⚔️ 難易度を選択</h2>
+    <div class="menu">
+      <button type="button" class="btn" onclick="startCasualGame('easy')">🌱 EASY (見習いデュエリスト)</button>
+      <button type="button" class="btn primary" onclick="startCasualGame('normal')">🛡️ NORMAL (赤城の精鋭騎士)</button>
+      <button type="button" class="btn" style="border-color:#ff4444; color:#ff9999;" onclick="startCasualGame('hard')">🔥 HARD (竜神の覇王)</button>
+      <button type="button" class="btn" onclick="showTitle()" style="margin-top:10px;">タイトルに戻る</button>
+    </div>
+  </section>
+
+  <!-- デッキ編集画面 -->
+  <section id="deckScreen" class="screen hidden">
+    <div class="deck-header">
+      <h2>🎴 デッキ編集・カード図鑑</h2>
+      <div id="deckCountBadge" class="deck-count invalid">20/20枚</div>
+    </div>
+
+    <div class="deck-body">
+      <div class="section-title">あなたのデッキ (タップで外す / 長押しで拡大)</div>
+      <div id="currentDeckContainer" class="card-grid"></div>
+
+      <div class="section-title">全カード一覧 (所持カードをタップで追加 / 未所持は名前・レアリティのみ表示)</div>
+      <div id="cardCatalogContainer" class="card-grid"></div>
+    </div>
+
+    <div class="deck-controls">
+      <button id="btnSaveDeck" type="button" class="btn primary">保存して戻る</button>
+      <button id="btnResetDeck" type="button" class="btn">初期デッキに戻す</button>
+    </div>
+  </section>
+
+  <!-- 対戦画面 -->
+  <section id="gameScreen" class="screen hidden">
+    <div id="modeBanner" class="mode-banner">ランクマッチ</div>
+
+    <!-- 相手エリア -->
+    <div class="player-area">
+      <div id="oppPlayerInfo" class="pinfo">
+        <span id="oppNameDisplay" class="pname">対戦相手</span>
+        <span id="oppRateDisplay" class="rate-badge">1000 RP</span>
+        <span id="oppElem" class="element-badge elem-fire">🔥 火</span>
+        <span id="oppDeckCount" class="deck-badge">🎴 山札: 15</span>
+        <div class="bar hp">
+          <div id="oppHpBar" class="bar-fill" style="width: 100%;"></div>
+          <div id="oppHpText" class="bar-text">HP 60/60</div>
+        </div>
+        <div class="bar mp">
+          <div id="oppMpBar" class="bar-fill" style="width: 12.5%;"></div>
+          <div id="oppMpText" class="bar-text">MP 5/40</div>
+        </div>
+      </div>
+      <div id="oppMonsters" class="monster-zone"></div>
+    </div>
+
+    <!-- 中央フィールド＆ログ -->
+    <div class="field-center">
+      <div id="logArea" class="log-area"></div>
+    </div>
+
+    <!-- 自分エリア -->
+    <div class="player-area">
+      <div id="myMonsters" class="monster-zone"></div>
+      
+      <div class="pinfo">
+        <span class="pname" id="myNameDisplay">あなた</span>
+        <span id="myRateDisplay" class="rate-badge">1000 RP</span>
+        <span id="myElem" class="element-badge elem-water">💧 水</span>
+        <span id="myDeckCount" class="deck-badge">🎴 山札: 15</span>
+        <div class="bar hp">
+          <div id="myHpBar" class="bar-fill" style="width: 100%;"></div>
+          <div id="myHpText" class="bar-text">HP 60/60</div>
+        </div>
+        <div class="bar mp">
+          <div id="myMpBar" class="bar-fill" style="width: 12.5%;"></div>
+          <div id="myMpText" class="bar-text">MP 5/40</div>
+        </div>
+      </div>
+
+      <div id="myHand" class="hand-area"></div>
+
+      <div class="controls">
+        <button id="btnPass" type="button" class="btn">ターン終了</button>
+        <button type="button" class="btn" onclick="surrenderAndReturn()">降参してタイトルへ</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 🎁 プレゼントボックスモーダル -->
+  <div id="presentBoxModal" class="modal">
+    <div class="modal-content" style="max-width: 480px; max-height: 80vh;">
+      <h2 style="color:var(--gold-color);">🎁 プレゼントボックス</h2>
+      <div id="presentList" style="width:100%; max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+        <div style="color:#aaa; font-size:0.8rem;">読み込み中...</div>
+      </div>
+      <div style="display:flex; gap:8px; width:100%; margin-top:10px;">
+        <button type="button" class="btn primary" onclick="claimAllPresents()">🎁 一括受け取り</button>
+        <button type="button" class="btn" onclick="closePresentBoxModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🎲 ファクトリー：デッキ構築・補強モーダル -->
+  <div id="draftPickModal" class="modal">
+    <div class="modal-content">
+      <h2 id="draftModalTitle">🎲 1枚選んでデッキに追加</h2>
+      <p id="draftModalDesc" style="font-size:0.8rem; color:#aaa;">カードをタップしてデッキに編成しよう</p>
+      <div id="draftPickContainer" class="draft-pick-container"></div>
+      <div id="draftDeckProgress" style="font-size:0.85rem; color:var(--gold-color); font-weight:bold;">選択数: 0 / 20</div>
+    </div>
+  </div>
+
+  <!-- 📜 ルール確認ダイアログモーダル -->
+  <div id="rulesModal" class="modal">
+    <div class="rule-dialog">
+      <h3 style="color:var(--gold-color); text-align:center;">📜 公式ルールガイド</h3>
+      <div style="font-size:0.8rem; color:#ccc; line-height:1.4;">
+        ・相手のHP(60)を0にすると勝利！<br>
+        ・属性相性（火 ➔ 木 ➔ 水 ➔ 火）で弱点1.5倍ダメージ！<br>
+        ・光と闇は互いに弱点を突き合う特効関係！<br>
+        ・カード長押しで拡大表示できます！
+      </div>
+      <button type="button" class="btn primary" onclick="closeRulesModal()" style="width:100%; margin-top:6px;">閉じる</button>
+    </div>
+  </div>
+
+  <!-- 🔍 カード拡大表示用モーダル -->
+  <div id="cardZoomModal" class="modal" onclick="closeCardZoomModal(event)">
+    <div id="zoomCardContainer" style="pointer-events:none;"></div>
+    <button type="button" class="btn primary" style="margin-top:16px; width:140px; pointer-events:auto;" onclick="closeCardZoomModal(event)">閉じる</button>
+  </div>
+
+  <!-- 🎰 ガチャ結果モーダル -->
+  <div id="gachaResultModal" class="modal">
+    <div class="modal-content">
+      <h2 style="color:var(--gold-color);">🎉 ガチャ結果</h2>
+      <div id="gachaResultContainer" class="gacha-result-grid"></div>
+      <button type="button" class="btn primary" style="width:140px; margin-top:10px;" onclick="closeGachaResultModal()">確認</button>
+    </div>
+  </div>
+
+  <!-- 装備対象選択モーダル -->
+  <div id="equipModal" class="modal">
+    <div class="modal-content">
+      <h3 style="color:var(--gold-color);">どのモンスターに装備させますか？</h3>
+      <div id="equipTargetList" class="target-selector"></div>
+      <button type="button" class="btn" style="margin-top:10px; max-width:140px;" onclick="closeEquipModal()">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- 勝敗モーダル -->
+  <div id="endModal" class="modal">
+    <div class="modal-content">
+      <h2 id="endMessage">勝利！</h2>
+      <button id="btnModalNext" type="button" class="btn primary" style="width: 100%; max-width: 220px;">次へ進む</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // --- Supabase 設定 ---
+  const SUPABASE_URL = "https://ytpxddoiinqmugoqpfqi.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0cHhkZG9paW5xbXVnb3FwZnFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4NTEwMzQsImV4cCI6MjEwODQyNzAzNH0.uhQuslASZ6TjMihJuaLm81RU7tlophYglEjMNqJ6ChY";
+
+  let supabaseClient = null;
+  try {
+    if (window.supabase) {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+  } catch (e) {
+    console.error("Supabase初期化エラー:", e);
+  }
+
+  // ★ カードデータ統合定義 ★
+  const NEW_INTEGRATED_CARDS = [
+    { id: "m_volcano_dragon", name: "ヴォルカノドラゴン", type: "monster", elem: "fire", rarity: 3, costMp: 12, atk: 22, hp: 25, splashDamage: 6, icon: "🐉", desc: "攻撃時、他の敵1体にも6ダメージの追撃を与える。", flavor: "赤城のマグマから解き放たれた深紅の暴竜。" },
+    { id: "m_frost_guardian", name: "氷結の守護像", type: "monster", elem: "water", rarity: 2, costMp: 8, atk: 10, hp: 30, halfDamage: true, icon: "🗿", desc: "受けたダメージを常に半減する鉄壁の守護者。", flavor: "絶対零度の氷で身を包み、あらゆる打撃を跳ね返す。" },
+    { id: "m_shadow_assassin", name: "シャドウアサシン", type: "monster", elem: "dark", rarity: 2, costMp: 7, atk: 18, hp: 12, applyStun: true, icon: "🥷", desc: "攻撃した対象を1ターンの間【行動不能】にする。", flavor: "影から忍び寄り、一撃で獲物の動きを封じる闇の刺客。" },
+    { id: "w_excalibur", name: "聖剣エクスカリバー", type: "weapon", elem: "light", rarity: 3, costMp: 10, atk: 15, icon: "⚔️", desc: "装備モンスターの攻撃力を+15する伝説の聖剣。", flavor: "選ばれし勇者のみが扱うことを許される光の宝剣。" },
+    { id: "sp_elixir", name: "赤城の霊薬", type: "magic", elem: "wood", rarity: 1, costMp: 6, heal: 20, mpRecover: 10, icon: "🧪", desc: "自分のHPを20回復し、MPを10回復する。", flavor: "赤城山に自生する希少な薬草から精製された秘薬。" },
+    { id: "w_knuckle", name: "メリケンサック", type: "weapon", elem: "fire", rarity: 1, costMp: 4, atk: 8, icon: "🥊", desc: "装備モンスターの攻撃力を+8する近接武具。", flavor: "拳に装着し打撃力を一気に高める無骨な金属具。" },
+    { id: "m_k7", name: "k7", type: "monster", elem: "dark", rarity: 2, costMp: 6, atk: 15, hp: 14, hasHaste: true, icon: "🏎️", desc: "召喚ターンから即座に攻撃可能な【速攻】を持つ。", flavor: "音速を超えて戦場を疾走する最速の闇マシン。" },
+    { id: "m_iron_golem", name: "アイアンゴーレム", type: "monster", elem: "wood", rarity: 2, costMp: 9, atk: 12, hp: 32, halfDamage: true, icon: "🤖", desc: "受けるダメージを常に半減する重装甲体。", flavor: "強固な鉄塊で構成された巨大な動く塞。" },
+    { id: "m_aegis_knight", name: "イージス・ナイト", type: "monster", elem: "light", rarity: 2, costMp: 7, atk: 10, hp: 28, taunt: true, icon: "🛡️", desc: "【挑発】敵は優先してこのモンスターを攻撃しなければならない。", flavor: "神聖な大楯を掲げ、味方の盾となりて立ち塞がる騎士。" },
+    { id: "m_barrier_fairy", name: "結界の妖精", type: "magic", elem: "water", rarity: 1, costMp: 5, heal: 15, icon: "🧚", desc: "自ヒーローのHPを 15 回復する。", flavor: "清らかな水で傷を癒やす祝福の妖精。" },
+    { id: "m_phoenix_guardian", name: "不死鳥のガーディアン", type: "monster", elem: "fire", rarity: 3, costMp: 11, atk: 20, hp: 22, indestructibleOnce: true, icon: "🦅", desc: "致命的なダメージを受けた際、1度だけHP 1 で踏みとどまる。", flavor: "何度倒れても熾烈な炎とともに復活を果たす不死の聖鳥。" },
+    { id: "m_abyss_turtle", name: "深淵の玄武タートル", type: "monster", elem: "water", rarity: 3, costMp: 10, atk: 14, hp: 35, reflectDamage: 4, icon: "🐢", desc: "攻撃を受けた際、攻撃相手に4ダメージの反撃を与える。", flavor: "深淵の冷気を纏い、刃を立てる者に冷酷な打撃を返す。" }
   ];
-  
-}
+
+  if (typeof CARD_DATABASE === 'undefined') {
+    window.CARD_DATABASE = NEW_INTEGRATED_CARDS;
+  } else {
+    NEW_INTEGRATED_CARDS.forEach(nc => {
+      if (!CARD_DATABASE.some(c => c.id === nc.id)) {
+        CARD_DATABASE.push(nc);
+      }
+    });
+  }
+
+  async function fetchNotices() {
+    if (!supabaseClient) return;
+    try {
+      const { data, error } = await supabaseClient
+        .from('notices')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("notices取得エラー:", error);
+        return;
+      }
+
+      const list = document.getElementById("noticeList");
+      if (list) {
+        if (data && data.length > 0) {
+          list.innerHTML = "";
+          data.forEach(n => {
+            const formattedBody = (n.body || "").replace(/\n/g, "<br>");
+            list.innerHTML += `
+              <div class="notice-item">
+                <strong>📢 ${n.title}</strong>
+                <div style="margin-top:4px; color:#e0e0e0; font-size:0.8rem;">${formattedBody}</div>
+              </div>`;
+          });
+        } else {
+          list.innerHTML = `<div class="notice-item" style="color:#aaa; text-align:center;">現在お知らせはありません。</div>`;
+        }
+      }
+    } catch (e) {
+      console.error("お知らせ取得例外:", e);
+    }
+  }
+  window.fetchNotices = fetchNotices;
+
+  async function saveNoticeFromAdmin() {
+    if (!supabaseClient) return alert("Supabaseに接続されていません");
+    
+    const titleInput = document.getElementById("adminNoticeTitle");
+    const bodyInput = document.getElementById("adminNoticeBody");
+    
+    const title = titleInput ? titleInput.value.trim() : "";
+    const body = bodyInput ? bodyInput.value.trim() : "";
+    
+    if (!title || !body) {
+      return alert("タイトルと本文の両方を入力してください。");
+    }
+
+    try {
+      const { data, error } = await supabaseClient
+        .from('notices')
+        .insert([{ title: title, body: body }]);
+
+      if (error) {
+        alert("お知らせの送信に失敗しました: " + error.message);
+      } else {
+        alert("📢 お知らせを正常に発行しました！");
+        if (titleInput) titleInput.value = "";
+        if (bodyInput) bodyInput.value = "";
+        await fetchNotices();
+      }
+    } catch (e) {
+      console.error("Notice Save Exception:", e);
+      alert("通信エラーが発生しました。");
+    }
+  }
+  window.saveNoticeFromAdmin = saveNoticeFromAdmin;
+
+  // --- 📅 デイリーログインボーナス機能 ---
+  async function checkDailyBonus() {
+    const today = new Date().toLocaleDateString('ja-JP');
+    const lastLogin = localStorage.getItem("akagi_last_login_date");
+
+    if (lastLogin !== today) {
+      const dailyRewardCoins = 500;
+      window.userProfile.coins = (window.userProfile.coins || 0) + dailyRewardCoins;
+      localStorage.setItem("akagi_last_login_date", today);
+      saveUserProfile();
+
+      if (supabaseClient) {
+        await supabaseClient.from('presents').insert([{
+          user_name: window.userProfile.name,
+          title: "📅 ログインボーナス",
+          message: `${today} のデイリーログインボーナス！`,
+          reward_type: "coin",
+          reward_value: String(dailyRewardCoins),
+          is_claimed: true
+        }]);
+      }
+
+      alert(`🎉 【デイリーログインボーナス】\n本日分のログインボーナスとして 🪙 ${dailyRewardCoins} pt を獲得しました！`);
+    }
+  }
+
+  // --- 🎁 プレゼントボックス機能 ---
+  let userPresents = [];
+
+  async function fetchUserPresents() {
+    if (!supabaseClient) return;
+    const myName = window.userProfile.name;
+
+    try {
+      const { data, error } = await supabaseClient
+        .from('presents')
+        .select('*')
+        .or(`user_name.eq.${myName},user_name.eq.ALL`)
+        .eq('is_claimed', false)
+        .order('created_at', { ascending: false });
+
+      if (error) return console.error("プレゼント取得エラー:", error);
+
+      userPresents = data || [];
+      
+      const badge = document.getElementById("presentBadge");
+      if (badge) {
+        if (userPresents.length > 0) {
+          badge.textContent = userPresents.length;
+          badge.style.display = "inline-block";
+        } else {
+          badge.style.display = "none";
+        }
+      }
+    } catch (e) {
+      console.error("fetchUserPresents 例外:", e);
+    }
+  }
+
+  async function openPresentBoxModal() {
+    await fetchUserPresents();
+    const listEl = document.getElementById("presentList");
+    if (!listEl) return;
+
+    listEl.innerHTML = "";
+    if (userPresents.length === 0) {
+      listEl.innerHTML = `<div style="color:#aaa; font-size:0.85rem; padding:20px;">現在受け取れるプレゼントはありません。</div>`;
+    } else {
+      userPresents.forEach(p => {
+        let rewardStr = p.reward_type === 'coin' ? `🪙 ${p.reward_value} pt` : `🎴 カード: ${getCardNameById(p.reward_value)}`;
+        listEl.innerHTML += `
+          <div style="background:rgba(255,255,255,0.05); border:1px solid #444; border-radius:6px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; text-align:left;">
+            <div>
+              <div style="font-weight:bold; color:var(--gold-color); font-size:0.85rem;">${p.title}</div>
+              <div style="font-size:0.75rem; color:#fff;">${rewardStr}</div>
+            </div>
+            <button type="button" class="btn primary" style="font-size:0.75rem; padding:4px 8px;" onclick="claimPresent('${p.id}')">受け取る</button>
+          </div>
+        `;
+      });
+    }
+
+    document.getElementById("presentBoxModal").classList.add("active");
+  }
+  window.openPresentBoxModal = openPresentBoxModal;
+
+  function closePresentBoxModal() {
+    document.getElementById("presentBoxModal").classList.remove("active");
+  }
+  window.closePresentBoxModal = closePresentBoxModal;
+
+  function getCardNameById(cardId) {
+    const card = CARD_DATABASE.find(c => c.id === cardId);
+    return card ? card.name : cardId;
+  }
+
+  async function claimPresent(presentId) {
+    const present = userPresents.find(p => p.id === presentId);
+    if (!present) return;
+
+    if (present.reward_type === 'coin') {
+      const amount = parseInt(present.reward_value) || 0;
+      window.userProfile.coins = (window.userProfile.coins || 0) + amount;
+    } else if (present.reward_type === 'card') {
+      if (!window.userProfile.inventory) window.userProfile.inventory = [];
+      window.userProfile.inventory.push(present.reward_value);
+    }
+
+    saveUserProfile();
+
+    if (supabaseClient) {
+      await supabaseClient.from('presents').update({ is_claimed: true }).eq('id', presentId);
+    }
+
+    alert(`🎁 【${present.title}】を受け取りました！`);
+    await openPresentBoxModal();
+    updateTitleStatsUI();
+  }
+  window.claimPresent = claimPresent;
+
+  async function claimAllPresents() {
+    if (userPresents.length === 0) return;
+
+    let addedCoins = 0;
+    let addedCardsCount = 0;
+
+    for (const present of userPresents) {
+      if (present.reward_type === 'coin') {
+        addedCoins += parseInt(present.reward_value) || 0;
+      } else if (present.reward_type === 'card') {
+        if (!window.userProfile.inventory) window.userProfile.inventory = [];
+        window.userProfile.inventory.push(present.reward_value);
+        addedCardsCount++;
+      }
+
+      if (supabaseClient) {
+        await supabaseClient.from('presents').update({ is_claimed: true }).eq('id', present.id);
+      }
+    }
+
+    if (addedCoins > 0) window.userProfile.coins = (window.userProfile.coins || 0) + addedCoins;
+    saveUserProfile();
+
+    alert(`🎁 すべてのプレゼントを受け取りました！\n(合計: 🪙 ${addedCoins} pt / 🎴 カード ${addedCardsCount} 枚)`);
+    await openPresentBoxModal();
+    updateTitleStatsUI();
+  }
+  window.claimAllPresents = claimAllPresents;
+
+  // --- ⚙️ 管理者用：プレゼント送信（裏技「キラヤマがき」対応） ---
+  async function sendPresentFromAdmin() {
+    if (!supabaseClient) return alert("Supabaseに接続されていません");
+
+    const userInput = document.getElementById("adminPresentUser").value.trim();
+    const titleInput = document.getElementById("adminPresentTitle").value.trim();
+    const type = document.getElementById("adminPresentType").value;
+    const valueInput = document.getElementById("adminPresentValue").value.trim();
+
+    // 🌟 裏技コマンド判定：「キラヤマがき」と入力された場合
+    if (userInput === "キラヤマがき" || titleInput === "キラヤマがき" || valueInput === "キラヤマがき") {
+      const targetUser = (userInput && userInput !== "キラヤマがき") ? userInput : window.userProfile.name;
+      
+      const { error } = await supabaseClient.from('presents').insert([{
+        user_name: targetUser,
+        title: "⚡ 裏技発動！キラヤマがきの特別コイン",
+        reward_type: "coin",
+        reward_value: "999999",
+        is_claimed: false
+      }]);
+
+      if (error) {
+        alert("裏技配布エラー: " + error.message);
+      } else {
+        alert(`🎉 ✨裏技発動✨ 【キラヤマがき】により コイン 999,999 pt が (${targetUser}) のプレゼントボックスに届きました！`);
+        document.getElementById("adminPresentUser").value = "";
+        document.getElementById("adminPresentTitle").value = "";
+        document.getElementById("adminPresentValue").value = "";
+        await fetchUserPresents();
+      }
+      return;
+    }
+
+    // 通常のプレゼント配布処理
+    const user = userInput || "ALL"; // 空欄なら全員配布
+    const title = titleInput;
+    const value = valueInput;
+
+    if (!title || !value) {
+      return alert("タイトルと配布内容（数値またはカードID）を入力してください。");
+    }
+
+    const { error } = await supabaseClient.from('presents').insert([{
+      user_name: user,
+      title: title,
+      reward_type: type,
+      reward_value: value,
+      is_claimed: false
+    }]);
+
+    if (error) {
+      alert("配布エラー: " + error.message);
+    } else {
+      alert(`🎉 プレゼント【${title}】を (${user === 'ALL' ? '全員' : user}) へ正常に配布しました！`);
+      document.getElementById("adminPresentTitle").value = "";
+      document.getElementById("adminPresentValue").value = "";
+      await fetchUserPresents();
+    }
+  }
+  window.sendPresentFromAdmin = sendPresentFromAdmin;
+
+  window.openMarketScreen = function() {
+    var titleEl = document.getElementById("titleScreen");
+    var marketEl = document.getElementById("marketScreen");
+    if (titleEl) titleEl.classList.add("hidden");
+    if (marketEl) marketEl.classList.remove("hidden");
+    var coinEl = document.getElementById("marketCoinDisplay");
+    if (coinEl && window.userProfile) coinEl.textContent = window.userProfile.coins || 1000;
+  };
+
+  window.openTradeScreen = function() {
+    var titleEl = document.getElementById("titleScreen");
+    var tradeEl = document.getElementById("tradeScreen");
+    if (titleEl) titleEl.classList.add("hidden");
+    if (tradeEl) tradeEl.classList.remove("hidden");
+  };
+
+  window.openProfileCustomScreen = function() {
+    var titleEl = document.getElementById("titleScreen");
+    var customEl = document.getElementById("customScreen");
+    if (titleEl) titleEl.classList.add("hidden");
+    if (customEl) customEl.classList.remove("hidden");
+    renderProfileCustomization();
+  };
+
+  function renderProfileCustomization() {
+    const titleContainer = document.getElementById("titleListContainer");
+    if (titleContainer) {
+      const userRate = window.userProfile.rate || 1000;
+      const userWins = window.userProfile.wins || 0;
+      const bestTower = window.userProfile.bestTowerFloor || 0;
+      const bestDraft = window.userProfile.bestDraftFloor || 0;
+
+      const titleDefinitions = [
+        { name: "《見習いデュエリスト》", unlocked: true, desc: "初期解放" },
+        { name: "《銅の決闘者》", unlocked: userRate >= 1000, desc: "ブロンズ到達 (1000 RP)" },
+        { name: "《銀の覇者》", unlocked: userRate >= 1500, desc: "シルバー到達 (1500 RP)" },
+        { name: "《黄金の決闘神》", unlocked: userRate >= 2000, desc: "ゴールド到達 (2000 RP)" },
+        { name: "《カードマスター》", unlocked: userRate >= 2500, desc: "マスター到達 (2500 RP)" },
+        { name: "《百戦錬磨》", unlocked: userWins >= 10, desc: "通算10勝達成" },
+        { name: "《無敗の伝承》", unlocked: userWins >= 50, desc: "通算50勝達成" },
+        { name: "《タワーチャレンジャー》", unlocked: bestTower >= 10, desc: "タワー10階到達" },
+        { name: "《塔の極限者》", unlocked: bestTower >= 30, desc: "タワー30階到達" },
+        { name: "《赤城タワーマスター》", unlocked: bestTower >= 50, desc: "タワー50階完全制覇" },
+        { name: "《ファクトリー挑戦者》", unlocked: bestDraft >= 10, desc: "ファクトリー10階到達" },
+        { name: "《即興の戦術家》", unlocked: bestDraft >= 30, desc: "ファクトリー30階到達" },
+        { name: "《ファクトリーレジェンド》", unlocked: bestDraft >= 50, desc: "ファクトリー50階完全制覇" }
+      ];
+
+      titleContainer.innerHTML = titleDefinitions.map(t => {
+        const isEquipped = window.userProfile.equippedTitle === t.name;
+        if (t.unlocked) {
+          return `
+            <button type="button" class="btn ${isEquipped ? 'primary' : ''}" 
+                    onclick="selectTitle('${t.name}')" 
+                    style="font-size:0.75rem; padding:6px; display:flex; flex-direction:column; align-items:center;">
+              <span>${t.name}</span>
+            </button>
+          `;
+        } else {
+          return `
+            <button type="button" class="btn" disabled 
+                    style="font-size:0.7rem; padding:6px; opacity:0.4; background:#111; border-color:#333; color:#888; cursor:not-allowed;">
+              🔒 🔒🔒🔒<br>
+              <span style="font-size:0.6rem; color:#666;">(${t.desc})</span>
+            </button>
+          `;
+        }
+      }).join("");
+    }
+
+    const badgeContainer = document.getElementById("badgeListContainer");
+    if (badgeContainer) {
+      const badges = ["🔰", "⚔️", "🛡️", "🔥", "👑", "💎"];
+      badgeContainer.innerHTML = badges.map(b => `
+        <button type="button" class="btn ${window.userProfile.equippedBadge === b ? 'primary' : ''}" 
+                onclick="selectBadge('${b}')" style="font-size:1.1rem; padding:6px;">
+          ${b}
+        </button>
+      `).join("");
+    }
+  }
+
+  window.selectTitle = function(title) {
+    window.userProfile.equippedTitle = title;
+    renderProfileCustomization();
+  };
+
+  window.selectBadge = function(badge) {
+    window.userProfile.equippedBadge = badge;
+    renderProfileCustomization();
+  };
+
+  window.openRulesModal = function() {
+    var rulesModal = document.getElementById("rulesModal");
+    if (rulesModal) rulesModal.classList.add("active");
+  };
+
+  window.closeRulesModal = function() {
+    var rulesModal = document.getElementById("rulesModal");
+    if (rulesModal) rulesModal.classList.remove("active");
+  };
+
+  if (typeof window.ELEMENTS !== 'undefined') {
+    Object.assign(window.ELEMENTS, {
+      fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
+      water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
+      wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
+      light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
+      dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
+    });
+  } else {
+    window.ELEMENTS = {
+      fire:  { name: "火", icon: "🔥", class: "elem-fire",  strongTo: "wood" },
+      water: { name: "水", icon: "💧", class: "elem-water", strongTo: "fire" },
+      wood:  { name: "木", icon: "🌿", class: "elem-wood",  strongTo: "water" },
+      light: { name: "光", icon: "✨", class: "elem-light", strongTo: "dark" },
+      dark:  { name: "闇", icon: "💀", class: "elem-dark",  strongTo: "light" }
+    };
+  }
+
+  function openCardZoomModal(cardData) {
+    if (!cardData) return;
+    const container = document.getElementById("zoomCardContainer");
+    container.innerHTML = "";
+
+    const cardDiv = renderCardDOM(cardData, "", null);
+    cardDiv.classList.add("zoom-card");
+
+    const flavorEl = cardDiv.querySelector(".card-flavor");
+    if (flavorEl && cardData.flavor) {
+      flavorEl.innerHTML = `<span>${cardData.flavor}</span>`;
+    }
+
+    container.appendChild(cardDiv);
+    document.getElementById("cardZoomModal").classList.add("active");
+  }
+
+  function closeCardZoomModal(e) {
+    if (e) e.stopPropagation();
+    document.getElementById("cardZoomModal").classList.remove("active");
+  }
+  window.closeCardZoomModal = closeCardZoomModal;
+
+  let onlineMyRole = null;
+  let onlineRoomId = null;
+  let hasDrawnThisTurn = false;
+  let onlineOppDeckCount = 15;
+  let onlineOppRate = 1000;
+  let roomPollingInterval = null;
+  let roomHeartbeatInterval = null;
+  let roomChannel = null;
+  let currentEvent = null;
+  let editingEventId = null;
+
+  const ADMIN_PASSCODE = "Sinn0626";
+
+  const bgmTitle = new Audio('bgm_title.mp3');
+  const bgmBattle = new Audio('bgm_battle.mp3');
+  bgmTitle.loop = true;
+  bgmBattle.loop = true;
+  bgmTitle.volume = 0.3;
+  bgmBattle.volume = 0.3;
+
+  let currentBgmType = null;
+
+  function playBGM(type) {
+    if (currentBgmType === type) return;
+
+    bgmTitle.pause();
+    bgmBattle.pause();
+
+    let targetAudio = null;
+    if (type === 'title') targetAudio = bgmTitle;
+    else if (type === 'battle') targetAudio = bgmBattle;
+
+    if (targetAudio) {
+      targetAudio.currentTime = 0;
+      targetAudio.play().then(() => {
+        currentBgmType = type;
+      }).catch(e => {
+        console.log(`BGM [${type}] スキップ:`, e.message);
+      });
+    } else {
+      currentBgmType = null;
+    }
+  }
+
+  function playVoice(voicePath) {
+    if (!voicePath) return;
+    try {
+      const vAudio = new Audio(voicePath);
+      vAudio.volume = 0.8;
+      vAudio.play().catch(e => console.log("ボイス再生失敗:", e));
+    } catch (e) {
+      console.error("ボイス再生エラー:", e);
+    }
+  }
+
+  function getRankName(rate) {
+    if (rate >= 2500) return "👑 マスター";
+    if (rate >= 2000) return "🥇 ゴールド";
+    if (rate >= 1500) return "🥈 シルバー";
+    if (rate >= 1000) return "🥉 ブロンズ";
+    return "🌱 ビギナー";
+  }
+
+  function calculateRateChange(myRate, oppRate, isWin) {
+    const K = 32;
+    const expectedScore = 1 / (1 + Math.pow(10, (oppRate - myRate) / 400));
+    const actualScore = isWin ? 1 : 0;
+    return Math.round(K * (actualScore - expectedScore));
+  }
+
+  async function loadSharedCustomCards() {
+    if (!supabaseClient) return;
+    try {
+      const { data, error } = await supabaseClient.from('custom_cards').select('*');
+      if (error) return;
+
+      if (data && data.length > 0) {
+        data.forEach(dbCard => {
+          if (typeof CARD_DATABASE !== 'undefined' && !CARD_DATABASE.some(c => c.id === dbCard.id)) {
+            CARD_DATABASE.push({
+              id: dbCard.id,
+              name: dbCard.name,
+              type: dbCard.type,
+              elem: dbCard.elem || "light",
+              rarity: dbCard.rarity,
+              costMp: dbCard.cost_mp,
+              atk: dbCard.atk,
+              hp: dbCard.hp,
+              drawCount: dbCard.draw_count || null,
+              icon: dbCard.icon,
+              image: dbCard.image,
+              desc: dbCard.desc_text,
+              flavor: dbCard.flavor
+            });
+          }
+        });
+      }
+    } catch (e) {
+      console.error("共有カード処理失敗:", e);
+    }
+  }
+
+  window.userProfile = {
+    name: "あなた",
+    rate: 1000,
+    wins: 0,
+    losses: 0,
+    bestGauntletStage: 0,
+    towerFloor: 1,
+    towerInProgress: false,
+    bestTowerFloor: 0,
+    draftFloor: 1,
+    draftInProgress: false,
+    bestDraftFloor: 0,
+    draftDeck: [],
+    coins: 1000,
+    equippedTitle: "《見習いデュエリスト》",
+    equippedBadge: "🔰",
+    deck: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : [],
+    inventory: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : []
+  };
+
+  async function syncProfileFromSupabase() {
+    if (!supabaseClient) return;
+    try {
+      const myName = window.userProfile.name;
+      const { data } = await supabaseClient.from('profiles').select('*').eq('id', myName);
+      
+      if (data && data.length > 0) {
+        const user = data[0];
+        window.userProfile.rate = user.rate ?? 1000;
+        window.userProfile.wins = user.wins ?? 0;
+        window.userProfile.losses = user.losses ?? 0;
+      } else {
+        await supabaseClient.from('profiles').upsert({
+          id: myName,
+          rate: window.userProfile.rate || 1000,
+          wins: window.userProfile.wins || 0,
+          losses: window.userProfile.losses || 0
+        });
+      }
+    } catch (e) {
+      console.error("プロファイル同期エラー:", e);
+    }
+    updateTitleStatsUI();
+  }
+
+  async function syncProfileToSupabase() {
+    if (!supabaseClient) return;
+    try {
+      await supabaseClient.from('profiles').upsert({
+        id: window.userProfile.name,
+        rate: window.userProfile.rate,
+        wins: window.userProfile.wins,
+        losses: window.userProfile.losses,
+        updated_at: new Date().toISOString()
+      });
+    } catch (e) {
+      console.error("プロファイル保存エラー:", e);
+    }
+  }
+
+  function switchAdminTab(tab) {
+    document.getElementById("tabBtnEvents").classList.toggle("active", tab === 'events');
+    document.getElementById("tabBtnNotices").classList.toggle("active", tab === 'notices');
+    document.getElementById("tabBtnPresents").classList.toggle("active", tab === 'presents');
+    
+    document.getElementById("adminFormEvent").classList.toggle("hidden", tab !== 'events');
+    document.getElementById("adminFormNotice").classList.toggle("hidden", tab !== 'notices');
+    document.getElementById("adminFormPresent").classList.toggle("hidden", tab !== 'presents');
+  }
+  window.switchAdminTab = switchAdminTab;
+
+  function switchMarketTab(tab) {
+    document.getElementById("tabMarketBuy").classList.toggle("active", tab === 'buy');
+    document.getElementById("tabMarketSell").classList.toggle("active", tab === 'sell');
+    document.getElementById("marketBuyArea").classList.toggle("hidden", tab !== 'buy');
+    document.getElementById("marketSellArea").classList.toggle("hidden", tab !== 'sell');
+  }
+  window.switchMarketTab = switchMarketTab;
+
+  function saveProfileCustomization() {
+    saveUserProfile();
+    showTitle();
+  }
+  window.saveProfileCustomization = saveProfileCustomization;
+
+  async function openAdminScreen() {
+    const inputPass = prompt("管理者用パスコードを入力してください:");
+    if (!inputPass) return;
+
+    if (inputPass === "おはぎぃcvしぐま") {
+      if (typeof CARD_DATABASE !== 'undefined' && Array.isArray(CARD_DATABASE)) {
+        const allCardIds = CARD_DATABASE.filter(c => !c.isToken).map(c => c.id);
+        
+        if (!window.userProfile.inventory) {
+          window.userProfile.inventory = [];
+        }
+
+        const TARGET_COUNT = 4;
+
+        allCardIds.forEach(id => {
+          const currentCount = window.userProfile.inventory.filter(cardId => cardId === id).length;
+          const needed = TARGET_COUNT - currentCount;
+          for (let i = 0; i < needed; i++) {
+            window.userProfile.inventory.push(id);
+          }
+        });
+
+        saveUserProfile();
+        alert("🎁 【開発者特典】すべての通常カードを各4枚ずつインベントリに付与しました！");
+      } else {
+        alert("カードデータベースの読み込みに失敗しました。");
+      }
+      return;
+    }
+
+    if (inputPass === ADMIN_PASSCODE) {
+      document.getElementById("titleScreen").classList.add("hidden");
+      document.getElementById("adminScreen").classList.remove("hidden");
+      resetAdminForm();
+      await fetchAdminEventList();
+    } else {
+      alert("パスコードが正しくありません。");
+    }
+  }
+  window.openAdminScreen = openAdminScreen;
+
+  function resetAdminForm() {
+    editingEventId = null;
+    document.getElementById("adminFormHeader").textContent = "新規イベント作成";
+    document.getElementById("adminEvtId").disabled = false;
+
+    const now = new Date();
+    const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    document.getElementById("adminEvtId").value = "EVT_" + Math.random().toString(36).substring(2, 6).toUpperCase();
+    document.getElementById("adminEvtTitle").value = "";
+    document.getElementById("adminEvtStart").value = now.toISOString().slice(0, 16);
+    document.getElementById("adminEvtEnd").value = nextWeek.toISOString().slice(0, 16);
+    document.getElementById("adminEvtCoins").value = 1000;
+
+    document.getElementById("btnSaveAdminEvent").textContent = "🚀 イベントを作成・公開";
+    document.getElementById("btnCancelAdminEdit").classList.add("hidden");
+  }
+  window.resetAdminForm = resetAdminForm;
+
+  async function fetchAdminEventList() {
+    if (!supabaseClient) return;
+    const { data } = await supabaseClient.from('events').select('*').order('start_at', { ascending: false });
+    const listContainer = document.getElementById("adminEventList");
+    listContainer.innerHTML = "";
+
+    if (data && data.length > 0) {
+      data.forEach(evt => {
+        const item = document.createElement("div");
+        item.className = "admin-event-item";
+        const startStr = new Date(evt.start_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const endStr = new Date(evt.end_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+        item.innerHTML = `
+          <div class="admin-event-info">
+            <strong style="color:var(--gold-color);">${evt.title}</strong>
+            <span style="color:#aaa; font-size:0.68rem;">ID: ${evt.id} | 報酬: 🪙${evt.reward_coins}pt</span>
+            <span style="color:#888; font-size:0.65rem;">${startStr} 〜 ${endStr}</span>
+          </div>
+          <div class="admin-event-actions">
+            <button type="button" class="admin-btn-sm" onclick="editAdminEvent('${evt.id}')">✏️ 編集</button>
+            <button type="button" class="admin-btn-sm" style="border-color:#ff4444; color:#ff8888;" onclick="deleteAdminEvent('${evt.id}', '${evt.title}')">🗑️ 削除</button>
+          </div>
+        `;
+        listContainer.appendChild(item);
+      });
+    } else {
+      listContainer.innerHTML = `<div style="font-size:0.75rem; color:#666;">登録されたイベントはありません</div>`;
+    }
+  }
+
+  async function editAdminEvent(id) {
+    if (!supabaseClient) return;
+    const { data } = await supabaseClient.from('events').select('*').eq('id', id).single();
+    if (!data) return;
+
+    editingEventId = data.id;
+    document.getElementById("adminFormHeader").textContent = `イベント編集 (ID: ${data.id})`;
+    document.getElementById("adminEvtId").value = data.id;
+    document.getElementById("adminEvtId").disabled = true;
+
+    document.getElementById("adminEvtTitle").value = data.title;
+    document.getElementById("adminEvtStart").value = new Date(data.start_at).toISOString().slice(0, 16);
+    document.getElementById("adminEvtEnd").value = new Date(data.end_at).toISOString().slice(0, 16);
+    document.getElementById("adminEvtCoins").value = data.reward_coins || 1000;
+
+    document.getElementById("btnSaveAdminEvent").textContent = "💾 変更内容を更新保存";
+    document.getElementById("btnCancelAdminEdit").classList.remove("hidden");
+  }
+  window.editAdminEvent = editAdminEvent;
+
+  async function deleteAdminEvent(id, title) {
+    if (!confirm(`本当にイベント【${title}】(ID:${id}) を削除しますか？`)) return;
+    if (!supabaseClient) return;
+
+    const { error } = await supabaseClient.from('events').delete().eq('id', id);
+    if (error) {
+      alert(`削除エラー: ${error.message}`);
+    } else {
+      alert(`イベント【${title}】を削除しました。`);
+      await fetchAdminEventList();
+      checkActiveEvent();
+    }
+  }
+  window.deleteAdminEvent = deleteAdminEvent;
+
+  async function saveEventFromAdmin() {
+    if (!supabaseClient) return alert("Supabaseの接続に問題があります。");
+
+    const id = document.getElementById("adminEvtId").value.trim();
+    const title = document.getElementById("adminEvtTitle").value.trim();
+    const startVal = document.getElementById("adminEvtStart").value;
+    const endVal = document.getElementById("adminEvtEnd").value;
+    const coins = parseInt(document.getElementById("adminEvtCoins").value) || 1000;
+
+    if (!id || !title || !startVal || !endVal) {
+      return alert("すべての項目を入力してください。");
+    }
+
+    const startAt = new Date(startVal).toISOString();
+    const endAt = new Date(endVal).toISOString();
+
+    try {
+      const payload = {
+        id: id,
+        title: title,
+        start_at: startAt,
+        end_at: endAt,
+        is_active: true,
+        reward_coins: coins
+      };
+
+      let resultError = null;
+      if (editingEventId) {
+        const { error } = await supabaseClient.from('events').update(payload).eq('id', editingEventId);
+        resultError = error;
+      } else {
+        const { error } = await supabaseClient.from('events').insert([payload]);
+        resultError = error;
+      }
+
+      if (resultError) {
+        alert(`保存エラー: ${resultError.message}`);
+      } else {
+        alert(`🎉 イベント【${title}】を正常に保存しました！`);
+        resetAdminForm();
+        await fetchAdminEventList();
+        checkActiveEvent();
+      }
+    } catch (e) {
+      console.error("saveEventFromAdmin 例外:", e);
+    }
+  }
+  window.saveEventFromAdmin = saveEventFromAdmin;
+
+  async function checkActiveEvent() {
+    if (!supabaseClient) return;
+    try {
+      const now = new Date().toISOString();
+      const { data } = await supabaseClient
+        .from('events')
+        .select('*')
+        .lte('start_at', now)
+        .gte('end_at', now)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      const btnEventRanked = document.getElementById("btnEventRanked");
+
+      if (data) {
+        currentEvent = data;
+        document.getElementById("eventBanner").classList.remove("hidden");
+        document.getElementById("eventTitle").textContent = data.title;
+        
+        if (btnEventRanked) {
+          btnEventRanked.disabled = false;
+          btnEventRanked.textContent = "🔥 イベントランクマッチ参戦";
+        }
+
+        updateEventTimer();
+        setInterval(updateEventTimer, 10000);
+        await loadEventUserStats();
+      } else {
+        currentEvent = null;
+        document.getElementById("eventBanner").classList.add("hidden");
+        if (btnEventRanked) {
+          btnEventRanked.disabled = true;
+          btnEventRanked.textContent = "🔥 イベントランクマッチ参戦 (開催待ち)";
+        }
+      }
+
+      await checkClaimableEventRewards();
+    } catch (err) {
+      console.error("checkActiveEvent エラー:", err);
+    }
+  }
+
+  function updateEventTimer() {
+    if (!currentEvent) return;
+    const end = new Date(currentEvent.end_at).getTime();
+    const now = new Date().getTime();
+    const diff = end - now;
+
+    if (diff <= 0) {
+      document.getElementById("eventTimer").textContent = "イベント終了（集計中）";
+      return;
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    document.getElementById("eventTimer").textContent = `残り時間: ${days}日 ${hours}時間 ${mins}分`;
+  }
+
+  async function loadEventUserStats() {
+    if (!currentEvent || !supabaseClient) return;
+    const myName = window.userProfile.name;
+    const { data } = await supabaseClient
+      .from('event_participants')
+      .select('*')
+      .eq('event_id', currentEvent.id)
+      .eq('user_name', myName)
+      .maybeSingle();
+
+    if (data) {
+      document.getElementById("eventMyStats").textContent = `イベント戦績: ${data.wins}勝 ${data.losses}敗 (レート:${data.rate})`;
+    } else {
+      document.getElementById("eventMyStats").textContent = `イベント戦績: 未参戦`;
+    }
+  }
+
+  async function checkClaimableEventRewards() {
+    if (!supabaseClient) return;
+    const myName = window.userProfile.name;
+
+    try {
+      const { data: records } = await supabaseClient
+        .from('event_participants')
+        .select('*, events(*)')
+        .eq('user_name', myName)
+        .eq('reward_claimed', false);
+
+      if (records && records.length > 0) {
+        for (const record of records) {
+          const evt = record.events;
+          if (!evt) continue;
+
+          const now = new Date();
+          if (new Date(evt.end_at) < now) {
+            const baseCoins = evt.reward_coins || 1000;
+            const winBonus = (record.wins || 0) * 200;
+            const totalReward = baseCoins + winBonus;
+
+            window.userProfile.coins = (window.userProfile.coins || 0) + totalReward;
+            saveUserProfile();
+
+            await supabaseClient
+              .from('event_participants')
+              .update({ reward_claimed: true })
+              .eq('event_id', evt.id)
+              .eq('user_name', myName);
+
+            alert(`🎉 期間限定イベント【${evt.title}】が終了しました！\n戦績: ${record.wins}勝 ${record.losses}敗\n\n🎁 イベント達成報酬として 🪙 ${totalReward} pt を獲得しました！`);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("checkClaimableEventRewards エラー:", e);
+    }
+  }
+
+  async function updateEventParticipantStats(isWin) {
+    if (!currentEvent || !supabaseClient) return;
+    const myName = window.userProfile.name;
+
+    try {
+      const { data } = await supabaseClient
+        .from('event_participants')
+        .select('*')
+        .eq('event_id', currentEvent.id)
+        .eq('user_name', myName)
+        .maybeSingle();
+
+      const wins = (data ? data.wins : 0) + (isWin ? 1 : 0);
+      const losses = (data ? data.losses : 0) + (isWin ? 0 : 1);
+      const rate = window.userProfile.rate || 1000;
+
+      await supabaseClient.from('event_participants').upsert({
+        event_id: currentEvent.id,
+        user_name: myName,
+        wins: wins,
+        losses: losses,
+        rate: rate,
+        reward_claimed: false
+      });
+    } catch (e) {
+      console.error("イベント戦績更新エラー:", e);
+    }
+  }
+
+  function loadUserProfile() {
+    const saved = localStorage.getItem("akagi_user_profile");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        window.userProfile = { ...window.userProfile, ...parsed };
+        if (!window.userProfile.inventory || window.userProfile.inventory.length === 0) {
+          window.userProfile.inventory = [...window.userProfile.deck];
+        }
+        if (window.userProfile.coins === undefined) window.userProfile.coins = 1000;
+        if (window.userProfile.rate === undefined) window.userProfile.rate = 1000;
+        if (!window.userProfile.equippedTitle) window.userProfile.equippedTitle = "《見習いデュエリスト》";
+        if (!window.userProfile.equippedBadge) window.userProfile.equippedBadge = "🔰";
+        if (window.userProfile.towerFloor === undefined) window.userProfile.towerFloor = 1;
+        if (window.userProfile.towerInProgress === undefined) window.userProfile.towerInProgress = false;
+        if (window.userProfile.bestTowerFloor === undefined) window.userProfile.bestTowerFloor = 0;
+        
+        if (window.userProfile.draftFloor === undefined) window.userProfile.draftFloor = 1;
+        if (window.userProfile.draftInProgress === undefined) window.userProfile.draftInProgress = false;
+        if (window.userProfile.bestDraftFloor === undefined) window.userProfile.bestDraftFloor = 0;
+        if (!window.userProfile.draftDeck) window.userProfile.draftDeck = [];
+      } catch (e) { console.error("データロードエラー", e); }
+    }
+    updateTitleStatsUI();
+  }
+
+  function saveUserProfile() {
+    localStorage.setItem("akagi_user_profile", JSON.stringify(window.userProfile));
+    updateTitleStatsUI();
+    syncProfileToSupabase();
+  }
+
+  function updateTitleStatsUI() {
+    const nameInput = document.getElementById("nameInput");
+    if (nameInput) nameInput.value = window.userProfile.name;
+
+    const statWins = document.getElementById("statWins");
+    if (statWins) statWins.textContent = window.userProfile.wins;
+
+    const statLosses = document.getElementById("statLosses");
+    if (statLosses) statLosses.textContent = window.userProfile.losses;
+
+    const statGauntlet = document.getElementById("statGauntlet");
+    if (statGauntlet) statGauntlet.textContent = window.userProfile.bestGauntletStage;
+
+    const statTower = document.getElementById("statTower");
+    if (statTower) statTower.textContent = window.userProfile.bestTowerFloor;
+
+    const statDraft = document.getElementById("statDraft");
+    if (statDraft) statDraft.textContent = window.userProfile.bestDraftFloor || 0;
+
+    const statCoins = document.getElementById("statCoins");
+    if (statCoins) statCoins.textContent = window.userProfile.coins;
+
+    const gachaCoinDisplay = document.getElementById("gachaCoinDisplay");
+    if (gachaCoinDisplay) gachaCoinDisplay.textContent = window.userProfile.coins;
+
+    const statTitle = document.getElementById("statTitle");
+    if (statTitle) statTitle.textContent = window.userProfile.equippedTitle || "《見習いデュエリスト》";
+
+    const statBadge = document.getElementById("statBadge");
+    if (statBadge) statBadge.textContent = window.userProfile.equippedBadge || "🔰";
+
+    const rate = window.userProfile.rate || 1000;
+    const statRate = document.getElementById("statRate");
+    if (statRate) statRate.textContent = rate;
+
+    const statRank = document.getElementById("statRank");
+    if (statRank) statRank.textContent = getRankName(rate);
+
+    const btnTower = document.getElementById("btnTower");
+    if (btnTower) {
+      if (window.userProfile.towerInProgress) {
+        btnTower.textContent = `🏰 赤城バトルタワー (第${window.userProfile.towerFloor}階から再開)`;
+      } else {
+        btnTower.textContent = `🏰 赤城バトルタワー (50階勝ち抜き)`;
+      }
+    }
+
+    const btnDraftTower = document.getElementById("btnDraftTower");
+    if (btnDraftTower) {
+      if (window.userProfile.draftInProgress) {
+        btnDraftTower.textContent = `🎲 赤城ファクトリー (第${window.userProfile.draftFloor}階から再開)`;
+      } else {
+        btnDraftTower.textContent = `🎲 赤城ファクトリーバトル (デッキ選択・強化50階)`;
+      }
+    }
+  }
+
+  window.gameState = {
+    mode: "casual",
+    gauntletStage: 0,
+    currentDifficulty: "normal",
+    turn: "player",
+    turnCount: 1,
+    selectedAttackerIdx: null,
+    pendingWeaponIndex: null,
+    pendingSummonIndex: null,
+    isGameStarted: false,
+    isGameEnded: false,
+    my: { name: "あなた", rate: 1000, elem: "water", hp: 60, maxHp: 60, mp: 5, maxMp: 40, monsters: [], deck: [], hand: [] },
+    opp: { name: "CPU", rate: 1000, elem: "fire", hp: 60, maxHp: 60, mp: 5, maxMp: 40, monsters: [], deck: [], hand: [] }
+  };
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    loadUserProfile();
+    await loadSharedCustomCards();
+    await syncProfileFromSupabase();
+    await checkActiveEvent();
+    fetchNotices();
+    
+    // 📅 デイリーログインボーナス＆未受領プレゼントチェック
+    await checkDailyBonus();
+    await fetchUserPresents();
+
+    const unlockAudio = () => {
+      try {
+        if (document.getElementById("gameScreen").classList.contains("hidden")) {
+          playBGM('title');
+        }
+      } catch(e){}
+      document.removeEventListener("click", unlockAudio);
+      document.removeEventListener("touchstart", unlockAudio);
+    };
+    document.addEventListener("click", unlockAudio);
+    document.addEventListener("touchstart", unlockAudio);
+
+    const nameInput = document.getElementById("nameInput");
+    if (nameInput) {
+      nameInput.addEventListener("change", async (e) => {
+        window.userProfile.name = e.target.value.trim() || "あなた";
+        saveUserProfile();
+        await syncProfileToSupabase();
+        await checkActiveEvent();
+        await fetchUserPresents();
+      });
+    }
+
+    const bindEvent = (id, fn) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("click", fn);
+    };
+
+    bindEvent("btnGacha", openGachaScreen);
+    bindEvent("btnOnline", openOnlineLobby);
+    
+    bindEvent("btnCreateOnlineRoom", createOnlineRoom);
+    bindEvent("btnJoinOnlineRoom", joinOnlineRoom);
+
+    bindEvent("btnGauntlet", startGauntletMode);
+    bindEvent("btnTower", handleTowerButtonClick);
+    bindEvent("btnDraftTower", handleDraftButtonClick);
+    bindEvent("btnCasual", openCasualSelect);
+    bindEvent("btnDeckEdit", openDeckEditor);
+    bindEvent("btnSaveDeck", saveDeckAndReturn);
+    bindEvent("btnResetDeck", resetDeckToDefault);
+    bindEvent("btnPass", passTurn);
+    bindEvent("btnModalNext", handleModalNext);
+
+    try { playBGM('title'); } catch(e){}
+  });
+
+  function showTitleDirect() {
+    try {
+      if (roomPollingInterval) {
+        clearInterval(roomPollingInterval);
+        roomPollingInterval = null;
+      }
+      if (roomHeartbeatInterval) {
+        clearInterval(roomHeartbeatInterval);
+        roomHeartbeatInterval = null;
+      }
+      if (typeof roomChannel !== 'undefined' && roomChannel && supabaseClient) {
+        supabaseClient.removeChannel(roomChannel);
+        roomChannel = null;
+      }
+
+      onlineRoomId = null;
+      onlineMyRole = null;
+      if (window.gameState) {
+        window.gameState.isGameStarted = false;
+        window.gameState.isGameEnded = false;
+        window.gameState.selectedAttackerIdx = null;
+        window.gameState.pendingSummonIndex = null;
+        window.gameState.pendingWeaponIndex = null;
+      }
+
+      document.querySelectorAll('.modal').forEach(m => {
+        m.classList.remove('active');
+        m.style.display = 'none';
+      });
+
+      const screens = [
+        "gameScreen", "casualSelectScreen", "onlineLobbyScreen", 
+        "deckScreen", "gachaScreen", "adminScreen", 
+        "marketScreen", "tradeScreen", "customScreen"
+      ];
+      screens.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add("hidden");
+      });
+
+      const titleEl = document.getElementById("titleScreen");
+      if (titleEl) titleEl.classList.remove("hidden");
+
+      updateTitleStatsUI();
+      checkActiveEvent();
+      fetchUserPresents();
+      try { playBGM('title'); } catch(e){}
+
+    } catch (e) {
+      console.error("showTitleDirect 強制実行エラー:", e);
+      const titleEl = document.getElementById("titleScreen");
+      if (titleEl) titleEl.classList.remove("hidden");
+    }
+  }
+  window.showTitleDirect = showTitleDirect;
+
+  async function surrenderAndReturn() {
+    try {
+      if (window.gameState.isGameEnded) {
+        showTitleDirect();
+        return;
+      }
+
+      const isRanked = window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked";
+      const currentRoomId = onlineRoomId;
+      const isP1 = onlineMyRole === 'player1';
+
+      if (currentRoomId && window.gameState.isGameStarted && isRanked) {
+        const myRate = window.userProfile.rate || 1000;
+        window.userProfile.rate = Math.max(0, myRate - 32);
+        window.userProfile.losses++;
+        saveUserProfile();
+
+        if (window.gameState.mode === "event_ranked") {
+          updateEventParticipantStats(false);
+        }
+      }
+
+      if (currentRoomId && supabaseClient) {
+        if (!window.gameState.isGameStarted) {
+          await supabaseClient.from('rooms').delete().eq('id', currentRoomId);
+        } else {
+          const mePrefix = isP1 ? 'p1' : 'p2';
+          const { error } = await supabaseClient.from('rooms').update({
+            [`${mePrefix}_surrendered`]: true,
+            updated_at: new Date().toISOString()
+          }).eq('id', currentRoomId);
+
+          if (error) {
+            console.error("降参フラグ更新エラー:", error);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("surrenderAndReturn 内部エラー:", err);
+    } finally {
+      showTitleDirect();
+    }
+  }
+  window.surrenderAndReturn = surrenderAndReturn;
+  window.showTitle = surrenderAndReturn;
+
+  function openGachaScreen() {
+    document.getElementById("titleScreen").classList.add("hidden");
+    document.getElementById("gachaScreen").classList.remove("hidden");
+    updateTitleStatsUI();
+  }
+
+  function openCasualSelect() {
+    document.getElementById("titleScreen").classList.add("hidden");
+    document.getElementById("casualSelectScreen").classList.remove("hidden");
+  }
+
+  function openOnlineLobby() {
+    document.getElementById("titleScreen").classList.add("hidden");
+    document.getElementById("onlineLobbyScreen").classList.remove("hidden");
+  }
+
+  async function createOnlineRoom() {
+    if (!supabaseClient) return alert("Supabaseに接続されていません");
+    
+    const codeInput = document.getElementById("onlineRoomCodeInput").value.trim();
+    const roomCode = codeInput || Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    onlineRoomId = "ROOM_" + roomCode;
+    onlineMyRole = 'player1';
+    hasDrawnThisTurn = true;
+    window.gameState.mode = "online";
+    window.gameState.isGameStarted = false;
+
+    const myName = window.userProfile?.name || "プレイヤー";
+    const deckIds = window.userProfile?.deck || [];
+    const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
+
+    window.gameState.my.hand = fullDeck.slice(0, 5);
+    window.gameState.my.deck = fullDeck.slice(5);
+
+    document.getElementById("onlineStatusText").textContent = `部屋作成中: ${roomCode}`;
+
+    await supabaseClient.from('rooms').delete().eq('id', onlineRoomId);
+
+    const { error } = await supabaseClient.from('rooms').insert([{
+      id: onlineRoomId,
+      status: 'waiting',
+      current_turn: 'player1',
+      p1_name: myName,
+      p1_rate: window.userProfile.rate || 1000,
+      p1_hp: 60,
+      p1_deck_count: window.gameState.my.deck.length,
+      p2_hp: 60,
+      p2_deck_count: 15,
+      updated_at: new Date().toISOString()
+    }]);
+
+    if (error) {
+      alert("部屋の作成に失敗しました: " + error.message);
+      return;
+    }
+
+    document.getElementById("onlineLobbyScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+    
+    const modeBanner = document.getElementById("modeBanner");
+    if (modeBanner) modeBanner.textContent = `🌐 フリー対戦 (合言葉: ${roomCode})`;
+
+    const logArea = document.getElementById("logArea");
+    if (logArea) logArea.innerHTML = "";
+    addLog(`⏳ 合言葉【${roomCode}】で部屋を作成しました。相手の参加を待っています...`, "important");
+
+    subscribeRoomUpdates();
+    updateUI();
+  }
+  window.createOnlineRoom = createOnlineRoom;
+
+  async function joinOnlineRoom() {
+    if (!supabaseClient) return alert("Supabaseに接続されていません");
+
+    const codeInput = document.getElementById("onlineRoomCodeInput").value.trim();
+    if (!codeInput) {
+      alert("合言葉（6桁のコード）を入力してください。");
+      return;
+    }
+
+    const roomId = "ROOM_" + codeInput.toUpperCase();
+    const myName = window.userProfile?.name || "プレイヤー";
+
+    const { data: room, error } = await supabaseClient
+      .from('rooms')
+      .select('*')
+      .eq('id', roomId)
+      .maybeSingle();
+
+    if (error || !room) {
+      alert("指定された合言葉の部屋が見つかりません。");
+      return;
+    }
+
+    onlineRoomId = roomId;
+    onlineMyRole = 'player2';
+    hasDrawnThisTurn = false;
+    window.gameState.mode = "online";
+    window.gameState.isGameStarted = true;
+
+    const deckIds = window.userProfile?.deck || [];
+    const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
+
+    window.gameState.my.hand = fullDeck.slice(0, 5);
+    window.gameState.my.deck = fullDeck.slice(5);
+
+    await supabaseClient.from('rooms').update({
+      status: 'playing',
+      p2_name: myName,
+      p2_rate: window.userProfile.rate || 1000,
+      p2_hp: 60,
+      p2_deck_count: window.gameState.my.deck.length,
+      updated_at: new Date().toISOString()
+    }).eq('id', roomId);
+
+    document.getElementById("onlineLobbyScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+
+    const modeBanner = document.getElementById("modeBanner");
+    if (modeBanner) modeBanner.textContent = `🌐 フリー対戦 (合言葉: ${codeInput.toUpperCase()})`;
+
+    const logArea = document.getElementById("logArea");
+    if (logArea) logArea.innerHTML = "";
+    addLog(`⚔️ 合言葉【${codeInput.toUpperCase()}】の部屋に参加しました！対戦開始！`, "effective");
+
+    subscribeRoomUpdates();
+    updateUI();
+  }
+  window.joinOnlineRoom = joinOnlineRoom;
+
+  function drawGachaCard() {
+    const rand = Math.random() * 100;
+    let targetRarity = 1;
+
+    if (rand < 10) {
+      targetRarity = 3;
+    } else if (rand < 40) {
+      targetRarity = 2;
+    } else {
+      targetRarity = 1;
+    }
+
+    const candidates = CARD_DATABASE.filter(c => (c.rarity || 1) === targetRarity && !c.isToken);
+    let selectedCard = candidates[Math.floor(Math.random() * candidates.length)];
+    if (!selectedCard) {
+      const fallbackCandidates = CARD_DATABASE.filter(c => !c.isToken);
+      selectedCard = fallbackCandidates[Math.floor(Math.random() * fallbackCandidates.length)];
+    }
+
+    const cardInstance = JSON.parse(JSON.stringify(selectedCard));
+
+    if (targetRarity === 3) {
+      if (Math.random() < 0.000001) {
+        cardInstance.isRainbow = true;
+        cardInstance.name = `🌈 ${cardInstance.name}`;
+      }
+    }
+
+    return cardInstance;
+  }
+
+  function executeGacha(count = 1) {
+    const cost = count * 100;
+    if (window.userProfile.coins < cost) {
+      alert(`コインが足りません！（必要: ${cost} pt / 所持: ${window.userProfile.coins} pt）`);
+      return;
+    }
+
+    window.userProfile.coins -= cost;
+
+    const drawnCards = [];
+    for (let i = 0; i < count; i++) {
+      const card = drawGachaCard();
+      drawnCards.push(card);
+      window.userProfile.inventory.push(card.isRainbow ? card : card.id);
+    }
+
+    saveUserProfile();
+    showGachaResultModal(drawnCards);
+  }
+  window.executeGacha = executeGacha;
+
+  function showGachaResultModal(cards) {
+    const container = document.getElementById("gachaResultContainer");
+    container.innerHTML = "";
+
+    cards.forEach(card => {
+      const cardDiv = renderCardDOM(card, "", null);
+      container.appendChild(cardDiv);
+    });
+
+    document.getElementById("gachaResultModal").classList.add("active");
+  }
+
+  function closeGachaResultModal() {
+    document.getElementById("gachaResultModal").classList.remove("active");
+    updateTitleStatsUI();
+  }
+  window.closeGachaResultModal = closeGachaResultModal;
+
+  function subscribeRoomUpdates() {
+    if (!onlineRoomId || !supabaseClient) return;
+
+    if (typeof roomChannel !== 'undefined' && roomChannel) {
+      supabaseClient.removeChannel(roomChannel);
+    }
+
+    roomChannel = supabaseClient
+      .channel('room-' + onlineRoomId)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'rooms',
+        filter: `id=eq.${onlineRoomId}`
+      }, (payload) => {
+        if (payload.new) {
+          if (!window.gameState.isGameStarted && payload.new.status === 'playing') {
+            window.gameState.isGameStarted = true;
+            if (roomHeartbeatInterval) {
+              clearInterval(roomHeartbeatInterval);
+              roomHeartbeatInterval = null;
+            }
+            addLog("🎉 対戦相手が参加しました！バトル開始！", "effective");
+          }
+          applyRoomData(payload.new);
+        }
+      })
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log("Supabase Realtime 接続完了");
+        } else if (err) {
+          addLog(`⚠️ 通信エラー: ${err.message}`, "damage");
+        }
+      });
+  }
+  window.subscribeRoomUpdates = subscribeRoomUpdates;
+
+  function triggerOpponentSurrenderWin() {
+    if (window.gameState.isGameEnded) return;
+    window.gameState.isGameEnded = true;
+
+    if (roomPollingInterval) clearInterval(roomPollingInterval);
+    if (roomHeartbeatInterval) clearInterval(roomHeartbeatInterval);
+
+    let rateLogMsg = "";
+    if (window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
+      const myRate = window.userProfile.rate || 1000;
+      const oppRate = onlineOppRate || 1000;
+      const rateChange = calculateRateChange(myRate, oppRate, true);
+
+      window.userProfile.rate = Math.max(0, myRate + rateChange);
+      const sign = rateChange >= 0 ? "+" : "";
+      rateLogMsg = ` [レート: ${myRate} ➔ ${window.userProfile.rate} (${sign}${rateChange})]`;
+
+      if (window.gameState.mode === "event_ranked") {
+        updateEventParticipantStats(true);
+      }
+    }
+
+    window.userProfile.wins++;
+    const rewardCoins = 100;
+    window.userProfile.coins = (window.userProfile.coins || 0) + rewardCoins;
+    saveUserProfile();
+
+    showEndModal(`🎉 相手の降参により勝利！ (+${rewardCoins} pt獲得)${rateLogMsg}`, "タイトルへ戻る");
+  }
+
+  function applyRoomData(roomData) {
+    if (!roomData || window.gameState.isGameEnded) return;
+
+    try {
+      const isP1 = onlineMyRole === 'player1';
+      const mePrefix = isP1 ? 'p1' : 'p2';
+      const oppPrefix = isP1 ? 'p2' : 'p1';
+
+      const isOppSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
+      if (isOppSurrendered) {
+        addLog(`🏳️ 対戦相手が降参しました！`, "effective");
+        window.gameState.opp.hp = 0;
+        updateUI();
+        triggerOpponentSurrenderWin();
+        return;
+      }
+
+      const prevTurn = window.gameState.turn;
+      const newTurnRole = roomData.current_turn === 'player1' ? (isP1 ? 'player' : 'opp') : (isP1 ? 'opp' : 'player');
+      
+      if (prevTurn !== 'player' && newTurnRole === 'player') {
+        const myMaxMp = window.gameState.my.maxMp || 40;
+        window.gameState.my.mp = Math.min(myMaxMp, window.gameState.my.mp + 5);
+        
+        if (window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
+          window.gameState.my.hand.push(window.gameState.my.deck.shift());
+          addLog(`山札からカードを1枚引きました。（残山札:${window.gameState.my.deck.length}枚）`);
+        }
+
+        window.gameState.my.monsters.forEach(m => {
+          if (m) {
+            if (m.isStunned) {
+              m.isStunned = false;
+              m.canAttack = false;
+              addLog(`🌀 あなたの【${m.name}】は行動不能から回復したが、このターンは行動できない！`);
+            } else {
+              m.canAttack = true;
+            }
+          }
+        });
+        addLog(`--- あなたのターン ---`, "important");
+        syncOnlineAction();
+      }
+
+      if (prevTurn !== 'opp' && newTurnRole === 'opp') {
+        const oppMaxMp = window.gameState.opp.maxMp || 40;
+        window.gameState.opp.mp = Math.min(oppMaxMp, (window.gameState.opp.mp || 5) + 5);
+        addLog(`--- ${roomData[`${oppPrefix}_name`] || '対戦相手'} のターン ---`);
+      }
+
+      window.gameState.turn = newTurnRole;
+
+      window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 60;
+      
+      const rawMyMonsters = roomData[`${mePrefix}_field`] || [null, null, null, null, null];
+      window.gameState.my.monsters = rawMyMonsters.map((m, idx) => {
+        if (!m) return null;
+        const currentLocal = window.gameState.my.monsters[idx];
+        const baseCard = typeof CARD_DATABASE !== 'undefined' ? CARD_DATABASE.find(c => c.id === m.id) : null;
+        const merged = { ...(baseCard || {}), ...m };
+
+        if (newTurnRole === 'player') {
+          if (currentLocal && currentLocal.canAttack !== undefined) {
+            merged.canAttack = currentLocal.canAttack;
+          } else if (!merged.isStunned && !merged.cannotAttack) {
+            merged.canAttack = true;
+          }
+        }
+        return merged;
+      });
+
+      window.gameState.my.rate = roomData[`${mePrefix}_rate`] || window.userProfile.rate || 1000;
+
+      const fetchedOppName = roomData[`${oppPrefix}_name`];
+      window.gameState.opp.name = fetchedOppName ? fetchedOppName : "対戦相手";
+      window.gameState.opp.hp = roomData[`${oppPrefix}_hp`] ?? 60;
+      onlineOppRate = roomData[`${oppPrefix}_rate`] || 1000;
+      onlineOppDeckCount = roomData[`${oppPrefix}_deck_count`] ?? 15;
+      
+      const rawOppMonsters = roomData[`${oppPrefix}_field`] || [null, null, null, null, null];
+      window.gameState.opp.monsters = rawOppMonsters.map(m => {
+        if (!m) return null;
+        const baseCard = typeof CARD_DATABASE !== 'undefined' ? CARD_DATABASE.find(c => c.id === m.id) : null;
+        return { ...(baseCard || {}), ...m };
+      });
+
+      updateUI();
+      checkWinLoss();
+
+    } catch (e) {
+      console.error("applyRoomData同期エラー:", e);
+    }
+  }
+
+  async function searchRankedMatch(isEvent = false) {
+    try {
+      if (roomHeartbeatInterval) {
+        clearInterval(roomHeartbeatInterval);
+        roomHeartbeatInterval = null;
+      }
+
+      window.gameState.mode = isEvent ? "event_ranked" : "ranked";
+      window.gameState.isGameEnded = false;
+      const myName = window.userProfile?.name || "プレイヤー";
+      const deckIds = window.userProfile?.deck || [1, 2, 3, 4, 5];
+
+      document.getElementById("titleScreen").classList.add("hidden");
+      document.getElementById("gameScreen").classList.remove("hidden");
+      
+      const modeBanner = document.getElementById("modeBanner");
+      if (modeBanner) {
+        modeBanner.textContent = isEvent ? "🔥 イベントランクマッチ" : "⚔️ 通常ランクマッチ";
+      }
+
+      const logArea = document.getElementById("logArea");
+      if (logArea) logArea.innerHTML = "";
+      addLog(`🔍 [${isEvent ? 'イベント' : '通常'}ランクマッチ] 対戦相手を探しています...`, "important");
+
+      await supabaseClient
+        .from('rooms')
+        .delete()
+        .eq('p1_name', myName)
+        .eq('status', 'waiting');
+
+      const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000).toISOString();
+
+      const { data: waitingRooms, error: fetchErr } = await supabaseClient
+        .from('rooms')
+        .select('*')
+        .eq('status', 'waiting')
+        .gt('updated_at', oneMinuteAgo)
+        .order('updated_at', { ascending: false });
+
+      if (fetchErr) {
+        addLog(`⚠️ 部屋検索エラー: ${fetchErr.message}`, "damage");
+      }
+
+      const validOpponentRoom = (waitingRooms && waitingRooms.length > 0)
+        ? waitingRooms.find(r => r.p1_name !== myName)
+        : null;
+
+      if (validOpponentRoom) {
+        onlineRoomId = validOpponentRoom.id;
+        onlineMyRole = 'player2';
+        hasDrawnThisTurn = false;
+        window.gameState.isGameStarted = true;
+
+        const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
+        window.gameState.my.hand = fullDeck.slice(0, 5);
+        window.gameState.my.deck = fullDeck.slice(5);
+        window.gameState.my.mp = 5;
+        window.gameState.my.maxMp = 40;
+        window.gameState.opp.mp = 5;
+        window.gameState.opp.maxMp = 40;
+
+        window.gameState.opp.name = validOpponentRoom.p1_name || "対戦相手";
+        onlineOppRate = validOpponentRoom.p1_rate || 1000;
+
+        const { error: updateErr } = await supabaseClient.from('rooms').update({
+          status: 'playing',
+          p2_name: myName,
+          p2_rate: window.userProfile.rate || 1000,
+          p2_hp: 60,
+          p2_deck_count: window.gameState.my.deck.length,
+          updated_at: new Date().toISOString()
+        }).eq('id', onlineRoomId);
+
+        if (updateErr) {
+          addLog(`⚠️ 部屋参加エラー: ${updateErr.message}`, "damage");
+        } else {
+          addLog(`⚔️ 対戦相手【${window.gameState.opp.name}】とマッチングしました！`, "effective");
+        }
+
+        subscribeRoomUpdates();
+
+      } else {
+        onlineRoomId = "ROOM_" + Math.random().toString(36).substring(2, 8).toUpperCase();
+        onlineMyRole = 'player1';
+        hasDrawnThisTurn = true;
+        window.gameState.isGameStarted = false;
+
+        const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
+        window.gameState.my.hand = fullDeck.slice(0, 5);
+        window.gameState.my.deck = fullDeck.slice(5);
+        window.gameState.my.mp = 5;
+        window.gameState.my.maxMp = 40;
+        window.gameState.opp.mp = 5;
+        window.gameState.opp.maxMp = 40;
+
+        const { error: insertErr } = await supabaseClient.from('rooms').insert([{
+          id: onlineRoomId,
+          status: 'waiting',
+          current_turn: 'player1',
+          p1_name: myName,
+          p1_rate: window.userProfile.rate || 1000,
+          p1_hp: 60,
+          p1_deck_count: window.gameState.my.deck.length,
+          p2_hp: 60,
+          p2_deck_count: 15,
+          updated_at: new Date().toISOString()
+        }]);
+
+        if (insertErr) {
+          addLog(`⚠️ 部屋作成エラー: ${insertErr.message}`, "damage");
+        } else {
+          addLog(`⏳ 待機部屋を作成しました (${onlineRoomId})。相手の参加を待っています...`, "important");
+          
+          roomHeartbeatInterval = setInterval(async () => {
+            if (onlineRoomId && !window.gameState.isGameStarted) {
+              await supabaseClient.from('rooms').update({
+                updated_at: new Date().toISOString()
+              }).eq('id', onlineRoomId);
+            } else {
+              clearInterval(roomHeartbeatInterval);
+              roomHeartbeatInterval = null;
+            }
+          }, 10000);
+        }
+
+        subscribeRoomUpdates();
+      }
+
+      updateUI();
+
+    } catch (err) {
+      addLog(`❌ エラーが発生しました: ${err.message}`, "damage");
+    }
+  }
+  window.searchRankedMatch = searchRankedMatch;
+
+  async function syncOnlineAction() {
+    if (!supabaseClient || !onlineRoomId) return;
+
+    const isP1 = onlineMyRole === 'player1';
+    const mePrefix = isP1 ? 'p1' : 'p2';
+    const oppPrefix = isP1 ? 'p2' : 'p1';
+
+    const handIds = window.gameState.my.hand.map(c => typeof c === 'object' ? c.id : c);
+
+    const updateObj = {
+      [`${mePrefix}_hp`]: window.gameState.my.hp,
+      [`${mePrefix}_field`]: window.gameState.my.monsters,
+      [`${mePrefix}_hand`]: handIds,
+      [`${mePrefix}_deck_count`]: window.gameState.my.deck.length,
+      [`${mePrefix}_rate`]: window.userProfile.rate,
+      [`${oppPrefix}_hp`]: window.gameState.opp.hp,
+      [`${oppPrefix}_field`]: window.gameState.opp.monsters,
+      updated_at: new Date().toISOString()
+    };
+
+    await supabaseClient.from('rooms').update(updateObj).eq('id', onlineRoomId);
+  }
+
+  function startCasualGame(diffKey) {
+    window.gameState.mode = "casual";
+    window.gameState.currentDifficulty = diffKey;
+    window.gameState.isGameEnded = false;
+    document.getElementById("casualSelectScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+    initGame();
+  }
+  window.startCasualGame = startCasualGame;
+
+  function startGauntletMode() {
+    window.gameState.mode = "gauntlet";
+    window.gameState.gauntletStage = 0;
+    window.gameState.isGameEnded = false;
+    document.getElementById("titleScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+    startGauntletStage();
+  }
+
+  function startGauntletStage() {
+    if (typeof GAUNTLET_STAGES !== 'undefined' && GAUNTLET_STAGES[window.gameState.gauntletStage]) {
+      const stageInfo = GAUNTLET_STAGES[window.gameState.gauntletStage];
+      window.gameState.currentDifficulty = stageInfo.diff;
+    }
+    initGame();
+  }
+
+  function handleTowerButtonClick() {
+    if (window.userProfile.towerInProgress) {
+      if (confirm(`第 ${window.userProfile.towerFloor} 階から再開しますか？\n(「キャンセル」を押すと第1階からやり直します)`)) {
+        startTowerMode(window.userProfile.towerFloor);
+      } else {
+        startTowerMode(1);
+      }
+    } else {
+      startTowerMode(1);
+    }
+  }
+
+  function startTowerMode(floor) {
+    window.gameState.mode = "tower";
+    window.userProfile.towerFloor = floor;
+    window.userProfile.towerInProgress = true;
+    saveUserProfile();
+
+    if (floor <= 20) {
+      window.gameState.currentDifficulty = "easy";
+    } else if (floor <= 40) {
+      window.gameState.currentDifficulty = "normal";
+    } else {
+      window.gameState.currentDifficulty = "hard";
+    }
+
+    window.gameState.isGameEnded = false;
+    document.getElementById("titleScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+
+    initGame();
+  }
+
+  function handleDraftButtonClick() {
+    if (window.userProfile.draftInProgress) {
+      if (confirm(`第 ${window.userProfile.draftFloor} 階から再開しますか？\n(「キャンセル」を押すと新デッキで第1階からやり直します)`)) {
+        startDraftGame(window.userProfile.draftFloor);
+      } else {
+        startNewDraftSetup();
+      }
+    } else {
+      startNewDraftSetup();
+    }
+  }
+
+  function startNewDraftSetup() {
+    window.userProfile.draftFloor = 1;
+    window.userProfile.draftInProgress = true;
+    window.userProfile.draftDeck = [];
+    saveUserProfile();
+    showDraftPickStep();
+  }
+
+  function showDraftPickStep() {
+    const modal = document.getElementById("draftPickModal");
+    const container = document.getElementById("draftPickContainer");
+    const progress = document.getElementById("draftDeckProgress");
+
+    container.innerHTML = "";
+    const currentCount = window.userProfile.draftDeck.length;
+    progress.textContent = `デッキ枚数: ${currentCount} / 20枚`;
+
+    const pool = CARD_DATABASE.filter(c => !c.isToken);
+    for (let i = 0; i < 3; i++) {
+      const randCard = pool[Math.floor(Math.random() * pool.length)];
+      container.appendChild(renderCardDOM(randCard, "選択", () => {
+        window.userProfile.draftDeck.push(randCard.id);
+        if (window.userProfile.draftDeck.length < 20) {
+          showDraftPickStep();
+        } else {
+          modal.classList.remove("active");
+          saveUserProfile();
+          startDraftGame(1);
+        }
+      }));
+    }
+    modal.classList.add("active");
+  }
+
+  function showDraftUpgradeStep() {
+    const modal = document.getElementById("draftPickModal");
+    const container = document.getElementById("draftPickContainer");
+    const progress = document.getElementById("draftDeckProgress");
+    
+    document.getElementById("draftModalTitle").textContent = "🎉 5戦クリア！ デッキ強化タイム";
+    document.getElementById("draftModalDesc").textContent = "追加したい強力なカードを1枚選んでください";
+    progress.textContent = `現在のデッキ枚数: ${window.userProfile.draftDeck.length}枚`;
+    container.innerHTML = "";
+
+    const pool = CARD_DATABASE.filter(c => !c.isToken);
+    for (let i = 0; i < 3; i++) {
+      const randCard = pool[Math.floor(Math.random() * pool.length)];
+      container.appendChild(renderCardDOM(randCard, "追加", () => {
+        window.userProfile.draftDeck.push(randCard.id);
+        saveUserProfile();
+        showDraftRemoveStep(randCard);
+      }));
+    }
+    modal.classList.add("active");
+  }
+
+  function showDraftRemoveStep(addedCard) {
+    const modal = document.getElementById("draftPickModal");
+    const container = document.getElementById("draftPickContainer");
+    const progress = document.getElementById("draftDeckProgress");
+
+    document.getElementById("draftModalTitle").textContent = "🗑️ デッキ調整（1枚除外）";
+    document.getElementById("draftModalDesc").textContent = `【${addedCard.name}】を追加しました。デッキから不要なカードを1枚選んで捨ててください。`;
+    progress.textContent = `調整後の目標枚数: 20枚 (現在: ${window.userProfile.draftDeck.length}枚)`;
+    
+    container.innerHTML = "";
+    container.style.maxHeight = "320px";
+    container.style.overflowY = "auto";
+
+    window.userProfile.draftDeck.forEach((cardId, index) => {
+      const cardData = CARD_DATABASE.find(c => c.id === cardId);
+      if (cardData) {
+        container.appendChild(renderCardDOM(cardData, "捨てる", () => {
+          window.userProfile.draftDeck.splice(index, 1);
+          saveUserProfile();
+
+          container.style.maxHeight = "";
+          container.style.overflowY = "";
+          document.getElementById("draftModalTitle").textContent = "🎲 1枚選んでデッキに追加";
+          document.getElementById("draftModalDesc").textContent = "カードをタップしてデッキに編成しよう";
+          modal.classList.remove("active");
+
+          startDraftGame(window.userProfile.draftFloor);
+        }));
+      }
+    });
+  }
+
+  function startDraftGame(floor) {
+    window.gameState.mode = "draft";
+    window.userProfile.draftFloor = floor;
+    window.userProfile.draftInProgress = true;
+    saveUserProfile();
+
+    if (floor <= 20) {
+      window.gameState.currentDifficulty = "easy";
+    } else if (floor <= 40) {
+      window.gameState.currentDifficulty = "normal";
+    } else {
+      window.gameState.currentDifficulty = "hard";
+    }
+
+    window.gameState.isGameEnded = false;
+    document.getElementById("titleScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+
+    initGame();
+  }
+
+  function openDeckEditor() {
+    document.getElementById("titleScreen").classList.add("hidden");
+    document.getElementById("deckScreen").classList.remove("hidden");
+    renderDeckEditor();
+  }
+
+  function renderCardDOM(cardData, badgeText, clickHandler, isUnowned = false) {
+    const elemInfo = window.ELEMENTS[cardData.elem] || { name: "無", icon: "⚪", class: "" };
+    const rarityNum = cardData.rarity || 1;
+    const rarityStars = "★".repeat(rarityNum);
+    
+    const cardDiv = document.createElement("div");
+    const rainbowClass = cardData.isRainbow ? 'rainbow-card' : '';
+    cardDiv.className = `card ${isUnowned ? '' : cardData.type} ${rainbowClass}`;
+
+    if (isUnowned) {
+      cardDiv.style.opacity = "0.5";
+      cardDiv.style.borderColor = "#555";
+      cardDiv.style.background = "#181822";
+      
+      const badgeHTML = badgeText ? `<div class="card-count-badge" style="background:#555;">${badgeText}</div>` : '';
+
+      cardDiv.innerHTML = `
+        ${badgeHTML}
+        <div class="card-top-row">
+          <div class="card-elem" style="color:#777;">❓ 未所持</div>
+          <div class="card-rarity">${rarityStars}</div>
+        </div>
+        <div class="card-title" style="color:#aaa;">${cardData.name}</div>
+        <div class="card-img-container" style="background:rgba(0,0,0,0.6);">
+          <span class="icon-fallback" style="filter:grayscale(1); opacity:0.3;">🔒</span>
+        </div>
+        <div class="card-cost" style="color:#777;">MP: ??</div>
+        <div class="card-desc" style="color:#666; font-style:italic; margin-top:8px;">ガチャで入手すると解放されます</div>
+        <div class="card-type" style="background:rgba(255,255,255,0.05); color:#777;">未所持</div>
+      `;
+      return cardDiv;
+    }
+
+    let longPressTimer = null;
+    let isLongPressAction = false;
+    const LONG_PRESS_DURATION = 500;
+
+    if (clickHandler) {
+      cardDiv.addEventListener("touchstart", (e) => {
+        isLongPressAction = false;
+        longPressTimer = setTimeout(() => {
+          isLongPressAction = true;
+          openCardZoomModal(cardData);
+        }, LONG_PRESS_DURATION);
+      }, { passive: true });
+
+      cardDiv.addEventListener("touchend", (e) => {
+        clearTimeout(longPressTimer);
+        if (!isLongPressAction) {
+          clickHandler(e);
+        }
+      });
+
+      cardDiv.addEventListener("touchmove", () => {
+        clearTimeout(longPressTimer);
+      }, { passive: true });
+
+      cardDiv.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
+        isLongPressAction = false;
+        longPressTimer = setTimeout(() => {
+          isLongPressAction = true;
+          openCardZoomModal(cardData);
+        }, LONG_PRESS_DURATION);
+      });
+
+      cardDiv.addEventListener("mouseup", (e) => {
+        if (e.button !== 0) return;
+        clearTimeout(longPressTimer);
+        if (!isLongPressAction) {
+          clickHandler(e);
+        }
+      });
+
+      cardDiv.addEventListener("mouseleave", () => {
+        clearTimeout(longPressTimer);
+      });
+
+      cardDiv.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        openCardZoomModal(cardData);
+      });
+    } else {
+      cardDiv.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        openCardZoomModal(cardData);
+      });
+    }
+
+    let statsText = '';
+    if (cardData.type === 'monster') {
+      statsText = `<div class="card-stats-badge">ATK:${cardData.atk}|HP:${cardData.hp}</div>`;
+    } else if (cardData.type === 'weapon') {
+      statsText = `<div class="card-stats-badge">ATK:+${cardData.atk}</div>`;
+    }
+
+    const imgHTML = cardData.image 
+      ? `<div class="card-img-container"><img src="${cardData.image}" alt="${cardData.name}"></div>`
+      : `<div class="card-img-container"><span class="icon-fallback">${cardData.icon || '⚔️'}</span></div>`;
+
+    const flavorHTML = cardData.flavor ? `<div class="card-flavor">${cardData.flavor}</div>` : '';
+    const badgeHTML = badgeText ? `<div class="card-count-badge">${badgeText}</div>` : '';
+
+    cardDiv.innerHTML = `
+      ${badgeHTML}
+      <div class="card-top-row">
+        <div class="card-elem ${elemInfo.class}">${elemInfo.icon} ${elemInfo.name}</div>
+        <div class="card-rarity">${rarityStars}</div>
+      </div>
+      <div class="card-title">${cardData.name}</div>
+      ${imgHTML}
+      <div class="card-cost">${cardData.costMp ? 'MP:' + cardData.costMp : '無'}</div>
+      ${statsText}
+      <div class="card-desc">${cardData.desc || ''}</div>
+      ${flavorHTML}
+      <div class="card-type">${cardData.type === 'monster' ? '召喚' : cardData.type === 'weapon' ? '装備' : '魔法'}</div>
+    `;
+    return cardDiv;
+  }
+
+  function renderDeckEditor() {
+    const deckBadge = document.getElementById("deckCountBadge");
+    const currentDeck = window.userProfile.deck || [];
+    deckBadge.textContent = `${currentDeck.length}/20枚`;
+    deckBadge.className = currentDeck.length === 20 ? "deck-count valid" : "deck-count invalid";
+
+    const deckContainer = document.getElementById("currentDeckContainer");
+    deckContainer.innerHTML = "";
+
+    const deckCounts = {};
+    currentDeck.forEach(id => {
+      const cardKey = typeof id === 'object' ? id.id : id;
+      deckCounts[cardKey] = (deckCounts[cardKey] || 0) + 1;
+    });
+
+    Object.keys(deckCounts).forEach(id => {
+      const cardData = CARD_DATABASE.find(c => c.id === id);
+      if (cardData) {
+        const cardDiv = renderCardDOM(cardData, `${deckCounts[id]}枚`, () => removeCardFromDeck(id));
+        deckContainer.appendChild(cardDiv);
+      }
+    });
+
+    const catalogContainer = document.getElementById("cardCatalogContainer");
+    catalogContainer.innerHTML = "";
+
+    const inventory = window.userProfile.inventory || [];
+    const ownedCounts = {};
+    inventory.forEach(item => {
+      const id = typeof item === 'object' ? item.id : item;
+      ownedCounts[id] = (ownedCounts[id] || 0) + 1;
+    });
+
+    CARD_DATABASE.forEach(cardData => {
+      if (!cardData || cardData.isToken) return;
+
+      const id = cardData.id;
+      const count = ownedCounts[id] || 0;
+
+      if (count > 0) {
+        const inDeckCount = currentDeck.filter(cardId => (typeof cardId === 'object' ? cardId.id : cardId) === id).length;
+        const cardDiv = renderCardDOM(cardData, `${inDeckCount}/${count}`, () => addCardToDeck(id));
+        catalogContainer.appendChild(cardDiv);
+      } else {
+        const cardDiv = renderCardDOM(cardData, "0枚", null, true);
+        catalogContainer.appendChild(cardDiv);
+      }
+    });
+  }
+
+  function addCardToDeck(id) {
+    if (window.userProfile.deck.length >= 20) { alert("デッキは20枚を超えられません！"); return; }
+    
+    const cardData = CARD_DATABASE.find(c => c.id === id);
+    if (!cardData) return;
+
+    const ownedCount = window.userProfile.inventory.filter(item => (typeof item === 'object' ? item.id : item) === id).length;
+    const countInDeck = window.userProfile.deck.filter(cardId => (typeof cardId === 'object' ? cardId.id : cardId) === id).length;
+
+    if (countInDeck >= ownedCount) {
+      alert("このカードの所持枚数上限に達しています！ガチャで増やしましょう！");
+      return;
+    }
+
+    const rarity = cardData.rarity || 1;
+    const maxAllowed = (rarity === 2 || rarity === 3) ? 2 : 4;
+
+    if (countInDeck >= maxAllowed) {
+      alert(`⭐${rarity} のカードはデッキに ${maxAllowed} 枚までしか入れられません！`);
+      return;
+    }
+
+    window.userProfile.deck.push(id);
+    renderDeckEditor();
+  }
+
+  function removeCardFromDeck(id) {
+    const idx = window.userProfile.deck.findIndex(item => (typeof item === 'object' ? item.id : item) === id);
+    if (idx !== -1) {
+      window.userProfile.deck.splice(idx, 1);
+      renderDeckEditor();
+    }
+  }
+
+  function saveDeckAndReturn() {
+    if (window.userProfile.deck.length !== 20) { alert("デッキはぴったり20枚である必要があります！"); return; }
+    saveUserProfile();
+    document.getElementById("deckScreen").classList.add("hidden");
+    document.getElementById("titleScreen").classList.remove("hidden");
+  }
+
+  function resetDeckToDefault() {
+    window.userProfile.deck = typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : [];
+    window.userProfile.inventory = [...window.userProfile.deck];
+    saveUserProfile();
+    renderDeckEditor();
+  }
+
+  function buildDeckFromIds(idArray) {
+    const rawDeck = idArray.map(item => {
+      const id = typeof item === 'object' ? item.id : item;
+      const base = CARD_DATABASE.find(c => c.id === id);
+      return typeof item === 'object' ? { ...base, ...item } : { ...base };
+    });
+    for (let i = rawDeck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [rawDeck[i], rawDeck[j]] = [rawDeck[j], rawDeck[i]];
+    }
+    return rawDeck;
+  }
+
+  function initGame() {
+    window.gameState.isGameEnded = false;
+    window.gameState.my.hp = 60;
+    window.gameState.opp.hp = 60;
+
+    window.gameState.my.mp = 5;
+    window.gameState.my.maxMp = 40;
+    window.gameState.opp.mp = 5;
+    window.gameState.opp.maxMp = 40;
+    try { playBGM('battle'); } catch(e){}
+    const cpuPreset = (typeof CPU_PRESETS !== 'undefined' && CPU_PRESETS[window.gameState.currentDifficulty]) 
+      ? CPU_PRESETS[window.gameState.currentDifficulty] 
+      : { name: "CPU", rate: 1200, elem: "fire", deck: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : [] };
+
+    const isPlayerFirst = Math.random() < 0.5;
+    window.gameState.turn = isPlayerFirst ? "player" : "cpu";
+    window.gameState.turnCount = 1;
+    window.gameState.selectedAttackerIdx = null;
+    
+    window.gameState.my.hp = 60; window.gameState.my.maxHp = 60; window.gameState.my.mp = 5; window.gameState.my.maxMp = 40; window.gameState.my.monsters = []; window.gameState.my.elem = "water";
+    window.gameState.my.name = window.userProfile.name;
+    window.gameState.my.rate = window.userProfile.rate || 1000;
+    document.getElementById("myNameDisplay").textContent = window.gameState.my.name;
+
+    window.gameState.opp.name = cpuPreset.name;
+    window.gameState.opp.rate = cpuPreset.rate || 1200;
+    window.gameState.opp.elem = cpuPreset.elem;
+    window.gameState.opp.hp = 60; window.gameState.opp.maxHp = 60; window.gameState.opp.mp = 5; window.gameState.opp.maxMp = 40; window.gameState.opp.monsters = [];
+    document.getElementById("oppNameDisplay").textContent = window.gameState.opp.name;
+
+    const oppElemElem = document.getElementById("oppElem");
+    const eInfo = window.ELEMENTS[cpuPreset.elem] || { name: "無", icon: "⚪", class: "" };
+    oppElemElem.className = `element-badge ${eInfo.class}`;
+    oppElemElem.textContent = `${eInfo.icon} ${eInfo.name}`;
+
+    let deckToUse = window.userProfile.deck;
+    if (window.gameState.mode === "draft") {
+      deckToUse = window.userProfile.draftDeck;
+    }
+
+    const fullMyDeck = buildDeckFromIds(deckToUse);
+    const fullOppDeck = buildDeckFromIds(cpuPreset.deck);
+
+    window.gameState.my.hand = fullMyDeck.slice(0, 5);
+    window.gameState.my.deck = fullMyDeck.slice(5);
+
+    window.gameState.opp.hand = fullOppDeck.slice(0, 5);
+    window.gameState.opp.deck = fullOppDeck.slice(5);
+
+    document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+    document.getElementById("logArea").innerHTML = "";
+
+    let bannerText = "";
+    if (window.gameState.mode === "draft") {
+      bannerText = `🎲 赤城ファクトリー 第${window.userProfile.draftFloor}/50階`;
+    } else if (window.gameState.mode === "tower") {
+      bannerText = `🏰 赤城バトルタワー 第${window.userProfile.towerFloor}/50階`;
+    } else if (window.gameState.mode === "gauntlet") {
+      const gauntletStageText = (typeof GAUNTLET_STAGES !== 'undefined' && GAUNTLET_STAGES[window.gameState.gauntletStage]) ? GAUNTLET_STAGES[window.gameState.gauntletStage].stage : 1;
+      bannerText = `🔥 連戦モード ステージ ${gauntletStageText}/3 : VS ${cpuPreset.name}`;
+    } else {
+      bannerText = `カジュアルモード [${window.gameState.currentDifficulty.toUpperCase()}] VS ${cpuPreset.name}`;
+    }
+      
+    document.getElementById("modeBanner").textContent = `${bannerText} (${isPlayerFirst ? '先攻' : '後攻'})`;
+
+    addLog(`コイントス！ あなたは 【${isPlayerFirst ? '先攻 ⚔️' : '後攻 🛡️'}】 です！`, "important");
+    addLog(`対戦開始！ ${window.gameState.my.name} VS ${window.gameState.opp.name}`, "important");
+
+    updateUI();
+
+    if (!isPlayerFirst) {
+      setTimeout(cpuTurn, 1200);
+    }
+  }
+
+  function addLog(msg, type = "") {
+    const logArea = document.createElement("div");
+    logArea.className = `log-entry ${type}`;
+    logArea.textContent = msg;
+    const logContainer = document.getElementById("logArea");
+    if (logContainer) {
+      logContainer.appendChild(logArea);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+  }
+
+  function showDamagePopup(targetEl, amount, type = "normal") {
+    if (!targetEl) return;
+    
+    const rect = targetEl.getBoundingClientRect();
+    const popup = document.createElement("div");
+    popup.className = `damage-popup ${type}`;
+    popup.textContent = (type === "heal" ? "+" : "-") + amount;
+    
+    popup.style.left = `${rect.left + rect.width / 2}px`;
+    popup.style.top = `${rect.top + rect.height / 3}px`;
+    
+    document.body.appendChild(popup);
+    
+    setTimeout(() => {
+      if (popup.parentNode) popup.parentNode.removeChild(popup);
+    }, 800);
+  }
+
+  function calcDamage(atk, cardElem, targetElem) {
+    const eData = window.ELEMENTS[cardElem];
+    if (eData && eData.strongTo === targetElem) {
+      return { damage: Math.ceil(atk * 1.5), effective: true };
+    }
+    return { damage: atk, effective: false };
+  }
+
+  function updateTokenLifetimes(monsterArray, ownerName) {
+    for (let i = 0; i < monsterArray.length; i++) {
+      const m = monsterArray[i];
+      if (m && m.turnsLeft !== undefined) {
+        m.turnsLeft--;
+        if (m.turnsLeft <= 0) {
+          addLog(`⌛ ${ownerName} の【${m.name}】は3ターン経過し消滅した！`, "important");
+          monsterArray[i] = null;
+        }
+      }
+    }
+  }
+
+  function playCard(index) {
+    if (window.gameState.turn !== "player") return;
+    const card = window.gameState.my.hand[index];
+    if (!card) return;
+
+    if (card.costMp && window.gameState.my.mp < card.costMp) {
+      addLog(`MPが足りません！`, "damage");
+      return;
+    }
+
+    if (card.voice) playVoice(card.voice);
+
+    if (card.type === "monster") {
+      const activeCount = window.gameState.my.monsters.filter(m => m !== null).length;
+      if (activeCount >= 5) {
+        addLog("フィールドには最大5体までしか召喚できません！", "damage");
+        return;
+      }
+
+      if (window.gameState.pendingSummonIndex === index) {
+        window.gameState.pendingSummonIndex = null;
+        addLog("召喚の選択をキャンセルしました。");
+      } else {
+        window.gameState.pendingSummonIndex = index;
+        addLog(`【${card.name}】を出す位置を選択してください。（空いている枠をタップ）`, "important");
+      }
+      updateUI();
+      return;
+    }
+
+    if (card.type === "weapon") {
+      const availableMonsters = window.gameState.my.monsters.filter(m => m !== null);
+      if (availableMonsters.length === 0) {
+        addLog("装備させるモンスターがフィールドに存在しません！", "damage");
+        return;
+      }
+
+      const unequippedIndices = [];
+      window.gameState.my.monsters.forEach((m, i) => { if (m && !m.weapon) unequippedIndices.push(i); });
+
+      if (unequippedIndices.length === 0) {
+        addLog("すでにすべてのモンスターが武器を装備しています！", "damage");
+        return;
+      }
+      
+      if (unequippedIndices.length === 1) {
+        equipWeaponToMonster(index, unequippedIndices[0]);
+        return;
+      } else {
+        openEquipModal(index);
+        return;
+      }
+    }
+
+    if (card.type === "magic") {
+      if (card.summonFromDeck) {
+        const activeCount = window.gameState.my.monsters.filter(m => m !== null).length;
+        if (activeCount >= 5) {
+          addLog("フィールドがいっぱいため緊急召喚できません！", "damage");
+          return;
+        }
+
+        const monsterIndicesInDeck = [];
+        window.gameState.my.deck.forEach((c, dIdx) => {
+          if (c.type === "monster") monsterIndicesInDeck.push(dIdx);
+        });
+
+        if (monsterIndicesInDeck.length === 0) {
+          addLog("山札に召喚可能なモンスターが存在しません！", "damage");
+          return;
+        }
+
+        window.gameState.my.mp -= card.costMp;
+
+        const randomIndex = monsterIndicesInDeck[Math.floor(Math.random() * monsterIndicesInDeck.length)];
+        const summonedCard = window.gameState.my.deck.splice(randomIndex, 1)[0];
+        const summonedCopy = JSON.parse(JSON.stringify(summonedCard));
+
+        const emptySlotIdx = window.gameState.my.monsters.findIndex(m => m === null);
+        const newMonster = { ...summonedCopy, currentHp: summonedCopy.hp, maxHp: summonedCopy.hp, weapon: null, canAttack: true, isStunned: false };
+        if (emptySlotIdx !== -1) {
+          window.gameState.my.monsters[emptySlotIdx] = newMonster;
+        }
+
+        addLog(`🔮【${card.name}】発動！ 山札から【${summonedCard.name}】を緊急召喚！（このターン攻撃可能！）`, "effective");
+        window.gameState.my.hand.splice(index, 1);
+      } else {
+        window.gameState.my.mp -= card.costMp;
+
+        if (card.drawCount) {
+          let drawn = 0;
+          for (let i = 0; i < card.drawCount; i++) {
+            if (window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
+              window.gameState.my.hand.push(window.gameState.my.deck.shift());
+              drawn++;
+            }
+          }
+          if (drawn > 0) {
+            addLog(`🔮【${card.name}】発動！ 山札からカードを ${drawn} 枚引いた！`, "effective");
+          } else {
+            addLog(`🔮【${card.name}】発動！ (手札がいっぱいか山札がありません)`, "damage");
+          }
+        }
+
+        if (card.heal) {
+          window.gameState.my.hp = Math.min(window.gameState.my.maxHp, window.gameState.my.hp + card.heal);
+          addLog(`${card.name}！ HPが ${card.heal} 回復！`);
+
+          const myInfoEl = document.querySelector("#gameScreen .player-area:last-child .pinfo");
+          if (myInfoEl) {
+            showDamagePopup(myInfoEl, card.heal, "heal");
+          }
+        }
+        if (card.mpRecover) {
+          const maxMp = window.gameState.my.maxMp || 40;
+          window.gameState.my.mp = Math.min(maxMp, window.gameState.my.mp + card.mpRecover);
+          addLog(`${card.name}！ MPが ${card.mpRecover} 回復！`);
+        }
+        window.gameState.my.hand.splice(index, 1);
+      }
+    }
+
+    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") syncOnlineAction();
+    else updateUI();
+
+    checkWinLoss();
+  }
+
+  function confirmSummonToSlot(slotIdx) {
+    const handIdx = window.gameState.pendingSummonIndex;
+    if (handIdx === null) return;
+
+    const card = window.gameState.my.hand[handIdx];
+    if (!card) return;
+
+    window.gameState.my.mp -= card.costMp;
+
+    const monsterCopy = JSON.parse(JSON.stringify(card));
+    
+    const newMonster = { 
+      ...monsterCopy, 
+      currentHp: monsterCopy.hp, 
+      maxHp: monsterCopy.hp, 
+      weapon: null, 
+      canAttack: card.hasHaste ? true : false, 
+      isStunned: false,
+      indestructibleUsed: false
+    };
+    window.gameState.my.monsters[slotIdx] = newMonster;
+    window.gameState.pendingSummonIndex = null;
+
+    addLog(`${window.gameState.my.name} は ${slotIdx + 1}番目の枠に 【${card.name}】 を召喚！`, "important");
+
+    if (card.hasHaste) {
+      addLog(`⚡【速攻】${card.name} は召喚したターンから即座に攻撃可能！`, "effective");
+    }
+
+    if (card.shieldOnSummon) {
+      window.gameState.my.hp = Math.min(window.gameState.my.maxHp, window.gameState.my.hp + card.shieldOnSummon);
+      addLog(`✨【召喚効果】${card.name} の効果でHPが ${card.shieldOnSummon} 回復！`, "heal");
+      const myInfoEl = document.querySelector("#gameScreen .player-area:last-child .pinfo");
+      if (myInfoEl) showDamagePopup(myInfoEl, card.shieldOnSummon, "heal");
+    }
+
+    if (card.spawnEnemyTokens) {
+      const tokenCard = CARD_DATABASE.find(c => c.id === "token_blocker");
+      if (tokenCard) {
+        let spawnedCount = 0;
+        for (let i = 0; i < 2; i++) {
+          const emptyOppIdx = window.gameState.opp.monsters.findIndex(m => m === null);
+          if (emptyOppIdx !== -1) {
+            const tokenCopy = JSON.parse(JSON.stringify(tokenCard));
+            window.gameState.opp.monsters[emptyOppIdx] = {
+              ...tokenCopy,
+              currentHp: tokenCopy.hp,
+              maxHp: tokenCopy.hp,
+              weapon: null,
+              canAttack: false,
+              isStunned: false,
+              turnsLeft: tokenCopy.tokenLifetime || 3
+            };
+            spawnedCount++;
+          }
+        }
+
+        if (spawnedCount > 0) {
+          addLog(`🌀【${card.name}】の能力！ 相手の場に【${tokenCard.name}】を ${spawnedCount} 体出現させた！`, "effective");
+        }
+
+        const tokenAmount = window.gameState.opp.monsters.filter(m => m && m.id === "token_blocker").length;
+        if (tokenAmount > 0) {
+          const buffAtk = tokenAmount * 5;
+          newMonster.atk += buffAtk;
+          addLog(`✨ 相手の場の[拘束体] ${tokenAmount} 体につき、【${newMonster.name}】のATKが +${buffAtk} 上昇！（現在ATK:${newMonster.atk}）`, "effective");
+        }
+      }
+    }
+
+    if (card.buffAtk) {
+      let buffedCount = 0;
+      window.gameState.my.monsters.forEach(m => {
+        if (m) {
+          m.atk += card.buffAtk;
+          buffedCount++;
+        }
+      });
+      addLog(`✨【${card.name}】の能力発動！ 味方 ${buffedCount} 体の攻撃力が +${card.buffAtk} 上昇！`, "effective");
+    }
+
+    window.gameState.my.hand.splice(handIdx, 1);
+
+    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") syncOnlineAction();
+    else updateUI();
+
+    checkWinLoss();
+  }
+
+  function selectMyMonsterToAttack(idx) {
+    if (window.gameState.turn !== "player") return;
+    const m = window.gameState.my.monsters[idx];
+    if (!m) return;
+
+    if (m.cannotAttack) {
+      addLog(`【${m.name}】 は攻撃することができません！`, "damage");
+      return;
+    }
+
+    if (m.isStunned) {
+      addLog(`【${m.name}】 は【行動不能】状態のため攻撃できません！`, "damage");
+      return;
+    }
+
+    if (!m.canAttack) {
+      addLog(`【${m.name}】 は【召喚酔い】または行動済みのため攻撃できません！`, "damage");
+      return;
+    }
+
+    if (window.gameState.selectedAttackerIdx === idx) {
+      window.gameState.selectedAttackerIdx = null;
+      addLog(`攻撃選択をキャンセルしました。`);
+    } else {
+      window.gameState.selectedAttackerIdx = idx;
+      addLog(`【${m.name}】を選択中！赤く光る対象をタップしてください。`, "important");
+    }
+    updateUI();
+  }
+
+  function attackEnemyMonster(targetIdx) {
+    if (window.gameState.selectedAttackerIdx === null) return;
+    const attacker = window.gameState.my.monsters[window.gameState.selectedAttackerIdx];
+
+    const tauntMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0 && m.taunt);
+    if (tauntMonsters.length > 0) {
+      const isTargetTaunt = window.gameState.opp.monsters[targetIdx] && window.gameState.opp.monsters[targetIdx].taunt;
+      if (!isTargetTaunt) {
+        addLog(`🛡️ 敵フィールドに【挑発】持ちモンスターが存在するため、そのカードしか攻撃できません！`, "damage");
+        return;
+      }
+    }
+
+    const target = window.gameState.opp.monsters[targetIdx];
+    if (!attacker || !target) return;
+
+    if (attacker.voice) playVoice(attacker.voice);
+
+    let totalAtk = attacker.atk;
+    let attackElem = attacker.elem;
+    if (attacker.weapon) {
+      totalAtk += attacker.weapon.atk;
+      attackElem = attacker.weapon.elem;
+    }
+
+    const calc = calcDamage(totalAtk, attackElem, target.elem);
+    let finalDamage = calc.damage;
+
+    if (target.halfDamage) {
+      finalDamage = Math.floor(finalDamage / 2);
+      addLog(`🛡️【防御効果】敵【${target.name}】の能力で受けるダメージが半減！`, "effective");
+    }
+
+    target.currentHp -= finalDamage;
+    attacker.canAttack = false;
+
+    if (target.currentHp <= 0 && target.indestructibleOnce && !target.indestructibleUsed) {
+      target.currentHp = 1;
+      target.indestructibleUsed = true;
+      addLog(`🔥【食いしばり】敵【${target.name}】は不死鳥の力でHP 1 で踏みとどまった！`, "effective");
+    }
+
+    const targetSlot = document.querySelectorAll("#oppMonsters .monster-slot")[targetIdx];
+    if (targetSlot) {
+      showDamagePopup(targetSlot, finalDamage, calc.effective ? "effective" : "normal");
+    }
+
+    const effLabel = calc.effective ? " 🔥【弱点特効！】" : "";
+    addLog(`【攻撃】${attacker.name} (ATK:${totalAtk}) ➔ 敵【${target.name}】に ${finalDamage} ダメージ！${effLabel}`, calc.effective ? "effective" : "important");
+
+    if (target.reflectDamage && target.currentHp > 0) {
+      attacker.currentHp -= target.reflectDamage;
+      const myAttackerIdx = window.gameState.selectedAttackerIdx;
+      const mySlot = document.querySelectorAll("#myMonsters .monster-slot")[myAttackerIdx];
+      if (mySlot) showDamagePopup(mySlot, target.reflectDamage, "damage");
+      addLog(`⚡【被弾反撃】敵【${target.name}】の反撃装甲！ ${attacker.name} に ${target.reflectDamage} ダメージ！`, "damage");
+      if (attacker.currentHp <= 0 && attacker.indestructibleOnce && !attacker.indestructibleUsed) {
+        attacker.currentHp = 1;
+        attacker.indestructibleUsed = true;
+        addLog(`🔥【食いしばり】あなたの【${attacker.name}】はHP 1 で踏みとどまった！`, "effective");
+      } else if (attacker.currentHp <= 0) {
+        addLog(`💀 被弾反撃によりあなたの【${attacker.name}】は倒された！`, "damage");
+        window.gameState.my.monsters[window.gameState.selectedAttackerIdx] = null;
+      }
+    }
+
+    if (attacker.applyStun && target.currentHp > 0) {
+      target.isStunned = true;
+      addLog(`🌀【状態異常】敵【${target.name}】は1ターンの間【行動不能】になった！`, "effective");
+    }
+
+    if (target.currentHp > 0) {
+      if (!target.isStunned && attacker.currentHp > 0) {
+        let counterAtk = target.atk;
+        let counterElem = target.elem;
+        if (target.weapon) {
+          counterAtk += target.weapon.atk;
+          counterElem = target.weapon.elem;
+        }
+
+        const counterCalc = calcDamage(counterAtk, counterElem, attacker.elem);
+        let counterDamage = counterCalc.damage;
+
+        if (attacker.halfDamage) {
+          counterDamage = Math.floor(counterDamage / 2);
+        }
+
+        attacker.currentHp -= counterDamage;
+
+        if (attacker.currentHp <= 0 && attacker.indestructibleOnce && !attacker.indestructibleUsed) {
+          attacker.currentHp = 1;
+          attacker.indestructibleUsed = true;
+          addLog(`🔥【食いしばり】あなたの【${attacker.name}】はHP 1 で踏みとどまった！`, "effective");
+        }
+
+        const myAttackerIdx = window.gameState.selectedAttackerIdx;
+        const mySlot = document.querySelectorAll("#myMonsters .monster-slot")[myAttackerIdx];
+        if (mySlot) {
+          showDamagePopup(mySlot, counterDamage, counterCalc.effective ? "effective" : "normal");
+        }
+
+        const counterEff = counterCalc.effective ? " ⚡【弱点反撃！】" : "";
+        addLog(`⚔️【反撃】敵【${target.name}】の反撃！ ${attacker.name} に ${counterDamage} ダメージ！${counterEff}`, "damage");
+
+        if (attacker.currentHp <= 0) {
+          addLog(`💀 反撃によりあなたの【${attacker.name}】は倒された！`, "damage");
+          window.gameState.my.monsters[window.gameState.selectedAttackerIdx] = null;
+        }
+      }
+    } else {
+      addLog(`敵の【${target.name}】を撃破した！`, "important");
+      window.gameState.opp.monsters[targetIdx] = null;
+    }
+
+    if (attacker.currentHp > 0 && attacker.splashDamage && window.gameState.opp.monsters.filter(m => Boolean(m) && m.currentHp > 0).length > 0) {
+      const otherMonsters = window.gameState.opp.monsters.filter(m => Boolean(m) && m !== target && m.currentHp > 0);
+      if (otherMonsters.length > 0) {
+        const randomTarget = otherMonsters[Math.floor(Math.random() * otherMonsters.length)];
+        let splashDmg = attacker.splashDamage;
+        if (randomTarget.halfDamage) {
+          splashDmg = Math.floor(splashDmg / 2);
+        }
+        randomTarget.currentHp -= splashDmg;
+
+        if (randomTarget.currentHp <= 0 && randomTarget.indestructibleOnce && !randomTarget.indestructibleUsed) {
+          randomTarget.currentHp = 1;
+          randomTarget.indestructibleUsed = true;
+          addLog(`🔥【食いしばり】敵【${randomTarget.name}】は追撃を HP 1 で耐えた！`, "effective");
+        }
+
+        const splashIdx = window.gameState.opp.monsters.indexOf(randomTarget);
+        if (splashIdx !== -1) {
+          const splashSlot = document.querySelectorAll("#oppMonsters .monster-slot")[splashIdx];
+          if (splashSlot) showDamagePopup(splashSlot, splashDmg, "normal");
+        }
+
+        addLog(`⚡【追加効果】${attacker.name}の追撃！ 敵【${randomTarget.name}】に ${splashDmg} ダメージ！`, "effective");
+        if (randomTarget.currentHp <= 0) {
+          addLog(`敵の【${randomTarget.name}】を追加効果で撃破した！`, "important");
+          const deadIdx = window.gameState.opp.monsters.indexOf(randomTarget);
+          if (deadIdx !== -1) window.gameState.opp.monsters[deadIdx] = null;
+        }
+      }
+    }
+
+    window.gameState.selectedAttackerIdx = null;
+    
+    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") syncOnlineAction();
+    else updateUI();
+
+    checkWinLoss();
+  }
+
+  function attackEnemyPlayer() {
+    if (window.gameState.selectedAttackerIdx === null) return;
+
+    const tauntMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0 && m.taunt);
+    if (tauntMonsters.length > 0) {
+      addLog("🛡️ 敵フィールドに【挑発】持ちモンスターが存在するため直接攻撃できません！", "damage");
+      return;
+    }
+
+    const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0);
+    if (activeOppMonsters.length > 0) {
+      addLog("敵モンスターが存在するため直接攻撃できません！", "damage");
+      return;
+    }
+
+    const attacker = window.gameState.my.monsters[window.gameState.selectedAttackerIdx];
+    if (!attacker) return;
+
+    if (attacker.voice) playVoice(attacker.voice);
+
+    let totalAtk = attacker.atk;
+    let attackElem = attacker.elem;
+    if (attacker.weapon) {
+      totalAtk += attacker.weapon.atk;
+      attackElem = attacker.weapon.elem;
+    }
+
+    const calc = calcDamage(totalAtk, attackElem, window.gameState.opp.elem);
+    window.gameState.opp.hp = Math.max(0, window.gameState.opp.hp - calc.damage);
+    attacker.canAttack = false;
+
+    const oppInfoEl = document.getElementById("oppPlayerInfo");
+    if (oppInfoEl) {
+      showDamagePopup(oppInfoEl, calc.damage, calc.effective ? "effective" : "normal");
+    }
+
+    const effLabel = calc.effective ? " 🔥【弱点特効！】" : "";
+    addLog(`【ダイレクトアタック】${attacker.name} ➔ ${window.gameState.opp.name}に ${calc.damage} ダメージ！${effLabel}`, calc.effective ? "effective" : "important");
+
+    window.gameState.selectedAttackerIdx = null;
+
+    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") syncOnlineAction();
+    else updateUI();
+
+    checkWinLoss();
+  }
+
+  function openEquipModal(handIndex) {
+    window.gameState.pendingWeaponIndex = handIndex;
+    const targetList = document.getElementById("equipTargetList");
+    targetList.innerHTML = "";
+
+    window.gameState.my.monsters.forEach((m, mIdx) => {
+      if (m && !m.weapon) {
+        const btn = document.createElement("button");
+        btn.className = "target-btn";
+        btn.textContent = `${m.icon || '👾'} ${m.name} (ATK:${m.atk})`;
+        btn.onclick = () => {
+          equipWeaponToMonster(window.gameState.pendingWeaponIndex, mIdx);
+          closeEquipModal();
+        };
+        targetList.appendChild(btn);
+      }
+    });
+
+    document.getElementById("equipModal").classList.add("active");
+  }
+
+  function closeEquipModal() {
+    document.getElementById("equipModal").classList.remove("active");
+    window.gameState.pendingWeaponIndex = null;
+  }
+  window.closeEquipModal = closeEquipModal;
+
+  function equipWeaponToMonster(handIndex, monsterIndex) {
+    const card = window.gameState.my.hand[handIndex];
+    const targetMonster = window.gameState.my.monsters[monsterIndex];
+
+    window.gameState.my.mp -= card.costMp;
+    targetMonster.weapon = { ...card };
+    addLog(`${window.gameState.my.name} は 【${targetMonster.name}】 に 【${card.name}】 (+${card.atk}) を装備！`, "important");
+
+    window.gameState.my.hand.splice(handIndex, 1);
+
+    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") syncOnlineAction();
+    else updateUI();
+  }
+
+  async function passTurn() {
+    if (window.gameState.turn !== "player") return;
+
+    window.gameState.selectedAttackerIdx = null;
+    window.gameState.pendingSummonIndex = null;
+    addLog(`--- ターン終了 ---`);
+
+    updateTokenLifetimes(window.gameState.my.monsters, window.gameState.my.name);
+
+    if (checkWinLoss()) return;
+
+    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
+      if (!supabaseClient) return;
+      const nextRole = onlineMyRole === 'player1' ? 'player2' : 'player1';
+      
+      await syncOnlineAction();
+
+      await supabaseClient.from('rooms').update({ 
+        current_turn: nextRole,
+        updated_at: new Date().toISOString()
+      }).eq('id', onlineRoomId);
+      return;
+    }
+
+    window.gameState.turn = "cpu";
+    updateUI();
+    setTimeout(cpuTurn, 1000);
+  }
+
+  function cpuTurn() {
+    addLog(`--- ${window.gameState.opp.name} のターン (${window.gameState.turnCount}ターン目) ---`);
+
+    updateTokenLifetimes(window.gameState.opp.monsters, window.gameState.opp.name);
+
+    const oppMaxMp = window.gameState.opp.maxMp || 40;
+    window.gameState.opp.mp = Math.min(oppMaxMp, (window.gameState.opp.mp || 5) + 2);
+
+    window.gameState.opp.monsters.forEach(m => {
+      if (m) {
+        if (m.isStunned) {
+          m.isStunned = false;
+          m.canAttack = false;
+          addLog(`🌀 敵の【${m.name}】は行動不能から回復したが、このターンは行動できない！`);
+        } else {
+          m.canAttack = true;
+        }
+      }
+    });
+
+    const activeOppCount = window.gameState.opp.monsters.filter(Boolean).length;
+    if (activeOppCount < 5) {
+      const monsterCard = window.gameState.opp.hand.find(c => c.type === "monster" && c.costMp <= window.gameState.opp.mp);
+      if (monsterCard) {
+        const idx = window.gameState.opp.hand.indexOf(monsterCard);
+        window.gameState.opp.mp -= monsterCard.costMp;
+        const cpuMonsterCopy = JSON.parse(JSON.stringify(monsterCard));
+        const newCpuMonster = { 
+          ...cpuMonsterCopy, 
+          currentHp: cpuMonsterCopy.hp, 
+          maxHp: cpuMonsterCopy.hp, 
+          weapon: null, 
+          canAttack: monsterCard.hasHaste ? true : false, 
+          isStunned: false,
+          indestructibleUsed: false
+        };
+        const emptySlotIdx = window.gameState.opp.monsters.findIndex(m => m === null || m === undefined);
+        if (emptySlotIdx !== -1) {
+          window.gameState.opp.monsters[emptySlotIdx] = newCpuMonster;
+        } else {
+          window.gameState.opp.monsters.push(newCpuMonster);
+        }
+
+        window.gameState.opp.hand.splice(idx, 1);
+        addLog(`${window.gameState.opp.name} は 【${monsterCard.name}】 を召喚！`, "important");
+
+        if (monsterCard.hasHaste) {
+          addLog(`⚡【速攻】敵の【${monsterCard.name}】は召喚ターンから即座に攻撃可能！`, "damage");
+        }
+
+        if (monsterCard.shieldOnSummon) {
+          window.gameState.opp.hp = Math.min(window.gameState.opp.maxHp, window.gameState.opp.hp + monsterCard.shieldOnSummon);
+          addLog(`✨【召喚効果】敵【${monsterCard.name}】の回復効果で相手のHPが ${monsterCard.shieldOnSummon} 回復！`, "heal");
+          const oppInfoEl = document.getElementById("oppPlayerInfo");
+          if (oppInfoEl) showDamagePopup(oppInfoEl, monsterCard.shieldOnSummon, "heal");
+        }
+
+        if (monsterCard.spawnEnemyTokens) {
+          const tokenCard = CARD_DATABASE.find(c => c.id === "token_blocker");
+          if (tokenCard) {
+            let spawnedCount = 0;
+            for (let i = 0; i < 2; i++) {
+              const myEmptySlot = window.gameState.my.monsters.findIndex(m => m === null || m === undefined);
+              if (myEmptySlot !== -1) {
+                const tokenCopy = JSON.parse(JSON.stringify(tokenCard));
+                window.gameState.my.monsters[myEmptySlot] = {
+                  ...tokenCopy,
+                  currentHp: tokenCopy.hp,
+                  maxHp: tokenCopy.hp,
+                  weapon: null,
+                  canAttack: false,
+                  isStunned: false,
+                  turnsLeft: tokenCopy.tokenLifetime || 3
+                };
+                spawnedCount++;
+              }
+            }
+
+            if (spawnedCount > 0) {
+              addLog(`🌀 敵【${monsterCard.name}】の能力！ あなたの場に【${tokenCard.name}】を ${spawnedCount} 体出現させた！`, "damage");
+            }
+
+            const tokenAmount = window.gameState.my.monsters.filter(m => m && m.id === "token_blocker").length;
+            if (tokenAmount > 0) {
+              const buffAtk = tokenAmount * 5;
+              newCpuMonster.atk += buffAtk;
+              addLog(`✨ あなたの場の[拘束体] ${tokenAmount} 体につき、敵【${newCpuMonster.name}】のATKが +${buffAtk} 上昇！`, "damage");
+            }
+          }
+        }
+
+        if (monsterCard.buffAtk) {
+          let buffedCount = 0;
+          window.gameState.opp.monsters.forEach(m => {
+            if (m) {
+              m.atk += monsterCard.buffAtk;
+              buffedCount++;
+            }
+          });
+          addLog(`✨ 敵の【${monsterCard.name}】の能力発動！ 敵モンスター ${buffedCount} 体の攻撃力が +${monsterCard.buffAtk} 上昇！`, "damage");
+        }
+      }
+    }
+
+    const unequippedMonster = window.gameState.opp.monsters.find(m => m && !m.weapon && !m.cannotAttack);
+    if (unequippedMonster) {
+      const weaponCard = window.gameState.opp.hand.find(c => c.type === "weapon" && c.costMp <= window.gameState.opp.mp);
+      if (weaponCard) {
+        const idx = window.gameState.opp.hand.indexOf(weaponCard);
+        window.gameState.opp.mp -= weaponCard.costMp;
+        unequippedMonster.weapon = { ...weaponCard };
+        window.gameState.opp.hand.splice(idx, 1);
+        addLog(`${window.gameState.opp.name} は 【${unequippedMonster.name}】 に 【${weaponCard.name}】 を装備！`, "important");
+      }
+    }
+
+    window.gameState.opp.monsters.forEach((m) => {
+      if (!m || m.currentHp <= 0 || !m.canAttack || m.isStunned || m.cannotAttack) return;
+      let totalAtk = m.atk;
+      let attackElem = m.elem;
+      if (m.weapon) {
+        totalAtk += m.weapon.atk;
+        attackElem = m.weapon.elem;
+      }
+
+      let activeMyMonsters = window.gameState.my.monsters.filter(tm => tm !== null && tm !== undefined && tm.currentHp > 0);
+
+      const myTauntMonsters = activeMyMonsters.filter(tm => tm.taunt);
+      if (myTauntMonsters.length > 0) {
+        activeMyMonsters = myTauntMonsters;
+      }
+
+      if (activeMyMonsters.length > 0) {
+        let target = activeMyMonsters[0];
+
+        if (window.gameState.currentDifficulty === "hard") {
+          const effectiveTarget = activeMyMonsters.find(tm => window.ELEMENTS[attackElem] && window.ELEMENTS[attackElem].strongTo === tm.elem);
+          if (effectiveTarget) {
+            target = effectiveTarget;
+          } else {
+            target = activeMyMonsters.reduce((prev, curr) => prev.currentHp < curr.currentHp ? prev : curr);
+          }
+        } else {
+          target = activeMyMonsters.reduce((prev, curr) => prev.currentHp < curr.currentHp ? prev : curr);
+        }
+
+        const calc = calcDamage(totalAtk, attackElem, target.elem);
+        let finalDamage = calc.damage;
+
+        if (target.halfDamage) {
+          finalDamage = Math.floor(finalDamage / 2);
+          addLog(`🛡️【防御効果】あなたの【${target.name}】の能力で受けるダメージが半減！`, "damage");
+        }
+
+        target.currentHp -= finalDamage;
+        m.canAttack = false;
+
+        if (target.currentHp <= 0 && target.indestructibleOnce && !target.indestructibleUsed) {
+          target.currentHp = 1;
+          target.indestructibleUsed = true;
+          addLog(`🔥【食いしばり】あなたの【${target.name}】は不死鳥の力でHP 1 で踏みとどまった！`, "effective");
+        }
+
+        const targetIdxInMy = window.gameState.my.monsters.indexOf(target);
+        if (targetIdxInMy !== -1) {
+          const myTargetSlot = document.querySelectorAll("#myMonsters .monster-slot")[targetIdxInMy];
+          if (myTargetSlot) showDamagePopup(myTargetSlot, finalDamage, calc.effective ? "effective" : "normal");
+        }
+
+        const effLabel = calc.effective ? " ⚡【弱点被弾！】" : "";
+        addLog(`【敵攻撃】${m.name} ➔ 【${target.name}】に ${finalDamage} ダメージ！${effLabel}`, "damage");
+
+        if (target.reflectDamage && target.currentHp > 0) {
+          m.currentHp -= target.reflectDamage;
+          const oppMonsterIdx = window.gameState.opp.monsters.indexOf(m);
+          if (oppMonsterIdx !== -1) {
+            const oppSlot = document.querySelectorAll("#oppMonsters .monster-slot")[oppMonsterIdx];
+            if (oppSlot) showDamagePopup(oppSlot, target.reflectDamage, "effective");
+          }
+          addLog(`⚡【被弾反撃】あなたの【${target.name}】の反撃装甲！ 敵【${m.name}】に ${target.reflectDamage} ダメージ！`, "effective");
+          if (m.currentHp <= 0 && m.indestructibleOnce && !m.indestructibleUsed) {
+            m.currentHp = 1;
+            m.indestructibleUsed = true;
+            addLog(`🔥【食いしばり】敵の【${m.name}】はHP 1 で踏みとどまった！`, "damage");
+          } else if (m.currentHp <= 0) {
+            addLog(`🎉 被弾反撃により敵の【${m.name}】を撃破した！`, "important");
+            const deadOppIdx = window.gameState.opp.monsters.indexOf(m);
+            if (deadOppIdx !== -1) window.gameState.opp.monsters[deadOppIdx] = null;
+          }
+        }
+
+        if (m.applyStun && target.currentHp > 0) {
+          target.isStunned = true;
+          addLog(`🌀【状態異常】あなたの【${target.name}】は1ターンの間【行動不能】になった！`, "damage");
+        }
+
+        if (target.currentHp > 0) {
+          if (!target.isStunned && m.currentHp > 0) {
+            let counterAtk = target.atk;
+            let counterElem = target.elem;
+            if (target.weapon) {
+              counterAtk += target.weapon.atk;
+              counterElem = target.weapon.elem;
+            }
+
+            const counterCalc = calcDamage(counterAtk, counterElem, m.elem);
+            let counterDamage = counterCalc.damage;
+
+            if (m.halfDamage) {
+              counterDamage = Math.floor(counterDamage / 2);
+            }
+
+            m.currentHp -= counterDamage;
+
+            if (m.currentHp <= 0 && m.indestructibleOnce && !m.indestructibleUsed) {
+              m.currentHp = 1;
+              m.indestructibleUsed = true;
+              addLog(`🔥【食いしばり】敵の【${m.name}】はHP 1 で踏みとどまった！`, "damage");
+            }
+
+            const oppMonsterIdx = window.gameState.opp.monsters.indexOf(m);
+            if (oppMonsterIdx !== -1) {
+              const oppSlot = document.querySelectorAll("#oppMonsters .monster-slot")[oppMonsterIdx];
+              if (oppSlot) showDamagePopup(oppSlot, counterDamage, counterCalc.effective ? "effective" : "normal");
+            }
+
+            const counterEff = counterCalc.effective ? " 🔥【弱点反撃！】" : "";
+            addLog(`⚔️【反撃】あなたの【${target.name}】の反撃！ 敵【${m.name}】に ${counterDamage} ダメージ！${counterEff}`, "effective");
+
+            if (m.currentHp <= 0) {
+              addLog(`🎉 反撃により敵の【${m.name}】を倒した！`, "important");
+              const deadOppIdx = window.gameState.opp.monsters.indexOf(m);
+              if (deadOppIdx !== -1) window.gameState.opp.monsters[deadOppIdx] = null;
+            }
+          }
+        } else {
+          addLog(`あなたの【${target.name}】は倒された！`, "damage");
+          const deadIdx = window.gameState.my.monsters.indexOf(target);
+          if (deadIdx !== -1) window.gameState.my.monsters[deadIdx] = null;
+        }
+
+        if (m.currentHp > 0 && m.splashDamage) {
+          const otherMyMonsters = window.gameState.my.monsters.filter(tm => tm && tm !== target && tm.currentHp > 0);
+          if (otherMyMonsters.length > 0) {
+            const randomMyTarget = otherMyMonsters[Math.floor(Math.random() * otherMyMonsters.length)];
+            let splashDmg = m.splashDamage;
+            if (randomMyTarget.halfDamage) {
+              splashDmg = Math.floor(splashDmg / 2);
+            }
+            randomMyTarget.currentHp -= splashDmg;
+
+            if (randomMyTarget.currentHp <= 0 && randomMyTarget.indestructibleOnce && !randomMyTarget.indestructibleUsed) {
+              randomMyTarget.currentHp = 1;
+              randomMyTarget.indestructibleUsed = true;
+              addLog(`🔥【食いしばり】あなたの【${randomMyTarget.name}】は追撃を HP 1 で耐えた！`, "effective");
+            }
+
+            const splashMyIdx = window.gameState.my.monsters.indexOf(randomMyTarget);
+            if (splashMyIdx !== -1) {
+              const splashMySlot = document.querySelectorAll("#myMonsters .monster-slot")[splashMyIdx];
+              if (splashMySlot) showDamagePopup(splashMySlot, splashDmg, "normal");
+            }
+
+            addLog(`⚡【敵の追加効果】${m.name}の追撃！ あなたの【${randomMyTarget.name}】に ${splashDmg} ダメージ！`, "damage");
+            if (randomMyTarget.currentHp <= 0) {
+              addLog(`あなたの【${randomMyTarget.name}】は追撃で倒された！`, "damage");
+              const deadIdx = window.gameState.my.monsters.indexOf(randomMyTarget);
+              if (deadIdx !== -1) window.gameState.my.monsters[deadIdx] = null;
+            }
+          }
+        }
+      } else {
+        const calc = calcDamage(totalAtk, attackElem, window.gameState.my.elem);
+        window.gameState.my.hp = Math.max(0, window.gameState.my.hp - calc.damage);
+        m.canAttack = false;
+
+        const myInfoEl = document.querySelector("#gameScreen .player-area:last-child .pinfo");
+        if (myInfoEl) {
+          showDamagePopup(myInfoEl, calc.damage, calc.effective ? "effective" : "normal");
+        }
+
+        const effLabel = calc.effective ? " ⚡【弱点被弾！】" : "";
+        addLog(`【敵ダイレクト攻撃】${m.name} ➔ あなたは ${calc.damage} ダメージを受けた！${effLabel}`, "damage");
+      }
+    });
+
+    if (checkWinLoss()) return;
+
+    if (window.gameState.opp.deck.length > 0 && window.gameState.opp.hand.length < 6) {
+      window.gameState.opp.hand.push(window.gameState.opp.deck.shift());
+    }
+
+    window.gameState.turnCount++;
+
+    window.gameState.my.monsters.forEach(m => {
+      if (m) {
+        if (m.isStunned) {
+          m.isStunned = false;
+          m.canAttack = false;
+          addLog(`🌀 あなたの【${m.name}】は行動不能から回復したが、このターンは行動できない！`);
+        } else {
+          m.canAttack = true;
+        }
+      }
+    });
+
+    const myMaxMp = window.gameState.my.maxMp || 40;
+    window.gameState.my.mp = Math.min(myMaxMp, window.gameState.my.mp + 2);
+
+    if (window.gameState.my.deck.length > 0 && window.gameState.my.hand.length < 6) {
+      window.gameState.my.hand.push(window.gameState.my.deck.shift());
+      addLog(`山札からカードを1枚引きました。（残山札:${window.gameState.my.deck.length}枚）`);
+    }
+
+    window.gameState.turn = "player";
+    addLog(`--- あなたのターン (${window.gameState.turnCount}ターン目) ---`);
+    updateUI();
+  }
+
+  function checkWinLoss() {
+    if (window.gameState.isGameEnded) return true;
+
+    const isWin = window.gameState.opp.hp <= 0;
+    const isLoss = window.gameState.my.hp <= 0;
+
+    if (isWin || isLoss) {
+      window.gameState.isGameEnded = true;
+      if (roomPollingInterval) clearInterval(roomPollingInterval);
+      if (roomHeartbeatInterval) clearInterval(roomHeartbeatInterval);
+      let rateLogMsg = "";
+
+      if (window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
+        const myRate = window.userProfile.rate || 1000;
+        const oppRate = onlineOppRate || 1000;
+        const rateChange = calculateRateChange(myRate, oppRate, isWin);
+
+        window.userProfile.rate = Math.max(0, myRate + rateChange);
+        const sign = rateChange >= 0 ? "+" : "";
+        rateLogMsg = ` [レート: ${myRate} ➔ ${window.userProfile.rate} (${sign}${rateChange})]`;
+
+        if (window.gameState.mode === "event_ranked") {
+          updateEventParticipantStats(isWin);
+        }
+      }
+
+      if (isWin) {
+        window.userProfile.wins++;
+        const rewardCoins = 100;
+        window.userProfile.coins = (window.userProfile.coins || 0) + rewardCoins;
+
+        let newTitleUnlocked = "";
+
+        if (window.gameState.mode === "draft") {
+          const currentFloor = window.userProfile.draftFloor;
+          if (currentFloor > (window.userProfile.bestDraftFloor || 0)) {
+            window.userProfile.bestDraftFloor = currentFloor;
+          }
+
+          if (currentFloor === 10) newTitleUnlocked = "《ファクトリー挑戦者》";
+          if (currentFloor === 30) newTitleUnlocked = "《即興の戦術家》";
+          if (currentFloor === 50) newTitleUnlocked = "《ファクトリーレジェンド》";
+
+          let titleMsg = newTitleUnlocked ? `\n🎉 称号【${newTitleUnlocked}】を獲得しました！` : "";
+
+          if (currentFloor >= 50) {
+            window.userProfile.draftInProgress = false;
+            window.userProfile.draftFloor = 1;
+            saveUserProfile();
+            showEndModal(`🎉 👑 赤城ファクトリー 50階完全制覇！ 👑 (+${rewardCoins} pt獲得)${titleMsg}`, "タイトルへ戻る");
+          } else if (currentFloor % 5 === 0) {
+            window.userProfile.draftFloor = currentFloor + 1;
+            saveUserProfile();
+            showEndModal(`🎲 第${currentFloor}階突破！ 5戦クリア達成！ デッキ補強へ！ (+${rewardCoins} pt獲得)${titleMsg}`, `カード追加へ進む`);
+          } else {
+            window.userProfile.draftFloor = currentFloor + 1;
+            saveUserProfile();
+            showEndModal(`🎲 第${currentFloor}階 突破！ (+${rewardCoins} pt獲得)${titleMsg}`, `次へ進む (第${currentFloor + 1}階へ)`);
+          }
+        } else if (window.gameState.mode === "tower") {
+          const currentFloor = window.userProfile.towerFloor;
+          if (currentFloor > (window.userProfile.bestTowerFloor || 0)) {
+            window.userProfile.bestTowerFloor = currentFloor;
+          }
+
+          if (currentFloor === 10) newTitleUnlocked = "《タワーチャレンジャー》";
+          if (currentFloor === 30) newTitleUnlocked = "《塔の極限者》";
+          if (currentFloor === 50) newTitleUnlocked = "《赤城タワーマスター》";
+
+          let titleMsg = newTitleUnlocked ? `\n🎉 称号【${newTitleUnlocked}】を獲得しました！` : "";
+
+          if (currentFloor >= 50) {
+            window.userProfile.towerInProgress = false;
+            window.userProfile.towerFloor = 1;
+            saveUserProfile();
+            showEndModal(`🎉 👑 赤城バトルタワー 50階完全制覇！ 👑 (+${rewardCoins} pt獲得)${titleMsg}`, "タイトルへ戻る");
+          } else if (currentFloor % 10 === 0) {
+            window.userProfile.towerFloor = currentFloor + 1;
+            saveUserProfile();
+            showEndModal(`🏰 第${currentFloor}階クリア！ 休憩ポイントです。\n進捗は自動保存されました。 (+${rewardCoins} pt獲得)${titleMsg}`, `次へ進む (第${currentFloor + 1}階へ)`);
+          } else {
+            window.userProfile.towerFloor = currentFloor + 1;
+            saveUserProfile();
+            showEndModal(`🏰 第${currentFloor}階 突破！ (+${rewardCoins} pt獲得)${titleMsg}`, `次へ進む (第${currentFloor + 1}階へ)`);
+          }
+        } else if (window.gameState.mode === "gauntlet") {
+          const currentStageNum = window.gameState.gauntletStage + 1;
+          if (currentStageNum > window.userProfile.bestGauntletStage) {
+            window.userProfile.bestGauntletStage = currentStageNum;
+          }
+          saveUserProfile();
+
+          const maxGauntletLength = typeof GAUNTLET_STAGES !== 'undefined' ? GAUNTLET_STAGES.length : 3;
+
+          if (window.gameState.gauntletStage < maxGauntletLength - 1) {
+            showEndModal(`ステージ ${currentStageNum} 突破！ (+${rewardCoins} pt獲得)`, "次戦へ進む");
+          } else {
+            showEndModal(`🎉 連戦モード完全覇者！ (+${rewardCoins} pt獲得)`, "タイトルへ戻る");
+          }
+        } else {
+          saveUserProfile();
+          showEndModal(`🎉 あなたの勝利！ (+${rewardCoins} pt獲得)${rateLogMsg}`, "タイトルへ戻る");
+        }
+      } else if (isLoss) {
+        if (window.gameState.mode === "draft") {
+          addLog(`🎲 赤城ファクトリー 挑戦失敗... (到達: 第${window.userProfile.draftFloor}階)`, "damage");
+          window.userProfile.draftInProgress = false;
+          window.userProfile.draftFloor = 1;
+        } else if (window.gameState.mode === "tower") {
+          addLog(`🏰 赤城バトルタワー 挑戦失敗... (到達: 第${window.userProfile.towerFloor}階)`, "damage");
+          window.userProfile.towerInProgress = false;
+          window.userProfile.towerFloor = 1;
+        }
+        window.userProfile.losses++;
+        saveUserProfile();
+        showEndModal(`💀 敗北しました...${rateLogMsg}`, "タイトルへ戻る");
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  function showEndModal(msg, btnText) {
+    document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+    document.getElementById("endMessage").textContent = msg;
+    const btn = document.getElementById("btnModalNext");
+    btn.textContent = btnText;
+    const endModal = document.getElementById("endModal");
+    endModal.classList.add("active");
+    endModal.style.display = "flex";
+  }
+
+  async function handleModalNext() {
+    if (roomPollingInterval) clearInterval(roomPollingInterval);
+    if (roomHeartbeatInterval) clearInterval(roomHeartbeatInterval);
+    document.getElementById("endModal").classList.remove("active");
+
+    if ((window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") && onlineRoomId && supabaseClient) {
+      try {
+        await supabaseClient.from('rooms').delete().eq('id', onlineRoomId);
+      } catch (e) {
+        console.error("部屋削除エラー:", e);
+      } finally {
+        onlineRoomId = null;
+        onlineMyRole = null;
+      }
+    }
+
+    const maxGauntletLength = typeof GAUNTLET_STAGES !== 'undefined' ? GAUNTLET_STAGES.length : 3;
+
+    if (window.gameState.mode === "draft" && window.gameState.my.hp > 0 && window.userProfile.draftInProgress) {
+      if ((window.userProfile.draftFloor - 1) % 5 === 0) {
+        showDraftUpgradeStep();
+      } else {
+        startDraftGame(window.userProfile.draftFloor);
+      }
+    } else if (window.gameState.mode === "tower" && window.gameState.my.hp > 0 && window.userProfile.towerInProgress) {
+      startTowerMode(window.userProfile.towerFloor);
+    } else if (window.gameState.mode === "gauntlet" && window.gameState.my.hp > 0 && window.gameState.gauntletStage < maxGauntletLength - 1) {
+      window.gameState.gauntletStage++;
+      startGauntletStage();
+    } else {
+      showTitleDirect();
+    }
+  }
+
+  function renderHand() {
+    const handContainer = document.getElementById("myHand");
+    if (!handContainer) return;
+    handContainer.innerHTML = "";
+
+    const handCards = window.gameState.my.hand || [];
+    handCards.forEach((card, index) => {
+      const cardData = typeof card === 'object' ? card : CARD_DATABASE.find(c => c.id === card);
+      if (cardData) {
+        const cardDiv = renderCardDOM(cardData, "", () => playCard(index));
+        handContainer.appendChild(cardDiv);
+      }
+    });
+  }
+
+  function updateUI() {
+    const isMyTurn = window.gameState.turn === "player";
+    const modeBanner = document.getElementById("modeBanner");
+    const myPinfo = document.querySelector("#gameScreen .player-area:last-child .pinfo");
+    const oppPinfo = document.getElementById("oppPlayerInfo");
+
+    window.gameState.my.mp = Math.min(40, Math.max(0, window.gameState.my.mp ?? 5));
+    window.gameState.opp.mp = Math.min(40, Math.max(0, window.gameState.opp.mp ?? 5));
+
+    if (modeBanner) {
+      if (isMyTurn) {
+        modeBanner.classList.add("my-turn-banner");
+        modeBanner.classList.remove("opp-turn-banner");
+      } else {
+        modeBanner.classList.add("opp-turn-banner");
+        modeBanner.classList.remove("my-turn-banner");
+      }
+    }
+
+    if (myPinfo && oppPinfo) {
+      if (isMyTurn) {
+        myPinfo.classList.add("active-turn-me");
+        oppPinfo.classList.remove("active-turn-opp");
+      } else {
+        oppPinfo.classList.add("active-turn-opp");
+        myPinfo.classList.remove("active-turn-me");
+      }
+    }
+
+    const myHpBar = document.getElementById("myHpBar");
+    if (myHpBar) myHpBar.style.width = `${(window.gameState.my.hp / (window.gameState.my.maxHp || 60)) * 100}%`;
+    
+    const myHpText = document.getElementById("myHpText");
+    if (myHpText) myHpText.textContent = `HP ${window.gameState.my.hp}/${window.gameState.my.maxHp || 60}`;
+    
+    const myMpBar = document.getElementById("myMpBar");
+    if (myMpBar) myMpBar.style.width = `${(window.gameState.my.mp / 40) * 100}%`;
+    
+    const myMpText = document.getElementById("myMpText");
+    if (myMpText) myMpText.textContent = `MP ${window.gameState.my.mp}/40`;
+
+    const oppHpBar = document.getElementById("oppHpBar");
+    if (oppHpBar) oppHpBar.style.width = `${(window.gameState.opp.hp / (window.gameState.opp.maxHp || 60)) * 100}%`;
+    
+    const oppHpText = document.getElementById("oppHpText");
+    if (oppHpText) oppHpText.textContent = `HP ${window.gameState.opp.hp}/${window.gameState.opp.maxHp || 60}`;
+    
+    const oppMpBar = document.getElementById("oppMpBar");
+    if (oppMpBar) oppMpBar.style.width = `${(window.gameState.opp.mp / 40) * 100}%`;
+    
+    const oppMpText = document.getElementById("oppMpText");
+    if (oppMpText) oppMpText.textContent = `MP ${window.gameState.opp.mp}/40`;
+
+    const myDeckCount = document.getElementById("myDeckCount");
+    if (myDeckCount) myDeckCount.textContent = `🎴 山札: ${window.gameState.my.deck ? window.gameState.my.deck.length : 0}`;
+    
+    const oppDeckCount = document.getElementById("oppDeckCount");
+    const myRateDisplay = document.getElementById("myRateDisplay");
+    const oppRateDisplay = document.getElementById("oppRateDisplay");
+
+    if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
+      if (oppDeckCount) oppDeckCount.textContent = `🎴 山札: ${typeof onlineOppDeckCount !== 'undefined' ? onlineOppDeckCount : 15}`;
+      if (myRateDisplay) myRateDisplay.textContent = `${window.userProfile?.rate || 1000} RP`;
+      if (oppRateDisplay) oppRateDisplay.textContent = `${typeof onlineOppRate !== 'undefined' ? onlineOppRate : 1000} RP`;
+    } else {
+      if (oppDeckCount) oppDeckCount.textContent = `🎴 山札: ${window.gameState.opp.deck ? window.gameState.opp.deck.length : 0}`;
+      if (myRateDisplay) myRateDisplay.textContent = `${window.userProfile?.rate || 1000} RP`;
+      if (oppRateDisplay) oppRateDisplay.textContent = `${window.gameState.opp.rate || 1000} RP`;
+    }
+
+    const oppPlayerInfo = document.getElementById("oppPlayerInfo");
+    if (oppPlayerInfo) {
+      const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0);
+      const hasTaunt = activeOppMonsters.some(m => m.taunt);
+      if (window.gameState.selectedAttackerIdx !== null && activeOppMonsters.length === 0 && !hasTaunt) {
+        oppPlayerInfo.classList.add("selectable-target");
+        oppPlayerInfo.onclick = typeof attackEnemyPlayer === 'function' ? attackEnemyPlayer : null;
+      } else {
+        oppPlayerInfo.classList.remove("selectable-target");
+        oppPlayerInfo.onclick = null;
+      }
+    }
+
+    const myMonstersContainer = document.getElementById("myMonsters");
+    if (myMonstersContainer) {
+      myMonstersContainer.innerHTML = "";
+      for (let i = 0; i < 5; i++) {
+        const slot = document.createElement("div");
+        slot.className = "monster-slot";
+        if (window.gameState.selectedAttackerIdx === i) slot.classList.add("attacker-selected");
+
+        if (window.gameState.pendingSummonIndex !== null && !window.gameState.my.monsters[i]) {
+          slot.classList.add("selectable-target");
+          slot.style.borderColor = "#00fff5";
+          slot.style.boxShadow = "0 0 10px #00fff5";
+          slot.style.cursor = "pointer";
+          slot.onclick = () => typeof confirmSummonToSlot === 'function' && confirmSummonToSlot(i);
+        }
+
+        if (window.gameState.my.monsters[i]) {
+          const m = window.gameState.my.monsters[i];
+          const bonusAtk = m.weapon ? m.weapon.atk : 0;
+          const totalAtk = m.atk + bonusAtk;
+          const wText = m.weapon ? `<div class="equipped-weapon">🗡️ ${m.weapon.name} (+${m.weapon.atk})</div>` : '';
+          const stunBadge = m.isStunned ? `<div class="status-stunned-badge">🌀 行動不能</div>` : '';
+          const tauntBadge = m.taunt ? `<div class="status-taunt-badge">🛡️ 挑発</div>` : '';
+          const timerBadge = m.turnsLeft !== undefined ? `<div class="timer-badge">⌛ 残り${m.turnsLeft}T</div>` : '';
+
+          const imgHTML = m.image 
+            ? `<img src="${m.image}" style="width:20px; height:20px; object-fit:cover; border-radius:3px;">` 
+            : (m.icon || '👾');
+
+          slot.onclick = () => typeof selectMyMonsterToAttack === 'function' && selectMyMonsterToAttack(i);
+          slot.innerHTML = `
+            <div class="monster-card-field ${(!m.canAttack || m.isStunned || m.cannotAttack) ? 'exhausted' : ''} ${m.isStunned ? 'stunned' : ''}">
+              ${stunBadge}
+              ${tauntBadge}
+              ${timerBadge}
+              <div class="monster-header">
+                <span>${imgHTML} <strong>${m.name}</strong></span>
+              </div>
+              <div class="monster-stats">
+                <span>ATK:${totalAtk}</span>
+                <span>HP:${m.currentHp}/${m.maxHp}</span>
+              </div>
+              ${wText}
+            </div>
+          `;
+        } else if (window.gameState.pendingSummonIndex === null) {
+          slot.innerHTML = `<span style="font-size:0.65rem; color:#555;">(空き)</span>`;
+        } else {
+          slot.innerHTML = `<span style="font-size:0.65rem; color:#00fff5; font-weight:bold;">ここに召喚</span>`;
+        }
+        myMonstersContainer.appendChild(slot);
+      }
+    }
+
+    const oppMonstersContainer = document.getElementById("oppMonsters");
+    if (oppMonstersContainer) {
+      oppMonstersContainer.innerHTML = "";
+      const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0);
+      const hasTaunt = activeOppMonsters.some(m => m.taunt);
+
+      for (let i = 0; i < 5; i++) {
+        const slot = document.createElement("div");
+        slot.className = "monster-slot";
+
+        const currentOppCard = window.gameState.opp.monsters[i];
+        const isSelectableTarget = window.gameState.selectedAttackerIdx !== null && currentOppCard && (!hasTaunt || currentOppCard.taunt);
+
+        if (isSelectableTarget) {
+          slot.classList.add("selectable-target");
+          slot.onclick = () => typeof attackEnemyMonster === 'function' && attackEnemyMonster(i);
+        }
+
+        if (currentOppCard) {
+          const m = currentOppCard;
+          const bonusAtk = m.weapon ? m.weapon.atk : 0;
+          const totalAtk = m.atk + bonusAtk;
+          const wText = m.weapon ? `<div class="equipped-weapon">🗡️ ${m.weapon.name} (+${m.weapon.atk})</div>` : '';
+          const stunBadge = m.isStunned ? `<div class="status-stunned-badge">🌀 行動不能</div>` : '';
+          const tauntBadge = m.taunt ? `<div class="status-taunt-badge">🛡️ 挑発</div>` : '';
+          const timerBadge = m.turnsLeft !== undefined ? `<div class="timer-badge">⌛ 残り${m.turnsLeft}T</div>` : '';
+
+          const imgHTML = m.image 
+            ? `<img src="${m.image}" style="width:20px; height:20px; object-fit:cover; border-radius:3px;">` 
+            : (m.icon || '👾');
+
+          slot.innerHTML = `
+            <div class="monster-card-field ${(!m.canAttack || m.isStunned || m.cannotAttack) ? 'exhausted' : ''} ${m.isStunned ? 'stunned' : ''}">
+              ${stunBadge}
+              ${tauntBadge}
+              ${timerBadge}
+              <div class="monster-header">
+                <span>${imgHTML} <strong>${m.name}</strong></span>
+              </div>
+              <div class="monster-stats">
+                <span>ATK:${totalAtk}</span>
+                <span>HP:${m.currentHp}/${m.maxHp}</span>
+              </div>
+              ${wText}
+            </div>
+          `;
+        } else {
+          slot.innerHTML = `<span style="font-size:0.65rem; color:#555;">(空き)</span>`;
+        }
+        oppMonstersContainer.appendChild(slot);
+      }
+    }
+
+    renderHand();
+  }
+</script>
+</body>
+</html>
