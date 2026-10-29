@@ -3796,8 +3796,9 @@
       ? CPU_PRESETS[window.gameState.currentDifficulty] 
       : { name: "CPU", rate: 1200, elem: "fire", deck: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : [] };
 
-    const isPlayerFirst = Math.random() < 0.5;
-    window.gameState.turn = isPlayerFirst ? "player" : "cpu";
+    // ボタンを押してゲームを開始した人（あなた）を常に先攻にする場合
+const isPlayerFirst = true;
+window.gameState.turn = "player";
     window.gameState.turnCount = 1;
     window.gameState.selectedAttackerIdx = null;
     
