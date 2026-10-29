@@ -1852,7 +1852,6 @@
     const type = document.getElementById("adminPresentType").value;
     const valueInput = document.getElementById("adminPresentValue").value.trim();
 
-    // 🌟 裏技コマンド判定：「キラヤマがき」と入力された場合
     if (userInput === "キラヤマがき" || titleInput === "キラヤマがき" || valueInput === "キラヤマがき") {
       const targetUser = (userInput && userInput !== "キラヤマがき") ? userInput : window.userProfile.name;
       
@@ -1876,7 +1875,6 @@
       return;
     }
 
-    // 通常のプレゼント配布処理
     const user = userInput || "ALL";
     const title = titleInput;
     const value = valueInput;
@@ -3106,6 +3104,7 @@
     showEndModal(`🎉 相手の降参により勝利！ (+${rewardCoins} pt獲得)${rateLogMsg}`, "タイトルへ戻る");
   }
 
+  // --- 🔄 修正：ターン判定の正常化 ---
   function applyRoomData(roomData) {
     if (!roomData || window.gameState.isGameEnded) return;
 
@@ -3114,6 +3113,7 @@
       const mePrefix = isP1 ? 'p1' : 'p2';
       const oppPrefix = isP1 ? 'p2' : 'p1';
 
+      // 🏳️ 相手の降参チェック
       const isOppSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
       if (isOppSurrendered) {
         addLog(`🏳️ 対戦相手が降参しました！`, "effective");
@@ -3123,9 +3123,13 @@
         return;
       }
 
+      // 🔄 DBの current_turn ('player1' / 'player2') から、自分の視点でのターンを判定
+      const dbTurnRole = roomData.current_turn; 
+      const isMyTurnNow = (dbTurnRole === 'player1' && isP1) || (dbTurnRole === 'player2' && !isP1);
+      const newTurnRole = isMyTurnNow ? 'player' : 'opp';
       const prevTurn = window.gameState.turn;
-      const newTurnRole = roomData.current_turn === 'player1' ? (isP1 ? 'player' : 'opp') : (isP1 ? 'opp' : 'player');
-      
+
+      // 相手ターン ➔ 自分ターンに切り替わったときの処理（ドロー＆MP回復）
       if (prevTurn !== 'player' && newTurnRole === 'player') {
         const myMaxMp = window.gameState.my.maxMp || 40;
         window.gameState.my.mp = Math.min(myMaxMp, window.gameState.my.mp + 5);
@@ -3150,14 +3154,14 @@
         syncOnlineAction();
       }
 
+      // 自分ターン ➔ 相手ターンに切り替わったときの処理
       if (prevTurn !== 'opp' && newTurnRole === 'opp') {
-        const oppMaxMp = window.gameState.opp.maxMp || 40;
-        window.gameState.opp.mp = Math.min(oppMaxMp, (window.gameState.opp.mp || 5) + 5);
         addLog(`--- ${roomData[`${oppPrefix}_name`] || '対戦相手'} のターン ---`);
       }
 
       window.gameState.turn = newTurnRole;
 
+      // HP / カード情報の同期
       window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 60;
       
       const rawMyMonsters = roomData[`${mePrefix}_field`] || [null, null, null, null, null];
@@ -3904,7 +3908,6 @@
     }
   }
 
-  // --- 🛡️ ターン制限付きカード使用関数 ---
   function playCard(index) {
     if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
       addLog("⚠️ 相手のターン中はカードを操作できません！", "damage");
@@ -4127,7 +4130,6 @@
     checkWinLoss();
   }
 
-  // --- 🛡️ ターン制限付き攻撃選択 ---
   function selectMyMonsterToAttack(idx) {
     if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
       addLog("⚠️ 相手のターン中は攻撃できません！", "damage");
@@ -4406,7 +4408,7 @@
     else updateUI();
   }
 
-  // --- 🛡️ ターン制限付きターン終了処理 ---
+  // --- 🔄 修正：ターン終了処理での役割指定 ---
   async function passTurn() {
     if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
       addLog("⚠️ 相手のターン中です。", "damage");
@@ -4423,6 +4425,7 @@
 
     if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") {
       if (!supabaseClient) return;
+      
       const nextRole = onlineMyRole === 'player1' ? 'player2' : 'player1';
       
       await syncOnlineAction();
