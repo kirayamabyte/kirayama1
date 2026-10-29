@@ -5,17 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>赤城ユタカードバトル - 完全機能統合版</title>
   <style>
-    /* 虹色カードが出たときのアニメーション */
-@keyframes rainbowPop {
-  0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
-  50% { transform: scale(1.2) rotate(5deg); }
-  100% { transform: scale(1) rotate(0deg); opacity: 1; }
-}
-
-.rainbow-burst {
-  animation: rainbowPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
-  box-shadow: 0 0 25px rgba(255, 0, 255, 0.8), 0 0 50px rgba(0, 255, 255, 0.8) !important;
-}
     :root {
       --bg-color: #1a1a24;
       --card-bg: #2a2a38;
@@ -810,7 +799,6 @@
       min-height: 115px;
     }
 
-    /* 相手ターン中に手札を薄くしてタップ不能にする */
     .hand-area.disabled-turn {
       opacity: 0.5;
       pointer-events: none !important;
@@ -834,19 +822,24 @@
       justify-content: space-between;
       cursor: pointer !important;
       pointer-events: auto !important;
-      transition: transform 0.2s, border-color 0.2s;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s !important;
       flex-shrink: 0;
       position: relative;
       z-index: 2;
       overflow: hidden;
     }
 
-    .card:hover { transform: translateY(-4px); border-color: #fff; }
+    .card:hover {
+      transform: translateY(-8px) scale(1.03) !important;
+      box-shadow: 0 8px 20px rgba(0, 255, 245, 0.4);
+      border-color: #fff;
+    }
+
     .card.monster { border: 2px solid var(--gold-color); background: #2f2519; }
     .card.weapon { border: 2px solid #e94560; }
     .card.magic { border: 2px solid #00adb5; }
 
-    /* 🌈 0.0001% 確率の虹色ホログラム装飾 */
+    /* 🌈 虹色ホログラム装飾 */
     .card.rainbow-card {
       border: 2px solid transparent !important;
       border-image: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3) 1 !important;
@@ -858,6 +851,18 @@
     @keyframes rainbowGlow {
       0% { filter: hue-rotate(0deg) brightness(1.1); }
       100% { filter: hue-rotate(360deg) brightness(1.4); }
+    }
+
+    /* 虹色カード獲得時のド派手ポップアップ */
+    @keyframes rainbowPop {
+      0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+      50% { transform: scale(1.2) rotate(5deg); }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    .rainbow-burst {
+      animation: rainbowPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
+      box-shadow: 0 0 25px rgba(255, 0, 255, 0.8), 0 0 50px rgba(0, 255, 255, 0.8) !important;
     }
 
     .card-top-row {
@@ -1161,35 +1166,13 @@
       20% { opacity: 1; transform: translate(-50%, -15px) scale(1.3); }
       100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
     }
-
-    .card {
-      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s !important;
-    }
-
-    .card:hover {
-      transform: translateY(-8px) scale(1.03) !important;
-      box-shadow: 0 8px 20px rgba(0, 255, 245, 0.4);
-    }
-    /* 虹色カードが出たときのアニメーション */
-@keyframes rainbowPop {
-  0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
-  50% { transform: scale(1.2) rotate(5deg); }
-  100% { transform: scale(1) rotate(0deg); opacity: 1; }
-}
-
-.rainbow-burst {
-  animation: rainbowPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
-  box-shadow: 0 0 25px rgba(255, 0, 255, 0.8), 0 0 50px rgba(0, 255, 255, 0.8) !important;
-}
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- 🎉 紙吹雪エフェクト用ライブラリ -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script src="cards1.js"></script>
   <script src="cpu_decks.js"></script>
-  <!-- <head> 内に追加 -->
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-<!-- <head> 内に追加 -->
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
 
@@ -1428,7 +1411,7 @@
       <div style="font-size:1.1rem;">所持コイン: 🪙 <strong id="gachaCoinDisplay" style="color:var(--gold-color);">1000</strong> pt</div>
       <div style="font-size:0.75rem; color:#bbb; line-height:1.4; text-align:left;">
         【提供割合】<br>
-        ⭐3 : 10%（超激レア虹ホログラム 🌈 0.1%）<br>
+        ⭐3 : 10%（うち 🌈虹ホログラム: 0.1%）<br>
         ⭐2 : 30%<br>
         ⭐1 : 60%
       </div>
@@ -1501,8 +1484,8 @@
           <div id="oppHpText" class="bar-text">HP 60/60</div>
         </div>
         <div class="bar mp">
-          <div id="oppMpBar" class="bar-fill" style="width: 12.5%;"></div>
-          <div id="oppMpText" class="bar-text">MP 5/40</div>
+          <div id="oppMpBar" class="bar-fill" style="width: 50%;"></div>
+          <div id="oppMpText" class="bar-text">MP 20/40</div>
         </div>
       </div>
       <div id="oppMonsters" class="monster-zone"></div>
@@ -1527,8 +1510,8 @@
           <div id="myHpText" class="bar-text">HP 60/60</div>
         </div>
         <div class="bar mp">
-          <div id="myMpBar" class="bar-fill" style="width: 12.5%;"></div>
-          <div id="myMpText" class="bar-text">MP 5/40</div>
+          <div id="myMpBar" class="bar-fill" style="width: 50%;"></div>
+          <div id="myMpText" class="bar-text">MP 20/40</div>
         </div>
       </div>
 
@@ -2667,6 +2650,7 @@
     }
   }
 
+  // ★ 初期MPを 20 に設定 ★
   window.gameState = {
     mode: "casual",
     gauntletStage: 0,
@@ -2993,6 +2977,7 @@
   }
   window.joinOnlineRoom = joinOnlineRoom;
 
+  // ★ 0.1% で 🌈 虹色★3に昇格するガチャ処理 ★
   function drawGachaCard() {
     const rand = Math.random() * 100;
     let targetRarity = 1;
@@ -3014,6 +2999,7 @@
 
     const cardInstance = JSON.parse(JSON.stringify(selectedCard));
 
+    // ★3が当たった際、0.1% (0.001) の確率で虹仕様化
     if (targetRarity === 3) {
       if (Math.random() < 0.001) {
         cardInstance.isRainbow = true;
@@ -3045,51 +3031,54 @@
   }
   window.executeGacha = executeGacha;
 
+  // ★ 🌈 虹色★3獲得時のド派手な紙吹雪演出 ★
   function showGachaResultModal(cards) {
     const container = document.getElementById("gachaResultContainer");
     container.innerHTML = "";
-if (card.isRainbow) {
-      hasRainbow = true;
-      cardDiv.classList.add("rainbow-burst");
-    }
+
+    let hasRainbow = false;
+
     cards.forEach(card => {
       const cardDiv = renderCardDOM(card, "", null);
+      if (card.isRainbow) {
+        hasRainbow = true;
+        cardDiv.classList.add("rainbow-burst");
+      }
       container.appendChild(cardDiv);
     });
-if (hasRainbow && typeof confetti === 'function') {
-    // 1. 中央からの大爆発エフェクト
-    confetti({
-      particleCount: 150,
-      spread: 100,
-      origin: { y: 0.6 },
-      colors: ['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#4b0082', '#9400d3']
-    });
 
-    // 2. 左右からの紙吹雪（連射）
-    const duration = 2 * 1000;
-    const end = Date.now() + duration;
-
-    (function frame() {
+    if (hasRainbow && typeof confetti === 'function') {
       confetti({
-        particleCount: 5,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0 },
-        colors: ['#ffd700', '#00fff5', '#ff007f']
-      });
-      confetti({
-        particleCount: 5,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1 },
-        colors: ['#ffd700', '#00fff5', '#ff007f']
+        particleCount: 150,
+        spread: 100,
+        origin: { y: 0.6 },
+        colors: ['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#4b0082', '#9400d3']
       });
 
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
-      }
-    })();
-  }
+      const duration = 2 * 1000;
+      const end = Date.now() + duration;
+
+      (function frame() {
+        confetti({
+          particleCount: 5,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors: ['#ffd700', '#00fff5', '#ff007f']
+        });
+        confetti({
+          particleCount: 5,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors: ['#ffd700', '#00fff5', '#ff007f']
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      })();
+    }
 
     document.getElementById("gachaResultModal").classList.add("active");
   }
@@ -3167,7 +3156,6 @@ if (hasRainbow && typeof confetti === 'function') {
     showEndModal(`🎉 相手の降参により勝利！ (+${rewardCoins} pt獲得)${rateLogMsg}`, "タイトルへ戻る");
   }
 
-  // --- 🔄 ターン判定・同期 ---
   function applyRoomData(roomData) {
     if (!roomData || window.gameState.isGameEnded) return;
 
@@ -3176,7 +3164,6 @@ if (hasRainbow && typeof confetti === 'function') {
       const mePrefix = isP1 ? 'p1' : 'p2';
       const oppPrefix = isP1 ? 'p2' : 'p1';
 
-      // 🏳️ 相手の降参チェック
       const isOppSurrendered = roomData[`${oppPrefix}_surrendered`] === true;
       if (isOppSurrendered) {
         addLog(`🏳️ 対戦相手が降参しました！`, "effective");
@@ -3186,13 +3173,11 @@ if (hasRainbow && typeof confetti === 'function') {
         return;
       }
 
-      // 🔄 DBの current_turn ('player1' / 'player2') から、自分の視点でのターンを判定
       const dbTurnRole = roomData.current_turn; 
       const isMyTurnNow = (dbTurnRole === 'player1' && isP1) || (dbTurnRole === 'player2' && !isP1);
       const newTurnRole = isMyTurnNow ? 'player' : 'opp';
       const prevTurn = window.gameState.turn;
 
-      // 相手ターン ➔ 自分ターンに切り替わったときの処理（ドロー＆MP回復）
       if (prevTurn !== 'player' && newTurnRole === 'player') {
         const myMaxMp = window.gameState.my.maxMp || 40;
         window.gameState.my.mp = Math.min(myMaxMp, window.gameState.my.mp + 5);
@@ -3217,14 +3202,12 @@ if (hasRainbow && typeof confetti === 'function') {
         syncOnlineAction();
       }
 
-      // 自分ターン ➔ 相手ターンに切り替わったときの処理
       if (prevTurn !== 'opp' && newTurnRole === 'opp') {
         addLog(`--- ${roomData[`${oppPrefix}_name`] || '対戦相手'} のターン ---`);
       }
 
       window.gameState.turn = newTurnRole;
 
-      // HP / カード情報の同期
       window.gameState.my.hp = roomData[`${mePrefix}_hp`] ?? 60;
       
       const rawMyMonsters = roomData[`${mePrefix}_field`] || [null, null, null, null, null];
@@ -3323,9 +3306,9 @@ if (hasRainbow && typeof confetti === 'function') {
         const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
         window.gameState.my.hand = fullDeck.slice(0, 5);
         window.gameState.my.deck = fullDeck.slice(5);
-        window.gameState.my.mp = 5;
+        window.gameState.my.mp = 20; // ★ 初期MP 20
         window.gameState.my.maxMp = 40;
-        window.gameState.opp.mp = 5;
+        window.gameState.opp.mp = 20; // ★ 初期MP 20
         window.gameState.opp.maxMp = 40;
 
         window.gameState.opp.name = validOpponentRoom.p1_name || "対戦相手";
@@ -3357,9 +3340,9 @@ if (hasRainbow && typeof confetti === 'function') {
         const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
         window.gameState.my.hand = fullDeck.slice(0, 5);
         window.gameState.my.deck = fullDeck.slice(5);
-        window.gameState.my.mp = 20;
+        window.gameState.my.mp = 20; // ★ 初期MP 20
         window.gameState.my.maxMp = 40;
-        window.gameState.opp.mp = 20;
+        window.gameState.opp.mp = 20; // ★ 初期MP 20
         window.gameState.opp.maxMp = 40;
 
         const { error: insertErr } = await supabaseClient.from('rooms').insert([{
@@ -3844,28 +3827,29 @@ if (hasRainbow && typeof confetti === 'function') {
     return rawDeck;
   }
 
+  // ★ ゲーム初期化（必ずプレイヤー先攻・初期MP20） ★
   function initGame() {
     window.gameState.isGameEnded = false;
     window.gameState.isGameStarted = true;
     window.gameState.my.hp = 60;
     window.gameState.opp.hp = 60;
 
-    window.gameState.my.mp = 20;
+    window.gameState.my.mp = 20;  // ★ 初期MP 20
     window.gameState.my.maxMp = 40;
-    window.gameState.opp.mp = 20;
+    window.gameState.opp.mp = 20;  // ★ 初期MP 20
     window.gameState.opp.maxMp = 40;
     try { playBGM('battle'); } catch(e){}
     const cpuPreset = (typeof CPU_PRESETS !== 'undefined' && CPU_PRESETS[window.gameState.currentDifficulty]) 
       ? CPU_PRESETS[window.gameState.currentDifficulty] 
       : { name: "CPU", rate: 1200, elem: "fire", deck: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : [] };
 
-    // ボタンを押してゲームを開始した人（あなた）を常に先攻にする場合
-const isPlayerFirst = true;
-window.gameState.turn = "player";
+    // ★ 常にプレイヤー先攻に固定 ★
+    const isPlayerFirst = true;
+    window.gameState.turn = "player";
     window.gameState.turnCount = 1;
     window.gameState.selectedAttackerIdx = null;
     
-    window.gameState.my.hp = 60; window.gameState.my.maxHp = 60; window.gameState.my.mp = 5; window.gameState.my.maxMp = 40; window.gameState.my.monsters = []; window.gameState.my.elem = "water";
+    window.gameState.my.hp = 60; window.gameState.my.maxHp = 60; window.gameState.my.monsters = []; window.gameState.my.elem = "water";
     window.gameState.my.name = window.userProfile.name;
     window.gameState.my.rate = window.userProfile.rate || 1000;
     document.getElementById("myNameDisplay").textContent = window.gameState.my.name;
@@ -3873,7 +3857,7 @@ window.gameState.turn = "player";
     window.gameState.opp.name = cpuPreset.name;
     window.gameState.opp.rate = cpuPreset.rate || 1200;
     window.gameState.opp.elem = cpuPreset.elem;
-    window.gameState.opp.hp = 60; window.gameState.opp.maxHp = 60; window.gameState.opp.mp = 5; window.gameState.opp.maxMp = 40; window.gameState.opp.monsters = [];
+    window.gameState.opp.hp = 60; window.gameState.opp.maxHp = 60; window.gameState.opp.monsters = [];
     document.getElementById("oppNameDisplay").textContent = window.gameState.opp.name;
 
     const oppElemElem = document.getElementById("oppElem");
@@ -3910,20 +3894,13 @@ window.gameState.turn = "player";
       bannerText = `カジュアルモード [${window.gameState.currentDifficulty.toUpperCase()}] VS ${cpuPreset.name}`;
     }
       
-    document.getElementById("modeBanner").textContent = `${bannerText} (${isPlayerFirst ? '先攻' : '後攻'})`;
+    document.getElementById("modeBanner").textContent = `${bannerText} (先攻)`;
 
-    addLog(`コイントス！ あなたは 【${isPlayerFirst ? '先攻 ⚔️' : '後攻 🛡️'}】 です！`, "important");
+    addLog(`あなた（先攻 ⚔️）のターンです！`, "important");
     addLog(`対戦開始！ ${window.gameState.my.name} VS ${window.gameState.opp.name}`, "important");
-
-    if (isPlayerFirst) {
-      addLog(`--- あなたのターン (1ターン目) ---`, "important");
-    }
+    addLog(`--- あなたのターン (1ターン目) ---`, "important");
 
     updateUI();
-
-    if (!isPlayerFirst) {
-      setTimeout(cpuTurn, 1200);
-    }
   }
 
   function addLog(msg, type = "") {
@@ -4519,7 +4496,7 @@ window.gameState.turn = "player";
     updateTokenLifetimes(window.gameState.opp.monsters, window.gameState.opp.name);
 
     const oppMaxMp = window.gameState.opp.maxMp || 40;
-    window.gameState.opp.mp = Math.min(oppMaxMp, (window.gameState.opp.mp || 5) + 2);
+    window.gameState.opp.mp = Math.min(oppMaxMp, (window.gameState.opp.mp || 20) + 2);
 
     window.gameState.opp.monsters.forEach(m => {
       if (m) {
@@ -5032,8 +5009,8 @@ window.gameState.turn = "player";
       btnPass.disabled = !isMyTurn;
     }
 
-    window.gameState.my.mp = Math.min(40, Math.max(0, window.gameState.my.mp ?? 5));
-    window.gameState.opp.mp = Math.min(40, Math.max(0, window.gameState.opp.mp ?? 5));
+    window.gameState.my.mp = Math.min(40, Math.max(0, window.gameState.my.mp ?? 20));
+    window.gameState.opp.mp = Math.min(40, Math.max(0, window.gameState.opp.mp ?? 20));
 
     if (modeBanner) {
       if (isMyTurn) {
@@ -5218,7 +5195,6 @@ window.gameState.turn = "player";
 
     renderHand();
   }
-  
 </script>
 </body>
 </html>
