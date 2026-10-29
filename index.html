@@ -1218,7 +1218,7 @@
       <button type="button" class="btn primary big" onclick="openTradeScreen()" style="background:#17a2b8; border-color:#17a2b8;">🤝 カードトレード (直接交換)</button>
       <button type="button" class="btn big" onclick="openProfileCustomScreen()" style="background:#8a2be2; border-color:#a855f7;">🏷️ 称号・バッジ設定</button>
       <button id="btnGacha" type="button" class="btn primary big" style="background:#ff9900; border-color:#ffcc00;">🎰 ガチャを引く</button>
-      <button id="btnDeckEdit" type="button" class="btn">🎴 デッキ編集</button>
+      <button id="btnDeckEdit" type="button" class="btn">🎴 デッキ編集・カード図鑑</button>
       <button type="button" class="btn big" onclick="openRulesModal()" style="background:#00adb5; border-color:#00fff5;">📜 公式ルールを確認</button>
     </div>
 
@@ -1395,7 +1395,7 @@
   <!-- デッキ編集画面 -->
   <section id="deckScreen" class="screen hidden">
     <div class="deck-header">
-      <h2>🎴 デッキ編集</h2>
+      <h2>🎴 デッキ編集・カード図鑑</h2>
       <div id="deckCountBadge" class="deck-count invalid">20/20枚</div>
     </div>
 
@@ -1403,7 +1403,7 @@
       <div class="section-title">あなたのデッキ (タップで外す / 長押しで拡大)</div>
       <div id="currentDeckContainer" class="card-grid"></div>
 
-      <div class="section-title">所持カード一覧 (タップで追加 - ⭐1:4枚 / ⭐2・⭐3:2枚 / 長押しで拡大)</div>
+      <div class="section-title">全カード一覧 (所持カードをタップで追加 / 未所持は名前・レアリティのみ表示)</div>
       <div id="cardCatalogContainer" class="card-grid"></div>
     </div>
 
@@ -1961,12 +1961,10 @@
   }
   window.saveProfileCustomization = saveProfileCustomization;
 
-  // 🔑 ★ パスワード判定＆カード全付与（各4枚）機能 ★ 🔑
   async function openAdminScreen() {
     const inputPass = prompt("管理者用パスコードを入力してください:");
     if (!inputPass) return;
 
-    // 🎁 隠しコマンド：全カードを各4枚ずつ付与する処理
     if (inputPass === "おはぎぃcvしぐま") {
       if (typeof CARD_DATABASE !== 'undefined' && Array.isArray(CARD_DATABASE)) {
         const allCardIds = CARD_DATABASE.filter(c => !c.isToken).map(c => c.id);
@@ -1975,7 +1973,7 @@
           window.userProfile.inventory = [];
         }
 
-        const TARGET_COUNT = 4; // 各カード目標所持数
+        const TARGET_COUNT = 4;
 
         allCardIds.forEach(id => {
           const currentCount = window.userProfile.inventory.filter(cardId => cardId === id).length;
@@ -1993,7 +1991,6 @@
       return;
     }
 
-    // 通常の管理者ログイン
     if (inputPass === ADMIN_PASSCODE) {
       document.getElementById("titleScreen").classList.add("hidden");
       document.getElementById("adminScreen").classList.remove("hidden");
@@ -2558,6 +2555,7 @@
     const rand = Math.random() * 100;
     let targetRarity = 1;
 
+    // 確定確率: ⭐3: 10% / ⭐2: 30% / ⭐1: 60%
     if (rand < 10) {
       targetRarity = 3;
     } else if (rand < 40) {
@@ -2567,6 +2565,10 @@
     }
 
     const candidates = CARD_DATABASE.filter(c => (c.rarity || 1) === targetRarity && !c.isToken);
+    if (candidates.length === 0) {
+      const fallbackCandidates = CARD_DATABASE.filter(c => !c.isToken);
+      return fallbackCandidates[Math.floor(Math.random() * fallbackCandidates.length)];
+    }
     return candidates[Math.floor(Math.random() * candidates.length)];
   }
 
@@ -3116,50 +3118,38 @@
     renderDeckEditor();
   }
 
-  function renderDeckEditor() {
-    const deckBadge = document.getElementById("deckCountBadge");
-    const currentDeck = window.userProfile.deck || [];
-    deckBadge.textContent = `${currentDeck.length}/20枚`;
-    deckBadge.className = currentDeck.length === 20 ? "deck-count valid" : "deck-count invalid";
-
-    const deckContainer = document.getElementById("currentDeckContainer");
-    deckContainer.innerHTML = "";
-
-    const deckCounts = {};
-    currentDeck.forEach(id => deckCounts[id] = (deckCounts[id] || 0) + 1);
-
-    Object.keys(deckCounts).forEach(id => {
-      const cardData = CARD_DATABASE.find(c => c.id === id);
-      if (cardData) {
-        const cardDiv = renderCardDOM(cardData, `${deckCounts[id]}枚`, () => removeCardFromDeck(id));
-        deckContainer.appendChild(cardDiv);
-      }
-    });
-
-    const catalogContainer = document.getElementById("cardCatalogContainer");
-    catalogContainer.innerHTML = "";
-
-    const inventory = window.userProfile.inventory || [];
-    const ownedCounts = {};
-    inventory.forEach(id => ownedCounts[id] = (ownedCounts[id] || 0) + 1);
-
-    Object.keys(ownedCounts).forEach(id => {
-      const cardData = CARD_DATABASE.find(c => c.id === id);
-      if (cardData && !cardData.isToken) {
-        const inDeckCount = currentDeck.filter(cardId => cardId === id).length;
-        const rarity = cardData.rarity || 1;
-        const maxLimit = (rarity === 2 || rarity === 3) ? 2 : 4;
-        const cardDiv = renderCardDOM(cardData, `${inDeckCount}/${ownedCounts[id]} (所持)`, () => addCardToDeck(id));
-        catalogContainer.appendChild(cardDiv);
-      }
-    });
-  }
-
-  function renderCardDOM(cardData, badgeText, clickHandler) {
+  // ★ 未所持カードを名前とレアリティのみ表示（画像・属性・効果は非表示）にする renderCardDOM 関数
+  function renderCardDOM(cardData, badgeText, clickHandler, isUnowned = false) {
     const elemInfo = window.ELEMENTS[cardData.elem] || { name: "無", icon: "⚪", class: "" };
-      
+    const rarityNum = cardData.rarity || 1;
+    const rarityStars = "★".repeat(rarityNum);
+    
     const cardDiv = document.createElement("div");
-    cardDiv.className = `card ${cardData.type}`;
+    cardDiv.className = `card ${isUnowned ? '' : cardData.type}`;
+
+    if (isUnowned) {
+      cardDiv.style.opacity = "0.5";
+      cardDiv.style.borderColor = "#555";
+      cardDiv.style.background = "#181822";
+      
+      const badgeHTML = badgeText ? `<div class="card-count-badge" style="background:#555;">${badgeText}</div>` : '';
+
+      cardDiv.innerHTML = `
+        ${badgeHTML}
+        <div class="card-top-row">
+          <div class="card-elem" style="color:#777;">❓ 未所持</div>
+          <div class="card-rarity">${rarityStars}</div>
+        </div>
+        <div class="card-title" style="color:#aaa;">${cardData.name}</div>
+        <div class="card-img-container" style="background:rgba(0,0,0,0.6);">
+          <span class="icon-fallback" style="filter:grayscale(1); opacity:0.3;">🔒</span>
+        </div>
+        <div class="card-cost" style="color:#777;">MP: ??</div>
+        <div class="card-desc" style="color:#666; font-style:italic; margin-top:8px;">ガチャで入手すると解放されます</div>
+        <div class="card-type" style="background:rgba(255,255,255,0.05); color:#777;">未所持</div>
+      `;
+      return cardDiv;
+    }
 
     let longPressTimer = null;
     let isLongPressAction = false;
@@ -3229,8 +3219,6 @@
       : `<div class="card-img-container"><span class="icon-fallback">${cardData.icon || '⚔️'}</span></div>`;
 
     const flavorHTML = cardData.flavor ? `<div class="card-flavor">${cardData.flavor}</div>` : '';
-    const rarityNum = cardData.rarity || 1;
-    const rarityStars = "★".repeat(rarityNum);
     const badgeHTML = badgeText ? `<div class="card-count-badge">${badgeText}</div>` : '';
 
     cardDiv.innerHTML = `
@@ -3248,6 +3236,53 @@
       <div class="card-type">${cardData.type === 'monster' ? '召喚' : cardData.type === 'weapon' ? '装備' : '魔法'}</div>
     `;
     return cardDiv;
+  }
+
+  // ★ 図鑑表示完全修正版：CARD_DATABASE内の全カードを走査して一覧化
+  function renderDeckEditor() {
+    const deckBadge = document.getElementById("deckCountBadge");
+    const currentDeck = window.userProfile.deck || [];
+    deckBadge.textContent = `${currentDeck.length}/20枚`;
+    deckBadge.className = currentDeck.length === 20 ? "deck-count valid" : "deck-count invalid";
+
+    const deckContainer = document.getElementById("currentDeckContainer");
+    deckContainer.innerHTML = "";
+
+    const deckCounts = {};
+    currentDeck.forEach(id => deckCounts[id] = (deckCounts[id] || 0) + 1);
+
+    Object.keys(deckCounts).forEach(id => {
+      const cardData = CARD_DATABASE.find(c => c.id === id);
+      if (cardData) {
+        const cardDiv = renderCardDOM(cardData, `${deckCounts[id]}枚`, () => removeCardFromDeck(id));
+        deckContainer.appendChild(cardDiv);
+      }
+    });
+
+    const catalogContainer = document.getElementById("cardCatalogContainer");
+    catalogContainer.innerHTML = "";
+
+    const inventory = window.userProfile.inventory || [];
+    const ownedCounts = {};
+    inventory.forEach(id => ownedCounts[id] = (ownedCounts[id] || 0) + 1);
+
+    // ★ CARD_DATABASE 内のすべてのカードをループ（未所持カードも0枚として伏せ字表示）
+    CARD_DATABASE.forEach(cardData => {
+      if (!cardData || cardData.isToken) return;
+
+      const id = cardData.id;
+      const count = ownedCounts[id] || 0;
+
+      if (count > 0) {
+        const inDeckCount = currentDeck.filter(cardId => cardId === id).length;
+        const cardDiv = renderCardDOM(cardData, `${inDeckCount}/${count}`, () => addCardToDeck(id));
+        catalogContainer.appendChild(cardDiv);
+      } else {
+        // 未所持の場合
+        const cardDiv = renderCardDOM(cardData, "0枚", null, true);
+        catalogContainer.appendChild(cardDiv);
+      }
+    });
   }
 
   function addCardToDeck(id) {
