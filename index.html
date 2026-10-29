@@ -707,6 +707,18 @@
       animation: flashStun 1s infinite alternate;
     }
 
+    .status-taunt-badge {
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      background: #ffd700;
+      color: #000;
+      font-size: 0.5rem;
+      padding: 1px 2px;
+      border-radius: 3px;
+      font-weight: bold;
+    }
+
     .timer-badge {
       position: absolute;
       bottom: 1px;
@@ -1100,7 +1112,6 @@
       font-weight: bold;
     }
 
-    /* 演出・アニメーションエフェクト */
     .damage-popup {
       position: absolute;
       z-index: 999;
@@ -1162,7 +1173,7 @@
       </div>
       <div class="stats-row">
         <span>タワー最高: <strong id="statTower" style="color:#a855f7;">0</strong> 階</span>
-        <span>ドラフト最高: <strong id="statDraft" style="color:#38ef7d;">0</strong> 階</span>
+        <span>ファクトリー最高: <strong id="statDraft" style="color:#38ef7d;">0</strong> 階</span>
       </div>
       <div class="stats-row">
         <span>コイン: 🪙 <strong id="statCoins" style="color:#ffd700;">1000</strong>pt</span>
@@ -1200,7 +1211,7 @@
           🏰 赤城バトルタワー (50階勝ち抜き)
         </button>
         <button id="btnDraftTower" type="button" class="btn primary big" style="background: linear-gradient(45deg, #11998e, #38ef7d); border-color: #5cdb95;">
-          🎲 赤城ドラフトバトル (デッキ選択・強化50階)
+          🎲 赤城ファクトリーバトル (デッキ選択・強化50階)
         </button>
       </div>
 
@@ -1459,7 +1470,7 @@
     </div>
   </section>
 
-  <!-- 🎲 ドラフト：デッキ構築・補強モーダル -->
+  <!-- 🎲 ファクトリー：デッキ構築・補強モーダル -->
   <div id="draftPickModal" class="modal">
     <div class="modal-content">
       <h2 id="draftModalTitle">🎲 1枚選んでデッキに追加</h2>
@@ -1530,24 +1541,26 @@
     console.error("Supabase初期化エラー:", e);
   }
 
-  // ★ カードデータベース ★
+  // ★ 追加カードを含む定義データ ★
+  const NEW_INTEGRATED_CARDS = [
+    { id: "m_volcano_dragon", name: "ヴォルカノドラゴン", type: "monster", elem: "fire", rarity: 3, costMp: 12, atk: 22, hp: 25, splashDamage: 6, icon: "🐉", desc: "攻撃時、他の敵1体にも6ダメージの追撃を与える。", flavor: "赤城のマグマから解き放たれた深紅の暴竜。" },
+    { id: "m_frost_guardian", name: "氷結の守護像", type: "monster", elem: "water", rarity: 2, costMp: 8, atk: 10, hp: 30, halfDamage: true, icon: "🗿", desc: "受けたダメージを常に半減する鉄壁の守護者。", flavor: "絶対零度の氷で身を包み、あらゆる打撃を跳ね返す。" },
+    { id: "m_shadow_assassin", name: "シャドウアサシン", type: "monster", elem: "dark", rarity: 2, costMp: 7, atk: 18, hp: 12, applyStun: true, icon: "🥷", desc: "攻撃した対象を1ターンの間【行動不能】にする。", flavor: "影から忍び寄り、一撃で獲物の動きを封じる闇の刺客。" },
+    { id: "w_excalibur", name: "聖剣エクスカリバー", type: "weapon", elem: "light", rarity: 3, costMp: 10, atk: 15, icon: "⚔️", desc: "装備モンスターの攻撃力を+15する伝説の聖剣。", flavor: "選ばれし勇者のみが扱うことを許される光の宝剣。" },
+    { id: "sp_elixir", name: "赤城の霊薬", type: "magic", elem: "wood", rarity: 1, costMp: 6, heal: 20, mpRecover: 10, icon: "🧪", desc: "自分のHPを20回復し、MPを10回復する。", flavor: "赤城山に自生する希少な薬草から精製された秘薬。" },
+    { id: "w_knuckle", name: "メリケンサック", type: "weapon", elem: "fire", rarity: 1, costMp: 4, atk: 8, icon: "🥊", desc: "装備モンスターの攻撃力を+8する近接武具。", flavor: "拳に装着し打撃力を一気に高める無骨な金属具。" },
+    { id: "m_k7", name: "k7", type: "monster", elem: "dark", rarity: 2, costMp: 6, atk: 15, hp: 14, hasHaste: true, icon: "🏎️", desc: "召喚ターンから即座に攻撃可能な【速攻】を持つ。", flavor: "音速を超えて戦場を疾走する最速の闇マシン。" },
+    { id: "m_iron_golem", name: "アイアンゴーレム", type: "monster", elem: "wood", rarity: 2, costMp: 9, atk: 12, hp: 32, halfDamage: true, icon: "🤖", desc: "受けるダメージを常に半減する重装甲体。", flavor: "強固な鉄塊で構成された巨大な動く塞。" },
+    { id: "m_aegis_knight", name: "イージス・ナイト", type: "monster", elem: "light", rarity: 2, costMp: 7, atk: 10, hp: 28, taunt: true, icon: "🛡️", desc: "【挑発】敵は優先してこのモンスターを攻撃しなければならない。", flavor: "神聖な大楯を掲げ、味方の盾となりて立ち塞がる騎士。" },
+    { id: "m_barrier_fairy", name: "結界の妖精", type: "magic", elem: "water", rarity: 1, costMp: 5, heal: 15, icon: "🧚", desc: "自ヒーローのHPを 15 回復する。", flavor: "清らかな水で傷を癒やす祝福の妖精。" },
+    { id: "m_phoenix_guardian", name: "不死鳥のガーディアン", type: "monster", elem: "fire", rarity: 3, costMp: 11, atk: 20, hp: 22, indestructibleOnce: true, icon: "🦅", desc: "致命的なダメージを受けた際、1度だけHP 1 で踏みとどまる。", flavor: "何度倒れても熾烈な炎とともに復活を果たす不死の聖鳥。" },
+    { id: "m_abyss_turtle", name: "深淵の玄武タートル", type: "monster", elem: "water", rarity: 3, costMp: 10, atk: 14, hp: 35, reflectDamage: 4, icon: "🐢", desc: "攻撃を受けた際、攻撃相手に4ダメージの反撃を与える。", flavor: "深淵の冷気を纏い、刃を立てる者に冷酷な打撃を返す。" }
+  ];
+
   if (typeof CARD_DATABASE === 'undefined') {
-    window.CARD_DATABASE = [
-      { id: "m_volcano_dragon", name: "ヴォルカノドラゴン", type: "monster", elem: "fire", rarity: 3, costMp: 12, atk: 22, hp: 25, splashDamage: 6, icon: "🐉", desc: "攻撃時、他の敵1体にも6ダメージの追撃を与える。", flavor: "赤城のマグマから解き放たれた深紅の暴竜。" },
-      { id: "m_frost_guardian", name: "氷結の守護像", type: "monster", elem: "water", rarity: 2, costMp: 8, atk: 10, hp: 30, halfDamage: true, icon: "🗿", desc: "受けたダメージを常に半減する鉄壁の守護者。", flavor: "絶対零度の氷で身を包み、あらゆる打撃を跳ね返す。" },
-      { id: "m_shadow_assassin", name: "シャドウアサシン", type: "monster", elem: "dark", rarity: 2, costMp: 7, atk: 18, hp: 12, applyStun: true, icon: "🥷", desc: "攻撃した対象を1ターンの間【行動不能】にする。", flavor: "影から忍び寄り、一撃で獲物の動きを封じる闇の刺客。" },
-      { id: "w_excalibur", name: "聖剣エクスカリバー", type: "weapon", elem: "light", rarity: 3, costMp: 10, atk: 15, icon: "⚔️", desc: "装備モンスターの攻撃力を+15する伝説の聖剣。", flavor: "選ばれし勇者のみが扱うことを許される光の宝剣。" },
-      { id: "sp_elixir", name: "赤城の霊薬", type: "magic", elem: "wood", rarity: 1, costMp: 6, heal: 20, mpRecover: 10, icon: "🧪", desc: "自分のHPを20回復し、MPを10回復する。", flavor: "赤城山に自生する希少な薬草から精製された秘薬。" }
-    ];
+    window.CARD_DATABASE = NEW_INTEGRATED_CARDS;
   } else {
-    const newCards = [
-      { id: "m_volcano_dragon", name: "ヴォルカノドラゴン", type: "monster", elem: "fire", rarity: 3, costMp: 12, atk: 22, hp: 25, splashDamage: 6, icon: "🐉", desc: "攻撃時、他の敵1体にも6ダメージの追撃を与える。", flavor: "赤城のマグマから解き放たれた深紅の暴竜。" },
-      { id: "m_frost_guardian", name: "氷結の守護像", type: "monster", elem: "water", rarity: 2, costMp: 8, atk: 10, hp: 30, halfDamage: true, icon: "🗿", desc: "受けたダメージを常に半減する鉄壁の守護者。", flavor: "絶対零度の氷で身を包み、あらゆる打撃を跳ね返す。" },
-      { id: "m_shadow_assassin", name: "シャドウアサシン", type: "monster", elem: "dark", rarity: 2, costMp: 7, atk: 18, hp: 12, applyStun: true, icon: "🥷", desc: "攻撃した対象を1ターンの間【行動不能】にする。", flavor: "影から忍び寄り、一撃で獲物の動きを封じる闇の刺客。" },
-      { id: "w_excalibur", name: "聖剣エクスカリバー", type: "weapon", elem: "light", rarity: 3, costMp: 10, atk: 15, icon: "⚔️", desc: "装備モンスターの攻撃力を+15する伝説の聖剣。", flavor: "選ばれし勇者のみが扱うことを許される光の宝剣。" },
-      { id: "sp_elixir", name: "赤城の霊薬", type: "magic", elem: "wood", rarity: 1, costMp: 6, heal: 20, mpRecover: 10, icon: "🧪", desc: "自分のHPを20回復し、MPを10回復する。", flavor: "赤城山に自生する希少な薬草から精製された秘薬。" }
-    ];
-    newCards.forEach(nc => {
+    NEW_INTEGRATED_CARDS.forEach(nc => {
       if (!CARD_DATABASE.some(c => c.id === nc.id)) {
         CARD_DATABASE.push(nc);
       }
@@ -1665,9 +1678,9 @@
         { name: "《タワーチャレンジャー》", unlocked: bestTower >= 10, desc: "タワー10階到達" },
         { name: "《塔の極限者》", unlocked: bestTower >= 30, desc: "タワー30階到達" },
         { name: "《赤城タワーマスター》", unlocked: bestTower >= 50, desc: "タワー50階完全制覇" },
-        { name: "《ドラフト挑戦者》", unlocked: bestDraft >= 10, desc: "ドラフト10階到達" },
-        { name: "《即興の戦術家》", unlocked: bestDraft >= 30, desc: "ドラフト30階到達" },
-        { name: "《ドラフトレジェンド》", unlocked: bestDraft >= 50, desc: "ドラフト50階完全制覇" }
+        { name: "《ファクトリー挑戦者》", unlocked: bestDraft >= 10, desc: "ファクトリー10階到達" },
+        { name: "《即興の戦術家》", unlocked: bestDraft >= 30, desc: "ファクトリー30階到達" },
+        { name: "《ファクトリーレジェンド》", unlocked: bestDraft >= 50, desc: "ファクトリー50階完全制覇" }
       ];
 
       titleContainer.innerHTML = titleDefinitions.map(t => {
@@ -1949,14 +1962,38 @@
   }
   window.saveProfileCustomization = saveProfileCustomization;
 
+  // 🔑 ★ パスワード判定＆カード全付与機能 ★ 🔑
   async function openAdminScreen() {
     const inputPass = prompt("管理者用パスコードを入力してください:");
+    if (!inputPass) return;
+
+    // 🎁 隠しコマンド：カード全付与処理
+    if (inputPass === "おはぎぃcvしぐま") {
+      if (typeof CARD_DATABASE !== 'undefined' && Array.isArray(CARD_DATABASE)) {
+        const allCardIds = CARD_DATABASE.filter(c => !c.isToken).map(c => c.id);
+        if (!window.userProfile.inventory) {
+          window.userProfile.inventory = [];
+        }
+        allCardIds.forEach(id => {
+          if (!window.userProfile.inventory.includes(id)) {
+            window.userProfile.inventory.push(id);
+          }
+        });
+        saveUserProfile();
+        alert("🎁 【開発者特典】すべてのカードを全解放してインベントリに付与しました！");
+      } else {
+        alert("カードデータベースの読み込みに失敗しました。");
+      }
+      return;
+    }
+
+    // 通常の管理者ログイン
     if (inputPass === ADMIN_PASSCODE) {
       document.getElementById("titleScreen").classList.add("hidden");
       document.getElementById("adminScreen").classList.remove("hidden");
       resetAdminForm();
       await fetchAdminEventList();
-    } else if (inputPass !== null) {
+    } else {
       alert("パスコードが正しくありません。");
     }
   }
@@ -2258,7 +2295,6 @@
         if (window.userProfile.towerInProgress === undefined) window.userProfile.towerInProgress = false;
         if (window.userProfile.bestTowerFloor === undefined) window.userProfile.bestTowerFloor = 0;
         
-        // ドラフトモードプロパティ補完
         if (window.userProfile.draftFloor === undefined) window.userProfile.draftFloor = 1;
         if (window.userProfile.draftInProgress === undefined) window.userProfile.draftInProgress = false;
         if (window.userProfile.bestDraftFloor === undefined) window.userProfile.bestDraftFloor = 0;
@@ -2324,9 +2360,9 @@
     const btnDraftTower = document.getElementById("btnDraftTower");
     if (btnDraftTower) {
       if (window.userProfile.draftInProgress) {
-        btnDraftTower.textContent = `🎲 赤城ドラフト (第${window.userProfile.draftFloor}階から再開)`;
+        btnDraftTower.textContent = `🎲 赤城ファクトリー (第${window.userProfile.draftFloor}階から再開)`;
       } else {
-        btnDraftTower.textContent = `🎲 赤城ドラフトバトル (デッキ選択・強化50階)`;
+        btnDraftTower.textContent = `🎲 赤城ファクトリーバトル (デッキ選択・強化50階)`;
       }
     }
   }
@@ -2395,7 +2431,6 @@
     try { playBGM('title'); } catch(e){}
   });
 
-  // 強制タイトル画面復帰処理
   function showTitleDirect() {
     try {
       if (roomPollingInterval) {
@@ -2451,7 +2486,6 @@
   }
   window.showTitleDirect = showTitleDirect;
 
-  // 降参・戻る
   async function surrenderAndReturn() {
     try {
       if (window.gameState.isGameEnded) {
@@ -2569,7 +2603,6 @@
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
-  // リアルタイム通信チャンネル接続
   function subscribeRoomUpdates() {
     if (!onlineRoomId || !supabaseClient) return;
 
@@ -2917,7 +2950,6 @@
     initGame();
   }
 
-  /* 🏰 赤城バトルタワー処理 */
   function handleTowerButtonClick() {
     if (window.userProfile.towerInProgress) {
       if (confirm(`第 ${window.userProfile.towerFloor} 階から再開しますか？\n(「キャンセル」を押すと第1階からやり直します)`)) {
@@ -2951,7 +2983,6 @@
     initGame();
   }
 
-  /* 🎲 赤城ドラフトバトル処理（初期20枚選定 ＆ 5戦ごと入れ替え機能） */
   function handleDraftButtonClick() {
     if (window.userProfile.draftInProgress) {
       if (confirm(`第 ${window.userProfile.draftFloor} 階から再開しますか？\n(「キャンセル」を押すと新デッキで第1階からやり直します)`)) {
@@ -2972,7 +3003,6 @@
     showDraftPickStep();
   }
 
-  // 初期20枚ピック処理
   function showDraftPickStep() {
     const modal = document.getElementById("draftPickModal");
     const container = document.getElementById("draftPickContainer");
@@ -2999,7 +3029,6 @@
     modal.classList.add("active");
   }
 
-  // 5戦ごとの追加＆入れ替え処理 (Step 1: 追加)
   function showDraftUpgradeStep() {
     const modal = document.getElementById("draftPickModal");
     const container = document.getElementById("draftPickContainer");
@@ -3022,7 +3051,6 @@
     modal.classList.add("active");
   }
 
-  // 5戦ごとの追加＆入れ替え処理 (Step 2: 除外で20枚維持)
   function showDraftRemoveStep(addedCard) {
     const modal = document.getElementById("draftPickModal");
     const container = document.getElementById("draftPickContainer");
@@ -3308,7 +3336,6 @@
     oppElemElem.className = `element-badge ${eInfo.class}`;
     oppElemElem.textContent = `${eInfo.icon} ${eInfo.name}`;
 
-    // モードごとのデッキ参照切り替え
     let deckToUse = window.userProfile.deck;
     if (window.gameState.mode === "draft") {
       deckToUse = window.userProfile.draftDeck;
@@ -3328,7 +3355,7 @@
 
     let bannerText = "";
     if (window.gameState.mode === "draft") {
-      bannerText = `🎲 赤城ドラフト 第${window.userProfile.draftFloor}/50階`;
+      bannerText = `🎲 赤城ファクトリー 第${window.userProfile.draftFloor}/50階`;
     } else if (window.gameState.mode === "tower") {
       bannerText = `🏰 赤城バトルタワー 第${window.userProfile.towerFloor}/50階`;
     } else if (window.gameState.mode === "gauntlet") {
@@ -3538,12 +3565,31 @@
     window.gameState.my.mp -= card.costMp;
 
     const monsterCopy = JSON.parse(JSON.stringify(card));
-    const newMonster = { ...monsterCopy, currentHp: monsterCopy.hp, maxHp: monsterCopy.hp, weapon: null, canAttack: false, isStunned: false };
-
+    
+    const newMonster = { 
+      ...monsterCopy, 
+      currentHp: monsterCopy.hp, 
+      maxHp: monsterCopy.hp, 
+      weapon: null, 
+      canAttack: card.hasHaste ? true : false, 
+      isStunned: false,
+      indestructibleUsed: false
+    };
     window.gameState.my.monsters[slotIdx] = newMonster;
     window.gameState.pendingSummonIndex = null;
 
     addLog(`${window.gameState.my.name} は ${slotIdx + 1}番目の枠に 【${card.name}】 を召喚！`, "important");
+
+    if (card.hasHaste) {
+      addLog(`⚡【速攻】${card.name} は召喚したターンから即座に攻撃可能！`, "effective");
+    }
+
+    if (card.shieldOnSummon) {
+      window.gameState.my.hp = Math.min(window.gameState.my.maxHp, window.gameState.my.hp + card.shieldOnSummon);
+      addLog(`✨【召喚効果】${card.name} の効果でHPが ${card.shieldOnSummon} 回復！`, "heal");
+      const myInfoEl = document.querySelector("#gameScreen .player-area:last-child .pinfo");
+      if (myInfoEl) showDamagePopup(myInfoEl, card.shieldOnSummon, "heal");
+    }
 
     if (card.spawnEnemyTokens) {
       const tokenCard = CARD_DATABASE.find(c => c.id === "token_blocker");
@@ -3631,8 +3677,17 @@
   function attackEnemyMonster(targetIdx) {
     if (window.gameState.selectedAttackerIdx === null) return;
     const attacker = window.gameState.my.monsters[window.gameState.selectedAttackerIdx];
-    const target = window.gameState.opp.monsters[targetIdx];
 
+    const tauntMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0 && m.taunt);
+    if (tauntMonsters.length > 0) {
+      const isTargetTaunt = window.gameState.opp.monsters[targetIdx] && window.gameState.opp.monsters[targetIdx].taunt;
+      if (!isTargetTaunt) {
+        addLog(`🛡️ 敵フィールドに【挑発】持ちモンスターが存在するため、そのカードしか攻撃できません！`, "damage");
+        return;
+      }
+    }
+
+    const target = window.gameState.opp.monsters[targetIdx];
     if (!attacker || !target) return;
 
     if (attacker.voice) playVoice(attacker.voice);
@@ -3655,6 +3710,12 @@
     target.currentHp -= finalDamage;
     attacker.canAttack = false;
 
+    if (target.currentHp <= 0 && target.indestructibleOnce && !target.indestructibleUsed) {
+      target.currentHp = 1;
+      target.indestructibleUsed = true;
+      addLog(`🔥【食いしばり】敵【${target.name}】は不死鳥の力でHP 1 で踏みとどまった！`, "effective");
+    }
+
     const targetSlot = document.querySelectorAll("#oppMonsters .monster-slot")[targetIdx];
     if (targetSlot) {
       showDamagePopup(targetSlot, finalDamage, calc.effective ? "effective" : "normal");
@@ -3663,13 +3724,29 @@
     const effLabel = calc.effective ? " 🔥【弱点特効！】" : "";
     addLog(`【攻撃】${attacker.name} (ATK:${totalAtk}) ➔ 敵【${target.name}】に ${finalDamage} ダメージ！${effLabel}`, calc.effective ? "effective" : "important");
 
+    if (target.reflectDamage && target.currentHp > 0) {
+      attacker.currentHp -= target.reflectDamage;
+      const myAttackerIdx = window.gameState.selectedAttackerIdx;
+      const mySlot = document.querySelectorAll("#myMonsters .monster-slot")[myAttackerIdx];
+      if (mySlot) showDamagePopup(mySlot, target.reflectDamage, "damage");
+      addLog(`⚡【被弾反撃】敵【${target.name}】の反撃装甲！ ${attacker.name} に ${target.reflectDamage} ダメージ！`, "damage");
+      if (attacker.currentHp <= 0 && attacker.indestructibleOnce && !attacker.indestructibleUsed) {
+        attacker.currentHp = 1;
+        attacker.indestructibleUsed = true;
+        addLog(`🔥【食いしばり】あなたの【${attacker.name}】はHP 1 で踏みとどまった！`, "effective");
+      } else if (attacker.currentHp <= 0) {
+        addLog(`💀 被弾反撃によりあなたの【${attacker.name}】は倒された！`, "damage");
+        window.gameState.my.monsters[window.gameState.selectedAttackerIdx] = null;
+      }
+    }
+
     if (attacker.applyStun && target.currentHp > 0) {
       target.isStunned = true;
       addLog(`🌀【状態異常】敵【${target.name}】は1ターンの間【行動不能】になった！`, "effective");
     }
 
     if (target.currentHp > 0) {
-      if (!target.isStunned) {
+      if (!target.isStunned && attacker.currentHp > 0) {
         let counterAtk = target.atk;
         let counterElem = target.elem;
         if (target.weapon) {
@@ -3685,6 +3762,12 @@
         }
 
         attacker.currentHp -= counterDamage;
+
+        if (attacker.currentHp <= 0 && attacker.indestructibleOnce && !attacker.indestructibleUsed) {
+          attacker.currentHp = 1;
+          attacker.indestructibleUsed = true;
+          addLog(`🔥【食いしばり】あなたの【${attacker.name}】はHP 1 で踏みとどまった！`, "effective");
+        }
 
         const myAttackerIdx = window.gameState.selectedAttackerIdx;
         const mySlot = document.querySelectorAll("#myMonsters .monster-slot")[myAttackerIdx];
@@ -3715,6 +3798,12 @@
         }
         randomTarget.currentHp -= splashDmg;
 
+        if (randomTarget.currentHp <= 0 && randomTarget.indestructibleOnce && !randomTarget.indestructibleUsed) {
+          randomTarget.currentHp = 1;
+          randomTarget.indestructibleUsed = true;
+          addLog(`🔥【食いしばり】敵【${randomTarget.name}】は追撃を HP 1 で耐えた！`, "effective");
+        }
+
         const splashIdx = window.gameState.opp.monsters.indexOf(randomTarget);
         if (splashIdx !== -1) {
           const splashSlot = document.querySelectorAll("#oppMonsters .monster-slot")[splashIdx];
@@ -3740,6 +3829,12 @@
 
   function attackEnemyPlayer() {
     if (window.gameState.selectedAttackerIdx === null) return;
+
+    const tauntMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0 && m.taunt);
+    if (tauntMonsters.length > 0) {
+      addLog("🛡️ 敵フィールドに【挑発】持ちモンスターが存在するため直接攻撃できません！", "damage");
+      return;
+    }
 
     const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0);
     if (activeOppMonsters.length > 0) {
@@ -3876,8 +3971,15 @@
         const idx = window.gameState.opp.hand.indexOf(monsterCard);
         window.gameState.opp.mp -= monsterCard.costMp;
         const cpuMonsterCopy = JSON.parse(JSON.stringify(monsterCard));
-        const newCpuMonster = { ...cpuMonsterCopy, currentHp: cpuMonsterCopy.hp, maxHp: cpuMonsterCopy.hp, weapon: null, canAttack: false, isStunned: false };
-        
+        const newCpuMonster = { 
+          ...cpuMonsterCopy, 
+          currentHp: cpuMonsterCopy.hp, 
+          maxHp: cpuMonsterCopy.hp, 
+          weapon: null, 
+          canAttack: monsterCard.hasHaste ? true : false, 
+          isStunned: false,
+          indestructibleUsed: false
+        };
         const emptySlotIdx = window.gameState.opp.monsters.findIndex(m => m === null || m === undefined);
         if (emptySlotIdx !== -1) {
           window.gameState.opp.monsters[emptySlotIdx] = newCpuMonster;
@@ -3887,6 +3989,17 @@
 
         window.gameState.opp.hand.splice(idx, 1);
         addLog(`${window.gameState.opp.name} は 【${monsterCard.name}】 を召喚！`, "important");
+
+        if (monsterCard.hasHaste) {
+          addLog(`⚡【速攻】敵の【${monsterCard.name}】は召喚ターンから即座に攻撃可能！`, "damage");
+        }
+
+        if (monsterCard.shieldOnSummon) {
+          window.gameState.opp.hp = Math.min(window.gameState.opp.maxHp, window.gameState.opp.hp + monsterCard.shieldOnSummon);
+          addLog(`✨【召喚効果】敵【${monsterCard.name}】の回復効果で相手のHPが ${monsterCard.shieldOnSummon} 回復！`, "heal");
+          const oppInfoEl = document.getElementById("oppPlayerInfo");
+          if (oppInfoEl) showDamagePopup(oppInfoEl, monsterCard.shieldOnSummon, "heal");
+        }
 
         if (monsterCard.spawnEnemyTokens) {
           const tokenCard = CARD_DATABASE.find(c => c.id === "token_blocker");
@@ -3956,7 +4069,12 @@
         attackElem = m.weapon.elem;
       }
 
-      const activeMyMonsters = window.gameState.my.monsters.filter(tm => tm !== null && tm !== undefined && tm.currentHp > 0);
+      let activeMyMonsters = window.gameState.my.monsters.filter(tm => tm !== null && tm !== undefined && tm.currentHp > 0);
+
+      const myTauntMonsters = activeMyMonsters.filter(tm => tm.taunt);
+      if (myTauntMonsters.length > 0) {
+        activeMyMonsters = myTauntMonsters;
+      }
 
       if (activeMyMonsters.length > 0) {
         let target = activeMyMonsters[0];
@@ -3983,6 +4101,12 @@
         target.currentHp -= finalDamage;
         m.canAttack = false;
 
+        if (target.currentHp <= 0 && target.indestructibleOnce && !target.indestructibleUsed) {
+          target.currentHp = 1;
+          target.indestructibleUsed = true;
+          addLog(`🔥【食いしばり】あなたの【${target.name}】は不死鳥の力でHP 1 で踏みとどまった！`, "effective");
+        }
+
         const targetIdxInMy = window.gameState.my.monsters.indexOf(target);
         if (targetIdxInMy !== -1) {
           const myTargetSlot = document.querySelectorAll("#myMonsters .monster-slot")[targetIdxInMy];
@@ -3992,13 +4116,32 @@
         const effLabel = calc.effective ? " ⚡【弱点被弾！】" : "";
         addLog(`【敵攻撃】${m.name} ➔ 【${target.name}】に ${finalDamage} ダメージ！${effLabel}`, "damage");
 
+        if (target.reflectDamage && target.currentHp > 0) {
+          m.currentHp -= target.reflectDamage;
+          const oppMonsterIdx = window.gameState.opp.monsters.indexOf(m);
+          if (oppMonsterIdx !== -1) {
+            const oppSlot = document.querySelectorAll("#oppMonsters .monster-slot")[oppMonsterIdx];
+            if (oppSlot) showDamagePopup(oppSlot, target.reflectDamage, "effective");
+          }
+          addLog(`⚡【被弾反撃】あなたの【${target.name}】の反撃装甲！ 敵【${m.name}】に ${target.reflectDamage} ダメージ！`, "effective");
+          if (m.currentHp <= 0 && m.indestructibleOnce && !m.indestructibleUsed) {
+            m.currentHp = 1;
+            m.indestructibleUsed = true;
+            addLog(`🔥【食いしばり】敵の【${m.name}】はHP 1 で踏みとどまった！`, "damage");
+          } else if (m.currentHp <= 0) {
+            addLog(`🎉 被弾反撃により敵の【${m.name}】を撃破した！`, "important");
+            const deadOppIdx = window.gameState.opp.monsters.indexOf(m);
+            if (deadOppIdx !== -1) window.gameState.opp.monsters[deadOppIdx] = null;
+          }
+        }
+
         if (m.applyStun && target.currentHp > 0) {
           target.isStunned = true;
           addLog(`🌀【状態異常】あなたの【${target.name}】は1ターンの間【行動不能】になった！`, "damage");
         }
 
         if (target.currentHp > 0) {
-          if (!target.isStunned) {
+          if (!target.isStunned && m.currentHp > 0) {
             let counterAtk = target.atk;
             let counterElem = target.elem;
             if (target.weapon) {
@@ -4014,6 +4157,12 @@
             }
 
             m.currentHp -= counterDamage;
+
+            if (m.currentHp <= 0 && m.indestructibleOnce && !m.indestructibleUsed) {
+              m.currentHp = 1;
+              m.indestructibleUsed = true;
+              addLog(`🔥【食いしばり】敵の【${m.name}】はHP 1 で踏みとどまった！`, "damage");
+            }
 
             const oppMonsterIdx = window.gameState.opp.monsters.indexOf(m);
             if (oppMonsterIdx !== -1) {
@@ -4045,6 +4194,12 @@
               splashDmg = Math.floor(splashDmg / 2);
             }
             randomMyTarget.currentHp -= splashDmg;
+
+            if (randomMyTarget.currentHp <= 0 && randomMyTarget.indestructibleOnce && !randomMyTarget.indestructibleUsed) {
+              randomMyTarget.currentHp = 1;
+              randomMyTarget.indestructibleUsed = true;
+              addLog(`🔥【食いしばり】あなたの【${randomMyTarget.name}】は追撃を HP 1 で耐えた！`, "effective");
+            }
 
             const splashMyIdx = window.gameState.my.monsters.indexOf(randomMyTarget);
             if (splashMyIdx !== -1) {
@@ -4147,9 +4302,9 @@
             window.userProfile.bestDraftFloor = currentFloor;
           }
 
-          if (currentFloor === 10) newTitleUnlocked = "《ドラフト挑戦者》";
+          if (currentFloor === 10) newTitleUnlocked = "《ファクトリー挑戦者》";
           if (currentFloor === 30) newTitleUnlocked = "《即興の戦術家》";
-          if (currentFloor === 50) newTitleUnlocked = "《ドラフトレジェンド》";
+          if (currentFloor === 50) newTitleUnlocked = "《ファクトリーレジェンド》";
 
           let titleMsg = newTitleUnlocked ? `\n🎉 称号【${newTitleUnlocked}】を獲得しました！` : "";
 
@@ -4157,7 +4312,7 @@
             window.userProfile.draftInProgress = false;
             window.userProfile.draftFloor = 1;
             saveUserProfile();
-            showEndModal(`🎉 👑 赤城ドラフト 50階完全制覇！ 👑 (+${rewardCoins} pt獲得)${titleMsg}`, "タイトルへ戻る");
+            showEndModal(`🎉 👑 赤城ファクトリー 50階完全制覇！ 👑 (+${rewardCoins} pt獲得)${titleMsg}`, "タイトルへ戻る");
           } else if (currentFloor % 5 === 0) {
             window.userProfile.draftFloor = currentFloor + 1;
             saveUserProfile();
@@ -4213,7 +4368,7 @@
         }
       } else if (isLoss) {
         if (window.gameState.mode === "draft") {
-          addLog(`🎲 赤城ドラフト 挑戦失敗... (到達: 第${window.userProfile.draftFloor}階)`, "damage");
+          addLog(`🎲 赤城ファクトリー 挑戦失敗... (到達: 第${window.userProfile.draftFloor}階)`, "damage");
           window.userProfile.draftInProgress = false;
           window.userProfile.draftFloor = 1;
         } else if (window.gameState.mode === "tower") {
@@ -4363,7 +4518,8 @@
     const oppPlayerInfo = document.getElementById("oppPlayerInfo");
     if (oppPlayerInfo) {
       const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0);
-      if (window.gameState.selectedAttackerIdx !== null && activeOppMonsters.length === 0) {
+      const hasTaunt = activeOppMonsters.some(m => m.taunt);
+      if (window.gameState.selectedAttackerIdx !== null && activeOppMonsters.length === 0 && !hasTaunt) {
         oppPlayerInfo.classList.add("selectable-target");
         oppPlayerInfo.onclick = typeof attackEnemyPlayer === 'function' ? attackEnemyPlayer : null;
       } else {
@@ -4394,6 +4550,7 @@
           const totalAtk = m.atk + bonusAtk;
           const wText = m.weapon ? `<div class="equipped-weapon">🗡️ ${m.weapon.name} (+${m.weapon.atk})</div>` : '';
           const stunBadge = m.isStunned ? `<div class="status-stunned-badge">🌀 行動不能</div>` : '';
+          const tauntBadge = m.taunt ? `<div class="status-taunt-badge">🛡️ 挑発</div>` : '';
           const timerBadge = m.turnsLeft !== undefined ? `<div class="timer-badge">⌛ 残り${m.turnsLeft}T</div>` : '';
 
           const imgHTML = m.image 
@@ -4404,6 +4561,7 @@
           slot.innerHTML = `
             <div class="monster-card-field ${(!m.canAttack || m.isStunned || m.cannotAttack) ? 'exhausted' : ''} ${m.isStunned ? 'stunned' : ''}">
               ${stunBadge}
+              ${tauntBadge}
               ${timerBadge}
               <div class="monster-header">
                 <span>${imgHTML} <strong>${m.name}</strong></span>
@@ -4427,21 +4585,28 @@
     const oppMonstersContainer = document.getElementById("oppMonsters");
     if (oppMonstersContainer) {
       oppMonstersContainer.innerHTML = "";
+      const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0);
+      const hasTaunt = activeOppMonsters.some(m => m.taunt);
+
       for (let i = 0; i < 5; i++) {
         const slot = document.createElement("div");
         slot.className = "monster-slot";
 
-        if (window.gameState.selectedAttackerIdx !== null && window.gameState.opp.monsters[i]) {
+        const currentOppCard = window.gameState.opp.monsters[i];
+        const isSelectableTarget = window.gameState.selectedAttackerIdx !== null && currentOppCard && (!hasTaunt || currentOppCard.taunt);
+
+        if (isSelectableTarget) {
           slot.classList.add("selectable-target");
           slot.onclick = () => typeof attackEnemyMonster === 'function' && attackEnemyMonster(i);
         }
 
-        if (window.gameState.opp.monsters[i]) {
-          const m = window.gameState.opp.monsters[i];
+        if (currentOppCard) {
+          const m = currentOppCard;
           const bonusAtk = m.weapon ? m.weapon.atk : 0;
           const totalAtk = m.atk + bonusAtk;
           const wText = m.weapon ? `<div class="equipped-weapon">🗡️ ${m.weapon.name} (+${m.weapon.atk})</div>` : '';
           const stunBadge = m.isStunned ? `<div class="status-stunned-badge">🌀 行動不能</div>` : '';
+          const tauntBadge = m.taunt ? `<div class="status-taunt-badge">🛡️ 挑発</div>` : '';
           const timerBadge = m.turnsLeft !== undefined ? `<div class="timer-badge">⌛ 残り${m.turnsLeft}T</div>` : '';
 
           const imgHTML = m.image 
@@ -4451,6 +4616,7 @@
           slot.innerHTML = `
             <div class="monster-card-field ${(!m.canAttack || m.isStunned || m.cannotAttack) ? 'exhausted' : ''} ${m.isStunned ? 'stunned' : ''}">
               ${stunBadge}
+              ${tauntBadge}
               ${timerBadge}
               <div class="monster-header">
                 <span>${imgHTML} <strong>${m.name}</strong></span>
