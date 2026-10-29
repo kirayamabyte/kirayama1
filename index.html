@@ -1640,8 +1640,17 @@
         { name: "《黄金の決闘神》", unlocked: userRate >= 2000, desc: "ゴールド到達 (2000 RP)" },
         { name: "《カードマスター》", unlocked: userRate >= 2500, desc: "マスター到達 (2500 RP)" },
         { name: "《百戦錬磨》", unlocked: userWins >= 10, desc: "通算10勝達成" },
-        { name: "《無敗の伝承》", unlocked: userWins >= 50, desc: "通算50勝達成" }
-      ];
+        { name: "《無敗の伝承》", unlocked: userWins >= 50, desc: "通算50勝達成" },
+      
+    { name: "《タワーチャレンジャー》", unlocked: bestTower >= 10, desc: "タワー10階到達" },
+    { name: "《塔の極限者》", unlocked: bestTower >= 30, desc: "タワー30階到達" },
+    { name: "《赤城タワーマスター》", unlocked: bestTower >= 50, desc: "タワー50階完全制覇" },
+    
+    // --- 🎲 ドラフト勝利報酬称号 ---
+    { name: "《ドラフト挑戦者》", unlocked: bestDraft >= 10, desc: "ドラフト10階到達" },
+    { name: "《即興の戦術家》", unlocked: bestDraft >= 30, desc: "ドラフト30階到達" },
+    { name: "《ドラフトレジェンド》", unlocked: bestDraft >= 50, desc: "ドラフト50階完全制覇" }
+  ];
 
       titleContainer.innerHTML = titleDefinitions.map(t => {
         const isEquipped = window.userProfile.equippedTitle === t.name;
