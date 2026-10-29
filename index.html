@@ -1066,6 +1066,41 @@
       color: #ff4444 !important;
       font-weight: bold;
     }
+
+    /* ========================================
+       演出・アニメーションエフェクト
+       ======================================== */
+
+    /* 1. ダメージ/回復の浮き出る数字ポップアップ */
+    .damage-popup {
+      position: absolute;
+      z-index: 999;
+      font-weight: 900;
+      font-size: 1.5rem;
+      pointer-events: none;
+      animation: floatUpFade 0.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+      text-shadow: 0 0 6px rgba(0,0,0,0.9), 2px 2px 0 #000;
+    }
+
+    .damage-popup.normal { color: #ff4d4f; }
+    .damage-popup.effective { color: #ff9c6e; font-size: 1.8rem; text-shadow: 0 0 10px #ff4d4f; }
+    .damage-popup.heal { color: #52c41a; }
+
+    @keyframes floatUpFade {
+      0% { opacity: 0; transform: translate(-50%, 0) scale(0.5); }
+      20% { opacity: 1; transform: translate(-50%, -15px) scale(1.3); }
+      100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
+    }
+
+    /* 2. 手札カードのホバー時のオーラ */
+    .card {
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s !important;
+    }
+
+    .card:hover {
+      transform: translateY(-8px) scale(1.03) !important;
+      box-shadow: 0 8px 20px rgba(0, 255, 245, 0.4);
+    }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -3033,6 +3068,26 @@
     }
   }
 
+  // ★ ダメージ数値ポップアップ表示関数 ★
+  function showDamagePopup(targetEl, amount, type = "normal") {
+    if (!targetEl) return;
+    
+    const rect = targetEl.getBoundingClientRect();
+    const popup = document.createElement("div");
+    popup.className = `damage-popup ${type}`;
+    popup.textContent = (type === "heal" ? "+" : "-") + amount;
+    
+    // 対象要素の中央付近に配置
+    popup.style.left = `${rect.left + rect.width / 2}px`;
+    popup.style.top = `${rect.top + rect.height / 3}px`;
+    
+    document.body.appendChild(popup);
+    
+    setTimeout(() => {
+      if (popup.parentNode) popup.parentNode.removeChild(popup);
+    }, 800);
+  }
+
   function calcDamage(atk, cardElem, targetElem) {
     const eData = window.ELEMENTS[cardElem];
     if (eData && eData.strongTo === targetElem) {
@@ -3143,7 +3198,7 @@
       } else {
         window.gameState.my.mp -= card.costMp;
 
-        // 🟢 【追加】ドロー効果（山札からカードを引く）
+        // ドロー効果（山札からカードを引く）
         if (card.drawCount) {
           let drawn = 0;
           for (let i = 0; i < card.drawCount; i++) {
@@ -3162,6 +3217,12 @@
         if (card.heal) {
           window.gameState.my.hp = Math.min(window.gameState.my.maxHp, window.gameState.my.hp + card.heal);
           addLog(`${card.name}！ HPが ${card.heal} 回復！`);
+
+          // ★ 回復ポップアップ表示 ★
+          const myInfoEl = document.querySelector("#gameScreen .player-area:last-child .pinfo");
+          if (myInfoEl) {
+            showDamagePopup(myInfoEl, card.heal, "heal");
+          }
         }
         if (card.mpRecover) {
           const maxMp = window.gameState.my.maxMp || 40;
@@ -3305,6 +3366,12 @@
     target.currentHp -= finalDamage;
     attacker.canAttack = false;
 
+    // ★ 攻撃対象モンスターへのダメージポップアップ ★
+    const targetSlot = document.querySelectorAll("#oppMonsters .monster-slot")[targetIdx];
+    if (targetSlot) {
+      showDamagePopup(targetSlot, finalDamage, calc.effective ? "effective" : "normal");
+    }
+
     const effLabel = calc.effective ? " 🔥【弱点特効！】" : "";
     addLog(`【攻撃】${attacker.name} (ATK:${totalAtk}) ➔ 敵【${target.name}】に ${finalDamage} ダメージ！${effLabel}`, calc.effective ? "effective" : "important");
 
@@ -3331,6 +3398,14 @@
         }
 
         attacker.currentHp -= counterDamage;
+
+        // ★ 自分のモンスターへの反撃ダメージポップアップ ★
+        const myAttackerIdx = window.gameState.selectedAttackerIdx;
+        const mySlot = document.querySelectorAll("#myMonsters .monster-slot")[myAttackerIdx];
+        if (mySlot) {
+          showDamagePopup(mySlot, counterDamage, counterCalc.effective ? "effective" : "normal");
+        }
+
         const counterEff = counterCalc.effective ? " ⚡【弱点反撃！】" : "";
         addLog(`⚔️【反撃】敵【${target.name}】の反撃！ ${attacker.name} に ${counterDamage} ダメージ！${counterEff}`, "damage");
 
@@ -3353,6 +3428,14 @@
           splashDmg = Math.floor(splashDmg / 2);
         }
         randomTarget.currentHp -= splashDmg;
+
+        // ★ 追撃対象モンスターへのダメージポップアップ ★
+        const splashIdx = window.gameState.opp.monsters.indexOf(randomTarget);
+        if (splashIdx !== -1) {
+          const splashSlot = document.querySelectorAll("#oppMonsters .monster-slot")[splashIdx];
+          if (splashSlot) showDamagePopup(splashSlot, splashDmg, "normal");
+        }
+
         addLog(`⚡【追加効果】${attacker.name}の追撃！ 敵【${randomTarget.name}】に ${splashDmg} ダメージ！`, "effective");
         if (randomTarget.currentHp <= 0) {
           addLog(`敵の【${randomTarget.name}】を追加効果で撃破した！`, "important");
@@ -3395,6 +3478,12 @@
     const calc = calcDamage(totalAtk, attackElem, window.gameState.opp.elem);
     window.gameState.opp.hp = Math.max(0, window.gameState.opp.hp - calc.damage);
     attacker.canAttack = false;
+
+    // ★ 相手プレイヤーへのダイレクトアタックポップアップ ★
+    const oppInfoEl = document.getElementById("oppPlayerInfo");
+    if (oppInfoEl) {
+      showDamagePopup(oppInfoEl, calc.damage, calc.effective ? "effective" : "normal");
+    }
 
     const effLabel = calc.effective ? " 🔥【弱点特効！】" : "";
     addLog(`【ダイレクトアタック】${attacker.name} ➔ ${window.gameState.opp.name}に ${calc.damage} ダメージ！${effLabel}`, calc.effective ? "effective" : "important");
@@ -3610,6 +3699,14 @@
 
         target.currentHp -= finalDamage;
         m.canAttack = false;
+
+        // ★ CPU攻撃を受けた味方モンスターへのダメージポップアップ ★
+        const targetIdxInMy = window.gameState.my.monsters.indexOf(target);
+        if (targetIdxInMy !== -1) {
+          const myTargetSlot = document.querySelectorAll("#myMonsters .monster-slot")[targetIdxInMy];
+          if (myTargetSlot) showDamagePopup(myTargetSlot, finalDamage, calc.effective ? "effective" : "normal");
+        }
+
         const effLabel = calc.effective ? " ⚡【弱点被弾！】" : "";
         addLog(`【敵攻撃】${m.name} ➔ 【${target.name}】に ${finalDamage} ダメージ！${effLabel}`, "damage");
 
@@ -3636,6 +3733,14 @@
             }
 
             m.currentHp -= counterDamage;
+
+            // ★ 敵モンスターへの反撃ダメージポップアップ ★
+            const oppMonsterIdx = window.gameState.opp.monsters.indexOf(m);
+            if (oppMonsterIdx !== -1) {
+              const oppSlot = document.querySelectorAll("#oppMonsters .monster-slot")[oppMonsterIdx];
+              if (oppSlot) showDamagePopup(oppSlot, counterDamage, counterCalc.effective ? "effective" : "normal");
+            }
+
             const counterEff = counterCalc.effective ? " 🔥【弱点反撃！】" : "";
             addLog(`⚔️【反撃】あなたの【${target.name}】の反撃！ 敵【${m.name}】に ${counterDamage} ダメージ！${counterEff}`, "effective");
 
@@ -3660,6 +3765,14 @@
               splashDmg = Math.floor(splashDmg / 2);
             }
             randomMyTarget.currentHp -= splashDmg;
+
+            // ★ CPU追撃を受けた味方モンスターへのダメージポップアップ ★
+            const splashMyIdx = window.gameState.my.monsters.indexOf(randomMyTarget);
+            if (splashMyIdx !== -1) {
+              const splashMySlot = document.querySelectorAll("#myMonsters .monster-slot")[splashMyIdx];
+              if (splashMySlot) showDamagePopup(splashMySlot, splashDmg, "normal");
+            }
+
             addLog(`⚡【敵の追加効果】${m.name}の追撃！ あなたの【${randomMyTarget.name}】に ${splashDmg} ダメージ！`, "damage");
             if (randomMyTarget.currentHp <= 0) {
               addLog(`あなたの【${randomMyTarget.name}】は追撃で倒された！`, "damage");
@@ -3672,6 +3785,13 @@
         const calc = calcDamage(totalAtk, attackElem, window.gameState.my.elem);
         window.gameState.my.hp = Math.max(0, window.gameState.my.hp - calc.damage);
         m.canAttack = false;
+
+        // ★ 自分プレイヤーへのダイレクトアタックポップアップ ★
+        const myInfoEl = document.querySelector("#gameScreen .player-area:last-child .pinfo");
+        if (myInfoEl) {
+          showDamagePopup(myInfoEl, calc.damage, calc.effective ? "effective" : "normal");
+        }
+
         const effLabel = calc.effective ? " ⚡【弱点被弾！】" : "";
         addLog(`【敵ダイレクト攻撃】${m.name} ➔ あなたは ${calc.damage} ダメージを受けた！${effLabel}`, "damage");
       }
