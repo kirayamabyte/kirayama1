@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>赤城ユタカードバトル - 完全機能統合版</title>
   <style>
+    /* 虹色カードが出たときのアニメーション */
+@keyframes rainbowPop {
+  0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+  50% { transform: scale(1.2) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.rainbow-burst {
+  animation: rainbowPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
+  box-shadow: 0 0 25px rgba(255, 0, 255, 0.8), 0 0 50px rgba(0, 255, 255, 0.8) !important;
+}
     :root {
       --bg-color: #1a1a24;
       --card-bg: #2a2a38;
@@ -1159,11 +1170,26 @@
       transform: translateY(-8px) scale(1.03) !important;
       box-shadow: 0 8px 20px rgba(0, 255, 245, 0.4);
     }
+    /* 虹色カードが出たときのアニメーション */
+@keyframes rainbowPop {
+  0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+  50% { transform: scale(1.2) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.rainbow-burst {
+  animation: rainbowPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
+  box-shadow: 0 0 25px rgba(255, 0, 255, 0.8), 0 0 50px rgba(0, 255, 255, 0.8) !important;
+}
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="cards1.js"></script>
   <script src="cpu_decks.js"></script>
+  <!-- <head> 内に追加 -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<!-- <head> 内に追加 -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
 
@@ -3022,11 +3048,48 @@
   function showGachaResultModal(cards) {
     const container = document.getElementById("gachaResultContainer");
     container.innerHTML = "";
-
+if (card.isRainbow) {
+      hasRainbow = true;
+      cardDiv.classList.add("rainbow-burst");
+    }
     cards.forEach(card => {
       const cardDiv = renderCardDOM(card, "", null);
       container.appendChild(cardDiv);
     });
+if (hasRainbow && typeof confetti === 'function') {
+    // 1. 中央からの大爆発エフェクト
+    confetti({
+      particleCount: 150,
+      spread: 100,
+      origin: { y: 0.6 },
+      colors: ['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#4b0082', '#9400d3']
+    });
+
+    // 2. 左右からの紙吹雪（連射）
+    const duration = 2 * 1000;
+    const end = Date.now() + duration;
+
+    (function frame() {
+      confetti({
+        particleCount: 5,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: ['#ffd700', '#00fff5', '#ff007f']
+      });
+      confetti({
+        particleCount: 5,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: ['#ffd700', '#00fff5', '#ff007f']
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    })();
+  }
 
     document.getElementById("gachaResultModal").classList.add("active");
   }
@@ -5155,6 +5218,7 @@ window.gameState.turn = "player";
 
     renderHand();
   }
+  
 </script>
 </body>
 </html>
