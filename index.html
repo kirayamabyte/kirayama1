@@ -1013,6 +1013,7 @@
       width: 100%;
       overflow-x: auto;
       padding: 8px 0;
+      flex-wrap: wrap;
     }
 
     .rule-dialog {
@@ -1464,7 +1465,7 @@
       <h2 id="draftModalTitle">🎲 1枚選んでデッキに追加</h2>
       <p id="draftModalDesc" style="font-size:0.8rem; color:#aaa;">カードをタップしてデッキに編成しよう</p>
       <div id="draftPickContainer" class="draft-pick-container"></div>
-      <div id="draftDeckProgress" style="font-size:0.85rem; color:var(--gold-color); font-weight:bold;">選択数: 0 / 10</div>
+      <div id="draftDeckProgress" style="font-size:0.85rem; color:var(--gold-color); font-weight:bold;">選択数: 0 / 20</div>
     </div>
   </div>
 
@@ -1529,7 +1530,7 @@
     console.error("Supabase初期化エラー:", e);
   }
 
-  // ★ 新カード5枚を含めた最新カードデータベース ★
+  // ★ カードデータベース ★
   if (typeof CARD_DATABASE === 'undefined') {
     window.CARD_DATABASE = [
       { id: "m_volcano_dragon", name: "ヴォルカノドラゴン", type: "monster", elem: "fire", rarity: 3, costMp: 12, atk: 22, hp: 25, splashDamage: 6, icon: "🐉", desc: "攻撃時、他の敵1体にも6ダメージの追撃を与える。", flavor: "赤城のマグマから解き放たれた深紅の暴竜。" },
@@ -2950,10 +2951,10 @@
     initGame();
   }
 
-  /* 🎲 赤城ドラフトバトル処理（選定・ピック機能） */
+  /* 🎲 赤城ドラフトバトル処理（初期20枚選定 ＆ 5戦ごと入れ替え機能） */
   function handleDraftButtonClick() {
     if (window.userProfile.draftInProgress) {
-      if (confirm(`第 ${window.userProfile.draftFloor} 階から再開しますか？\n(「キャンセル」を押すと新デッキで第1階から直します)`)) {
+      if (confirm(`第 ${window.userProfile.draftFloor} 階から再開しますか？\n(「キャンセル」を押すと新デッキで第1階からやり直します)`)) {
         startDraftGame(window.userProfile.draftFloor);
       } else {
         startNewDraftSetup();
@@ -2971,6 +2972,7 @@
     showDraftPickStep();
   }
 
+  // 初期20枚ピック処理
   function showDraftPickStep() {
     const modal = document.getElementById("draftPickModal");
     const container = document.getElementById("draftPickContainer");
@@ -2978,14 +2980,14 @@
 
     container.innerHTML = "";
     const currentCount = window.userProfile.draftDeck.length;
-    progress.textContent = `デッキ枚数: ${currentCount} / 10枚`;
+    progress.textContent = `デッキ枚数: ${currentCount} / 20枚`;
 
     const pool = CARD_DATABASE.filter(c => !c.isToken);
     for (let i = 0; i < 3; i++) {
       const randCard = pool[Math.floor(Math.random() * pool.length)];
       container.appendChild(renderCardDOM(randCard, "選択", () => {
         window.userProfile.draftDeck.push(randCard.id);
-        if (window.userProfile.draftDeck.length < 10) {
+        if (window.userProfile.draftDeck.length < 20) {
           showDraftPickStep();
         } else {
           modal.classList.remove("active");
@@ -2997,24 +2999,60 @@
     modal.classList.add("active");
   }
 
+  // 5戦ごとの追加＆入れ替え処理 (Step 1: 追加)
   function showDraftUpgradeStep() {
     const modal = document.getElementById("draftPickModal");
     const container = document.getElementById("draftPickContainer");
-
-    container.innerHTML = "";
+    const progress = document.getElementById("draftDeckProgress");
+    
     document.getElementById("draftModalTitle").textContent = "🎉 5戦クリア！ デッキ強化タイム";
+    document.getElementById("draftModalDesc").textContent = "追加したい強力なカードを1枚選んでください";
+    progress.textContent = `現在のデッキ枚数: ${window.userProfile.draftDeck.length}枚`;
+    container.innerHTML = "";
 
     const pool = CARD_DATABASE.filter(c => !c.isToken);
     for (let i = 0; i < 3; i++) {
       const randCard = pool[Math.floor(Math.random() * pool.length)];
       container.appendChild(renderCardDOM(randCard, "追加", () => {
         window.userProfile.draftDeck.push(randCard.id);
-        modal.classList.remove("active");
         saveUserProfile();
-        startDraftGame(window.userProfile.draftFloor);
+        showDraftRemoveStep(randCard);
       }));
     }
     modal.classList.add("active");
+  }
+
+  // 5戦ごとの追加＆入れ替え処理 (Step 2: 除外で20枚維持)
+  function showDraftRemoveStep(addedCard) {
+    const modal = document.getElementById("draftPickModal");
+    const container = document.getElementById("draftPickContainer");
+    const progress = document.getElementById("draftDeckProgress");
+
+    document.getElementById("draftModalTitle").textContent = "🗑️ デッキ調整（1枚除外）";
+    document.getElementById("draftModalDesc").textContent = `【${addedCard.name}】を追加しました。デッキから不要なカードを1枚選んで捨ててください。`;
+    progress.textContent = `調整後の目標枚数: 20枚 (現在: ${window.userProfile.draftDeck.length}枚)`;
+    
+    container.innerHTML = "";
+    container.style.maxHeight = "320px";
+    container.style.overflowY = "auto";
+
+    window.userProfile.draftDeck.forEach((cardId, index) => {
+      const cardData = CARD_DATABASE.find(c => c.id === cardId);
+      if (cardData) {
+        container.appendChild(renderCardDOM(cardData, "捨てる", () => {
+          window.userProfile.draftDeck.splice(index, 1);
+          saveUserProfile();
+
+          container.style.maxHeight = "";
+          container.style.overflowY = "";
+          document.getElementById("draftModalTitle").textContent = "🎲 1枚選んでデッキに追加";
+          document.getElementById("draftModalDesc").textContent = "カードをタップしてデッキに編成しよう";
+          modal.classList.remove("active");
+
+          startDraftGame(window.userProfile.draftFloor);
+        }));
+      }
+    });
   }
 
   function startDraftGame(floor) {
