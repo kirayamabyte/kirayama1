@@ -829,6 +829,20 @@
     .card.weapon { border: 2px solid #e94560; }
     .card.magic { border: 2px solid #00adb5; }
 
+    /* 🌈 0.0001% 確率の虹色ホログラム装飾 */
+    .card.rainbow-card {
+      border: 2px solid transparent !important;
+      border-image: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3) 1 !important;
+      background: linear-gradient(135deg, rgba(255,0,0,0.25), rgba(0,255,255,0.25), rgba(255,0,255,0.25)) !important;
+      animation: rainbowGlow 2s linear infinite alternate !important;
+      box-shadow: 0 0 12px rgba(255, 215, 0, 0.8), inset 0 0 8px rgba(255, 255, 255, 0.5) !important;
+    }
+
+    @keyframes rainbowGlow {
+      0% { filter: hue-rotate(0deg) brightness(1.1); }
+      100% { filter: hue-rotate(360deg) brightness(1.4); }
+    }
+
     .card-top-row {
       display: flex;
       justify-content: space-between;
@@ -1356,7 +1370,7 @@
       <div style="font-size:1.1rem;">所持コイン: 🪙 <strong id="gachaCoinDisplay" style="color:var(--gold-color);">1000</strong> pt</div>
       <div style="font-size:0.75rem; color:#bbb; line-height:1.4; text-align:left;">
         【提供割合】<br>
-        ⭐3 : 10%<br>
+        ⭐3 : 10%（超激レア 🌈 0.0001%）<br>
         ⭐2 : 30%<br>
         ⭐1 : 60%
       </div>
@@ -1984,7 +1998,7 @@
         });
 
         saveUserProfile();
-        alert("🎁 【開発者特典】すべてのカードを各4枚ずつインベントリに付与しました！");
+        alert("🎁 【開発者特典】すべての通常カードを各4枚ずつインベントリに付与しました！");
       } else {
         alert("カードデータベースの読み込みに失敗しました。");
       }
@@ -2421,6 +2435,11 @@
 
     bindEvent("btnGacha", openGachaScreen);
     bindEvent("btnOnline", openOnlineLobby);
+    
+    // ★ オンラインロビー用ボタンバインド追加
+    bindEvent("btnCreateOnlineRoom", createOnlineRoom);
+    bindEvent("btnJoinOnlineRoom", joinOnlineRoom);
+
     bindEvent("btnGauntlet", startGauntletMode);
     bindEvent("btnTower", handleTowerButtonClick);
     bindEvent("btnDraftTower", handleDraftButtonClick);
@@ -2551,11 +2570,128 @@
     document.getElementById("onlineLobbyScreen").classList.remove("hidden");
   }
 
+  // ★ 🌐 フリー部屋作成 (合言葉)
+  async function createOnlineRoom() {
+    if (!supabaseClient) return alert("Supabaseに接続されていません");
+    
+    const codeInput = document.getElementById("onlineRoomCodeInput").value.trim();
+    const roomCode = codeInput || Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    onlineRoomId = "ROOM_" + roomCode;
+    onlineMyRole = 'player1';
+    hasDrawnThisTurn = true;
+    window.gameState.mode = "online";
+    window.gameState.isGameStarted = false;
+
+    const myName = window.userProfile?.name || "プレイヤー";
+    const deckIds = window.userProfile?.deck || [];
+    const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
+
+    window.gameState.my.hand = fullDeck.slice(0, 5);
+    window.gameState.my.deck = fullDeck.slice(5);
+
+    document.getElementById("onlineStatusText").textContent = `部屋作成中: ${roomCode}`;
+
+    await supabaseClient.from('rooms').delete().eq('id', onlineRoomId);
+
+    const { error } = await supabaseClient.from('rooms').insert([{
+      id: onlineRoomId,
+      status: 'waiting',
+      current_turn: 'player1',
+      p1_name: myName,
+      p1_rate: window.userProfile.rate || 1000,
+      p1_hp: 60,
+      p1_deck_count: window.gameState.my.deck.length,
+      p2_hp: 60,
+      p2_deck_count: 15,
+      updated_at: new Date().toISOString()
+    }]);
+
+    if (error) {
+      alert("部屋の作成に失敗しました: " + error.message);
+      return;
+    }
+
+    document.getElementById("onlineLobbyScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+    
+    const modeBanner = document.getElementById("modeBanner");
+    if (modeBanner) modeBanner.textContent = `🌐 フリー対戦 (合言葉: ${roomCode})`;
+
+    const logArea = document.getElementById("logArea");
+    if (logArea) logArea.innerHTML = "";
+    addLog(`⏳ 合言葉【${roomCode}】で部屋を作成しました。相手の参加を待っています...`, "important");
+
+    subscribeRoomUpdates();
+    updateUI();
+  }
+  window.createOnlineRoom = createOnlineRoom;
+
+  // ★ 🌐 フリー部屋参加 (合言葉)
+  async function joinOnlineRoom() {
+    if (!supabaseClient) return alert("Supabaseに接続されていません");
+
+    const codeInput = document.getElementById("onlineRoomCodeInput").value.trim();
+    if (!codeInput) {
+      alert("合言葉（6桁のコード）を入力してください。");
+      return;
+    }
+
+    const roomId = "ROOM_" + codeInput.toUpperCase();
+    const myName = window.userProfile?.name || "プレイヤー";
+
+    const { data: room, error } = await supabaseClient
+      .from('rooms')
+      .select('*')
+      .eq('id', roomId)
+      .maybeSingle();
+
+    if (error || !room) {
+      alert("指定された合言葉の部屋が見つかりません。");
+      return;
+    }
+
+    onlineRoomId = roomId;
+    onlineMyRole = 'player2';
+    hasDrawnThisTurn = false;
+    window.gameState.mode = "online";
+    window.gameState.isGameStarted = true;
+
+    const deckIds = window.userProfile?.deck || [];
+    const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
+
+    window.gameState.my.hand = fullDeck.slice(0, 5);
+    window.gameState.my.deck = fullDeck.slice(5);
+
+    await supabaseClient.from('rooms').update({
+      status: 'playing',
+      p2_name: myName,
+      p2_rate: window.userProfile.rate || 1000,
+      p2_hp: 60,
+      p2_deck_count: window.gameState.my.deck.length,
+      updated_at: new Date().toISOString()
+    }).eq('id', roomId);
+
+    document.getElementById("onlineLobbyScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+
+    const modeBanner = document.getElementById("modeBanner");
+    if (modeBanner) modeBanner.textContent = `🌐 フリー対戦 (合言葉: ${codeInput.toUpperCase()})`;
+
+    const logArea = document.getElementById("logArea");
+    if (logArea) logArea.innerHTML = "";
+    addLog(`⚔️ 合言葉【${codeInput.toUpperCase()}】の部屋に参加しました！対戦開始！`, "effective");
+
+    subscribeRoomUpdates();
+    updateUI();
+  }
+  window.joinOnlineRoom = joinOnlineRoom;
+
+  // ガチャ抽選関数（⭐3 の時 0.0001% で虹色化）
   function drawGachaCard() {
     const rand = Math.random() * 100;
     let targetRarity = 1;
 
-    // 確定確率: ⭐3: 10% / ⭐2: 30% / ⭐1: 60%
     if (rand < 10) {
       targetRarity = 3;
     } else if (rand < 40) {
@@ -2565,11 +2701,22 @@
     }
 
     const candidates = CARD_DATABASE.filter(c => (c.rarity || 1) === targetRarity && !c.isToken);
-    if (candidates.length === 0) {
+    let selectedCard = candidates[Math.floor(Math.random() * candidates.length)];
+    if (!selectedCard) {
       const fallbackCandidates = CARD_DATABASE.filter(c => !c.isToken);
-      return fallbackCandidates[Math.floor(Math.random() * fallbackCandidates.length)];
+      selectedCard = fallbackCandidates[Math.floor(Math.random() * fallbackCandidates.length)];
     }
-    return candidates[Math.floor(Math.random() * candidates.length)];
+
+    const cardInstance = JSON.parse(JSON.stringify(selectedCard));
+
+    if (targetRarity === 3) {
+      if (Math.random() < 0.000001) {
+        cardInstance.isRainbow = true;
+        cardInstance.name = `🌈 ${cardInstance.name}`;
+      }
+    }
+
+    return cardInstance;
   }
 
   function executeGacha(count = 1) {
@@ -2585,7 +2732,7 @@
     for (let i = 0; i < count; i++) {
       const card = drawGachaCard();
       drawnCards.push(card);
-      window.userProfile.inventory.push(card.id);
+      window.userProfile.inventory.push(card.isRainbow ? card : card.id);
     }
 
     saveUserProfile();
@@ -3118,14 +3265,14 @@
     renderDeckEditor();
   }
 
-  // ★ 未所持カードを名前とレアリティのみ表示（画像・属性・効果は非表示）にする renderCardDOM 関数
   function renderCardDOM(cardData, badgeText, clickHandler, isUnowned = false) {
     const elemInfo = window.ELEMENTS[cardData.elem] || { name: "無", icon: "⚪", class: "" };
     const rarityNum = cardData.rarity || 1;
     const rarityStars = "★".repeat(rarityNum);
     
     const cardDiv = document.createElement("div");
-    cardDiv.className = `card ${isUnowned ? '' : cardData.type}`;
+    const rainbowClass = cardData.isRainbow ? 'rainbow-card' : '';
+    cardDiv.className = `card ${isUnowned ? '' : cardData.type} ${rainbowClass}`;
 
     if (isUnowned) {
       cardDiv.style.opacity = "0.5";
@@ -3238,7 +3385,6 @@
     return cardDiv;
   }
 
-  // ★ 図鑑表示完全修正版：CARD_DATABASE内の全カードを走査して一覧化
   function renderDeckEditor() {
     const deckBadge = document.getElementById("deckCountBadge");
     const currentDeck = window.userProfile.deck || [];
@@ -3249,7 +3395,10 @@
     deckContainer.innerHTML = "";
 
     const deckCounts = {};
-    currentDeck.forEach(id => deckCounts[id] = (deckCounts[id] || 0) + 1);
+    currentDeck.forEach(id => {
+      const cardKey = typeof id === 'object' ? id.id : id;
+      deckCounts[cardKey] = (deckCounts[cardKey] || 0) + 1;
+    });
 
     Object.keys(deckCounts).forEach(id => {
       const cardData = CARD_DATABASE.find(c => c.id === id);
@@ -3264,9 +3413,11 @@
 
     const inventory = window.userProfile.inventory || [];
     const ownedCounts = {};
-    inventory.forEach(id => ownedCounts[id] = (ownedCounts[id] || 0) + 1);
+    inventory.forEach(item => {
+      const id = typeof item === 'object' ? item.id : item;
+      ownedCounts[id] = (ownedCounts[id] || 0) + 1;
+    });
 
-    // ★ CARD_DATABASE 内のすべてのカードをループ（未所持カードも0枚として伏せ字表示）
     CARD_DATABASE.forEach(cardData => {
       if (!cardData || cardData.isToken) return;
 
@@ -3274,11 +3425,10 @@
       const count = ownedCounts[id] || 0;
 
       if (count > 0) {
-        const inDeckCount = currentDeck.filter(cardId => cardId === id).length;
+        const inDeckCount = currentDeck.filter(cardId => (typeof cardId === 'object' ? cardId.id : cardId) === id).length;
         const cardDiv = renderCardDOM(cardData, `${inDeckCount}/${count}`, () => addCardToDeck(id));
         catalogContainer.appendChild(cardDiv);
       } else {
-        // 未所持の場合
         const cardDiv = renderCardDOM(cardData, "0枚", null, true);
         catalogContainer.appendChild(cardDiv);
       }
@@ -3291,8 +3441,8 @@
     const cardData = CARD_DATABASE.find(c => c.id === id);
     if (!cardData) return;
 
-    const ownedCount = window.userProfile.inventory.filter(cardId => cardId === id).length;
-    const countInDeck = window.userProfile.deck.filter(cardId => cardId === id).length;
+    const ownedCount = window.userProfile.inventory.filter(item => (typeof item === 'object' ? item.id : item) === id).length;
+    const countInDeck = window.userProfile.deck.filter(cardId => (typeof cardId === 'object' ? cardId.id : cardId) === id).length;
 
     if (countInDeck >= ownedCount) {
       alert("このカードの所持枚数上限に達しています！ガチャで増やしましょう！");
@@ -3312,7 +3462,7 @@
   }
 
   function removeCardFromDeck(id) {
-    const idx = window.userProfile.deck.indexOf(id);
+    const idx = window.userProfile.deck.findIndex(item => (typeof item === 'object' ? item.id : item) === id);
     if (idx !== -1) {
       window.userProfile.deck.splice(idx, 1);
       renderDeckEditor();
@@ -3334,7 +3484,11 @@
   }
 
   function buildDeckFromIds(idArray) {
-    const rawDeck = idArray.map(id => ({ ...CARD_DATABASE.find(c => c.id === id) }));
+    const rawDeck = idArray.map(item => {
+      const id = typeof item === 'object' ? item.id : item;
+      const base = CARD_DATABASE.find(c => c.id === id);
+      return typeof item === 'object' ? { ...base, ...item } : { ...base };
+    });
     for (let i = rawDeck.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [rawDeck[i], rawDeck[j]] = [rawDeck[j], rawDeck[i]];
