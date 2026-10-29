@@ -1402,7 +1402,7 @@
       <div style="font-size:1.1rem;">所持コイン: 🪙 <strong id="gachaCoinDisplay" style="color:var(--gold-color);">1000</strong> pt</div>
       <div style="font-size:0.75rem; color:#bbb; line-height:1.4; text-align:left;">
         【提供割合】<br>
-        ⭐3 : 10%（超激レア 🌈 0.0001%）<br>
+        ⭐3 : 10%（超激レア虹ホログラム 🌈 0.1%）<br>
         ⭐2 : 30%<br>
         ⭐1 : 60%
       </div>
@@ -2652,8 +2652,8 @@
     pendingSummonIndex: null,
     isGameStarted: false,
     isGameEnded: false,
-    my: { name: "あなた", rate: 1000, elem: "water", hp: 60, maxHp: 60, mp: 5, maxMp: 40, monsters: [], deck: [], hand: [] },
-    opp: { name: "CPU", rate: 1000, elem: "fire", hp: 60, maxHp: 60, mp: 5, maxMp: 40, monsters: [], deck: [], hand: [] }
+    my: { name: "あなた", rate: 1000, elem: "water", hp: 60, maxHp: 60, mp: 20, maxMp: 40, monsters: [], deck: [], hand: [] },
+    opp: { name: "CPU", rate: 1000, elem: "fire", hp: 60, maxHp: 60, mp: 20, maxMp: 40, monsters: [], deck: [], hand: [] }
   };
 
   document.addEventListener("DOMContentLoaded", async () => {
@@ -2989,7 +2989,7 @@
     const cardInstance = JSON.parse(JSON.stringify(selectedCard));
 
     if (targetRarity === 3) {
-      if (Math.random() < 0.000001) {
+      if (Math.random() < 0.001) {
         cardInstance.isRainbow = true;
         cardInstance.name = `🌈 ${cardInstance.name}`;
       }
@@ -3294,9 +3294,9 @@
         const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
         window.gameState.my.hand = fullDeck.slice(0, 5);
         window.gameState.my.deck = fullDeck.slice(5);
-        window.gameState.my.mp = 5;
+        window.gameState.my.mp = 20;
         window.gameState.my.maxMp = 40;
-        window.gameState.opp.mp = 5;
+        window.gameState.opp.mp = 20;
         window.gameState.opp.maxMp = 40;
 
         const { error: insertErr } = await supabaseClient.from('rooms').insert([{
@@ -3787,9 +3787,9 @@
     window.gameState.my.hp = 60;
     window.gameState.opp.hp = 60;
 
-    window.gameState.my.mp = 5;
+    window.gameState.my.mp = 20;
     window.gameState.my.maxMp = 40;
-    window.gameState.opp.mp = 5;
+    window.gameState.opp.mp = 20;
     window.gameState.opp.maxMp = 40;
     try { playBGM('battle'); } catch(e){}
     const cpuPreset = (typeof CPU_PRESETS !== 'undefined' && CPU_PRESETS[window.gameState.currentDifficulty]) 
