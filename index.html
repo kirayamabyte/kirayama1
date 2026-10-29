@@ -2828,120 +2828,146 @@
     document.getElementById("onlineLobbyScreen").classList.remove("hidden");
   }
 
-  async function createOnlineRoom() {
-    if (!supabaseClient) return alert("Supabaseに接続されていません");
-    
-    const codeInput = document.getElementById("onlineRoomCodeInput").value.trim();
-    const roomCode = codeInput || Math.random().toString(36).substring(2, 8).toUpperCase();
-    
-    onlineRoomId = "ROOM_" + roomCode;
-    onlineMyRole = 'player1';
-    hasDrawnThisTurn = true;
-    window.gameState.mode = "online";
-    window.gameState.isGameStarted = false;
+  // --- 🌐 ルーム作成（ホスト側） ---
+async function createOnlineRoom() {
+  if (!supabaseClient) return alert("Supabaseに接続されていません");
+  
+  // 入力欄に合言葉があればそれを使い、なければランダム生成
+  const codeInput = document.getElementById("onlineRoomCodeInput").value.trim().toUpperCase();
+  const roomCode = codeInput || Math.random().toString(36).substring(2, 8).toUpperCase();
+  
+  onlineRoomId = "ROOM_" + roomCode;
+  onlineMyRole = 'player1';
+  hasDrawnThisTurn = true;
+  window.gameState.mode = "online";
+  window.gameState.isGameStarted = false;
 
-    const myName = window.userProfile?.name || "プレイヤー";
-    const deckIds = window.userProfile?.deck || [];
-    const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
+  const myName = window.userProfile?.name || "プレイヤー";
+  const deckIds = window.userProfile?.deck || [];
+  const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
 
-    window.gameState.my.hand = fullDeck.slice(0, 5);
-    window.gameState.my.deck = fullDeck.slice(5);
+  window.gameState.my.hand = fullDeck.slice(0, 5);
+  window.gameState.my.deck = fullDeck.slice(5);
 
-    document.getElementById("onlineStatusText").textContent = `部屋作成中: ${roomCode}`;
+  document.getElementById("onlineStatusText").textContent = `合言葉【 ${roomCode} 】で待機中...`;
 
-    await supabaseClient.from('rooms').delete().eq('id', onlineRoomId);
+  // 古い同名部屋を削除して新規作成
+  await supabaseClient.from('rooms').delete().eq('id', onlineRoomId);
 
-    const { error } = await supabaseClient.from('rooms').insert([{
-      id: onlineRoomId,
-      status: 'waiting',
-      current_turn: 'player1',
-      p1_name: myName,
-      p1_rate: window.userProfile.rate || 1000,
-      p1_hp: 60,
-      p1_deck_count: window.gameState.my.deck.length,
-      p2_hp: 60,
-      p2_deck_count: 15,
-      updated_at: new Date().toISOString()
-    }]);
+  const { error } = await supabaseClient.from('rooms').insert([{
+    id: onlineRoomId,
+    status: 'waiting',
+    current_turn: 'player1',
+    p1_name: myName,
+    p1_rate: window.userProfile.rate || 1000,
+    p1_hp: 60,
+    p1_deck_count: window.gameState.my.deck.length,
+    p2_hp: 60,
+    p2_deck_count: 15,
+    updated_at: new Date().toISOString()
+  }]);
 
-    if (error) {
-      alert("部屋の作成に失敗しました: " + error.message);
-      return;
-    }
-
-    document.getElementById("onlineLobbyScreen").classList.add("hidden");
-    document.getElementById("gameScreen").classList.remove("hidden");
-    
-    const modeBanner = document.getElementById("modeBanner");
-    if (modeBanner) modeBanner.textContent = `🌐 フリー対戦 (合言葉: ${roomCode})`;
-
-    const logArea = document.getElementById("logArea");
-    if (logArea) logArea.innerHTML = "";
-    addLog(`⏳ 合言葉【${roomCode}】で部屋を作成しました。相手の参加を待っています...`, "important");
-
-    subscribeRoomUpdates();
-    updateUI();
+  if (error) {
+    alert("部屋の作成に失敗しました: " + error.message);
+    return;
   }
-  window.createOnlineRoom = createOnlineRoom;
 
-  async function joinOnlineRoom() {
-    if (!supabaseClient) return alert("Supabaseに接続されていません");
+  document.getElementById("onlineLobbyScreen").classList.add("hidden");
+  document.getElementById("gameScreen").classList.remove("hidden");
+  
+  const modeBanner = document.getElementById("modeBanner");
+  if (modeBanner) modeBanner.textContent = `🌐 ルーム対戦 (合言葉: ${roomCode})`;
 
-    const codeInput = document.getElementById("onlineRoomCodeInput").value.trim();
-    if (!codeInput) {
-      alert("合言葉（6桁のコード）を入力してください。");
-      return;
+  const logArea = document.getElementById("logArea");
+  if (logArea) logArea.innerHTML = "";
+  addLog(`⏳ 合言葉【${roomCode}】で部屋を作成しました！相手にこの6桁を教えて「部屋に入る」を押してもらってください。`, "important");
+
+  // 定期的にハートビート（生存更新）を送信
+  if (roomHeartbeatInterval) clearInterval(roomHeartbeatInterval);
+  roomHeartbeatInterval = setInterval(async () => {
+    if (onlineRoomId && !window.gameState.isGameStarted) {
+      await supabaseClient.from('rooms').update({
+        updated_at: new Date().toISOString()
+      }).eq('id', onlineRoomId);
     }
+  }, 5000);
 
-    const roomId = "ROOM_" + codeInput.toUpperCase();
-    const myName = window.userProfile?.name || "プレイヤー";
+  subscribeRoomUpdates();
+  updateUI();
+}
+window.createOnlineRoom = createOnlineRoom;
 
-    const { data: room, error } = await supabaseClient
-      .from('rooms')
-      .select('*')
-      .eq('id', roomId)
-      .maybeSingle();
+// --- 🌐 ルーム参加（ゲスト側） ---
+async function joinOnlineRoom() {
+  if (!supabaseClient) return alert("Supabaseに接続されていません");
 
-    if (error || !room) {
-      alert("指定された合言葉の部屋が見つかりません。");
-      return;
-    }
-
-    onlineRoomId = roomId;
-    onlineMyRole = 'player2';
-    hasDrawnThisTurn = false;
-    window.gameState.mode = "online";
-    window.gameState.isGameStarted = true;
-
-    const deckIds = window.userProfile?.deck || [];
-    const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
-
-    window.gameState.my.hand = fullDeck.slice(0, 5);
-    window.gameState.my.deck = fullDeck.slice(5);
-
-    await supabaseClient.from('rooms').update({
-      status: 'playing',
-      p2_name: myName,
-      p2_rate: window.userProfile.rate || 1000,
-      p2_hp: 60,
-      p2_deck_count: window.gameState.my.deck.length,
-      updated_at: new Date().toISOString()
-    }).eq('id', roomId);
-
-    document.getElementById("onlineLobbyScreen").classList.add("hidden");
-    document.getElementById("gameScreen").classList.remove("hidden");
-
-    const modeBanner = document.getElementById("modeBanner");
-    if (modeBanner) modeBanner.textContent = `🌐 フリー対戦 (合言葉: ${codeInput.toUpperCase()})`;
-
-    const logArea = document.getElementById("logArea");
-    if (logArea) logArea.innerHTML = "";
-    addLog(`⚔️ 合言葉【${codeInput.toUpperCase()}】の部屋に参加しました！対戦開始！`, "effective");
-
-    subscribeRoomUpdates();
-    updateUI();
+  const codeInput = document.getElementById("onlineRoomCodeInput").value.trim().toUpperCase();
+  if (!codeInput) {
+    alert("作成者が発行した「6桁の合言葉（ID）」を入力してください。");
+    return;
   }
-  window.joinOnlineRoom = joinOnlineRoom;
+
+  const roomId = "ROOM_" + codeInput;
+  const myName = window.userProfile?.name || "プレイヤー";
+
+  // 指定された合言葉の部屋が存在するか確認
+  const { data: room, error } = await supabaseClient
+    .from('rooms')
+    .select('*')
+    .eq('id', roomId)
+    .maybeSingle();
+
+  if (error || !room) {
+    alert(`合言葉【${codeInput}】の部屋が見つかりません。\n相手が「部屋を作成する」を押して待機しているか確認してください。`);
+    return;
+  }
+
+  if (room.status === 'playing') {
+    alert(`合言葉【${codeInput}】の部屋はすでに対戦が開始されています。`);
+    return;
+  }
+
+  onlineRoomId = roomId;
+  onlineMyRole = 'player2';
+  hasDrawnThisTurn = false;
+  window.gameState.mode = "online";
+  window.gameState.isGameStarted = true;
+
+  const deckIds = window.userProfile?.deck || [];
+  const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
+
+  window.gameState.my.hand = fullDeck.slice(0, 5);
+  window.gameState.my.deck = fullDeck.slice(5);
+
+  // 部屋のステータスを playing に更新して参戦
+  const { error: updateErr } = await supabaseClient.from('rooms').update({
+    status: 'playing',
+    p2_name: myName,
+    p2_rate: window.userProfile.rate || 1000,
+    p2_hp: 60,
+    p2_deck_count: window.gameState.my.deck.length,
+    updated_at: new Date().toISOString()
+  }).eq('id', roomId);
+
+  if (updateErr) {
+    alert("部屋への入室に失敗しました: " + updateErr.message);
+    return;
+  }
+
+  document.getElementById("onlineLobbyScreen").classList.add("hidden");
+  document.getElementById("gameScreen").classList.remove("hidden");
+
+  const modeBanner = document.getElementById("modeBanner");
+  if (modeBanner) modeBanner.textContent = `🌐 ルーム対戦 (合言葉: ${codeInput})`;
+
+  const logArea = document.getElementById("logArea");
+  if (logArea) logArea.innerHTML = "";
+  addLog(`⚔️ 合言葉【${codeInput}】の部屋に入室しました！対戦開始！`, "effective");
+
+  subscribeRoomUpdates();
+  updateUI();
+}
+window.joinOnlineRoom = joinOnlineRoom;
 
   function drawGachaCard() {
     const rand = Math.random() * 100;
