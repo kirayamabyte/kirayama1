@@ -1090,11 +1090,7 @@
       font-weight: bold;
     }
 
-    /* ========================================
-       演出・アニメーションエフェクト
-       ======================================== */
-
-    /* 1. ダメージ/回復の浮き出る数字ポップアップ */
+    /* 演出・アニメーションエフェクト */
     .damage-popup {
       position: absolute;
       z-index: 999;
@@ -1115,7 +1111,6 @@
       100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
     }
 
-    /* 2. 手札カードのホバー時のオーラ */
     .card {
       transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s !important;
     }
@@ -1157,6 +1152,9 @@
       </div>
       <div class="stats-row">
         <span>タワー最高: <strong id="statTower" style="color:#a855f7;">0</strong> 階</span>
+        <span>ドラフト最高: <strong id="statDraft" style="color:#38ef7d;">0</strong> 階</span>
+      </div>
+      <div class="stats-row">
         <span>コイン: 🪙 <strong id="statCoins" style="color:#ffd700;">1000</strong>pt</span>
       </div>
     </div>
@@ -1190,6 +1188,9 @@
         <button id="btnGauntlet" type="button" class="btn primary big">🔥 連戦モード (3ステージ)</button>
         <button id="btnTower" type="button" class="btn primary big" style="background: linear-gradient(45deg, #8a2be2, #4a00e0); border-color: #a855f7;">
           🏰 赤城バトルタワー (50階勝ち抜き)
+        </button>
+        <button id="btnDraftTower" type="button" class="btn primary big" style="background: linear-gradient(45deg, #11998e, #38ef7d); border-color: #5cdb95;">
+          🎲 赤城ドラフトバトル (ランダムデッキ50階)
         </button>
       </div>
 
@@ -1509,6 +1510,31 @@
     console.error("Supabase初期化エラー:", e);
   }
 
+  // ★ 新カード5枚を含めた最新カードデータベース ★
+  if (typeof CARD_DATABASE === 'undefined') {
+    window.CARD_DATABASE = [
+      { id: "m_volcano_dragon", name: "ヴォルカノドラゴン", type: "monster", elem: "fire", rarity: 3, costMp: 12, atk: 22, hp: 25, splashDamage: 6, icon: "🐉", desc: "攻撃時、他の敵1体にも6ダメージの追撃を与える。", flavor: "赤城のマグマから解き放たれた深紅の暴竜。" },
+      { id: "m_frost_guardian", name: "氷結の守護像", type: "monster", elem: "water", rarity: 2, costMp: 8, atk: 10, hp: 30, halfDamage: true, icon: "🗿", desc: "受けたダメージを常に半減する鉄壁の守護者。", flavor: "絶対零度の氷で身を包み、あらゆる打撃を跳ね返す。" },
+      { id: "m_shadow_assassin", name: "シャドウアサシン", type: "monster", elem: "dark", rarity: 2, costMp: 7, atk: 18, hp: 12, applyStun: true, icon: "🥷", desc: "攻撃した対象を1ターンの間【行動不能】にする。", flavor: "影から忍び寄り、一撃で獲物の動きを封じる闇の刺客。" },
+      { id: "w_excalibur", name: "聖剣エクスカリバー", type: "weapon", elem: "light", rarity: 3, costMp: 10, atk: 15, icon: "⚔️", desc: "装備モンスターの攻撃力を+15する伝説の聖剣。", flavor: "選ばれし勇者のみが扱うことを許される光の宝剣。" },
+      { id: "sp_elixir", name: "赤城の霊薬", type: "magic", elem: "wood", rarity: 1, costMp: 6, heal: 20, mpRecover: 10, icon: "🧪", desc: "自分のHPを20回復し、MPを10回復する。", flavor: "赤城山に自生する希少な薬草から精製された秘薬。" }
+    ];
+  } else {
+    // 既存データベースが存在する場合の追記補完
+    const newCards = [
+      { id: "m_volcano_dragon", name: "ヴォルカノドラゴン", type: "monster", elem: "fire", rarity: 3, costMp: 12, atk: 22, hp: 25, splashDamage: 6, icon: "🐉", desc: "攻撃時、他の敵1体にも6ダメージの追撃を与える。", flavor: "赤城のマグマから解き放たれた深紅の暴竜。" },
+      { id: "m_frost_guardian", name: "氷結の守護像", type: "monster", elem: "water", rarity: 2, costMp: 8, atk: 10, hp: 30, halfDamage: true, icon: "🗿", desc: "受けたダメージを常に半減する鉄壁の守護者。", flavor: "絶対零度の氷で身を包み、あらゆる打撃を跳ね返す。" },
+      { id: "m_shadow_assassin", name: "シャドウアサシン", type: "monster", elem: "dark", rarity: 2, costMp: 7, atk: 18, hp: 12, applyStun: true, icon: "🥷", desc: "攻撃した対象を1ターンの間【行動不能】にする。", flavor: "影から忍び寄り、一撃で獲物の動きを封じる闇の刺客。" },
+      { id: "w_excalibur", name: "聖剣エクスカリバー", type: "weapon", elem: "light", rarity: 3, costMp: 10, atk: 15, icon: "⚔️", desc: "装備モンスターの攻撃力を+15する伝説の聖剣。", flavor: "選ばれし勇者のみが扱うことを許される光の宝剣。" },
+      { id: "sp_elixir", name: "赤城の霊薬", type: "magic", elem: "wood", rarity: 1, costMp: 6, heal: 20, mpRecover: 10, icon: "🧪", desc: "自分のHPを20回復し、MPを10回復する。", flavor: "赤城山に自生する希少な薬草から精製された秘薬。" }
+    ];
+    newCards.forEach(nc => {
+      if (!CARD_DATABASE.some(c => c.id === nc.id)) {
+        CARD_DATABASE.push(nc);
+      }
+    });
+  }
+
   async function fetchNotices() {
     if (!supabaseClient) return;
     try {
@@ -1823,6 +1849,10 @@
     towerFloor: 1,
     towerInProgress: false,
     bestTowerFloor: 0,
+    draftFloor: 1,
+    draftInProgress: false,
+    bestDraftFloor: 0,
+    draftDeck: [],
     coins: 1000,
     equippedTitle: "《見習いデュエリスト》",
     equippedBadge: "🔰",
@@ -2200,6 +2230,12 @@
         if (window.userProfile.towerFloor === undefined) window.userProfile.towerFloor = 1;
         if (window.userProfile.towerInProgress === undefined) window.userProfile.towerInProgress = false;
         if (window.userProfile.bestTowerFloor === undefined) window.userProfile.bestTowerFloor = 0;
+        
+        // ドラフトモードプロパティ補完
+        if (window.userProfile.draftFloor === undefined) window.userProfile.draftFloor = 1;
+        if (window.userProfile.draftInProgress === undefined) window.userProfile.draftInProgress = false;
+        if (window.userProfile.bestDraftFloor === undefined) window.userProfile.bestDraftFloor = 0;
+        if (!window.userProfile.draftDeck) window.userProfile.draftDeck = [];
       } catch (e) { console.error("データロードエラー", e); }
     }
     updateTitleStatsUI();
@@ -2227,6 +2263,9 @@
     const statTower = document.getElementById("statTower");
     if (statTower) statTower.textContent = window.userProfile.bestTowerFloor;
 
+    const statDraft = document.getElementById("statDraft");
+    if (statDraft) statDraft.textContent = window.userProfile.bestDraftFloor || 0;
+
     const statCoins = document.getElementById("statCoins");
     if (statCoins) statCoins.textContent = window.userProfile.coins;
 
@@ -2252,6 +2291,15 @@
         btnTower.textContent = `🏰 赤城バトルタワー (第${window.userProfile.towerFloor}階から再開)`;
       } else {
         btnTower.textContent = `🏰 赤城バトルタワー (50階勝ち抜き)`;
+      }
+    }
+
+    const btnDraftTower = document.getElementById("btnDraftTower");
+    if (btnDraftTower) {
+      if (window.userProfile.draftInProgress) {
+        btnDraftTower.textContent = `🎲 赤城ドラフト (第${window.userProfile.draftFloor}階から再開)`;
+      } else {
+        btnDraftTower.textContent = `🎲 赤城ドラフトバトル (ランダムデッキ50階)`;
       }
     }
   }
@@ -2309,6 +2357,7 @@
     bindEvent("btnOnline", openOnlineLobby);
     bindEvent("btnGauntlet", startGauntletMode);
     bindEvent("btnTower", handleTowerButtonClick);
+    bindEvent("btnDraftTower", handleDraftButtonClick);
     bindEvent("btnCasual", openCasualSelect);
     bindEvent("btnDeckEdit", openDeckEditor);
     bindEvent("btnSaveDeck", saveDeckAndReturn);
@@ -2531,7 +2580,6 @@
   }
   window.subscribeRoomUpdates = subscribeRoomUpdates;
 
-  // 相手降参時の不具合防止用勝利確定処理
   function triggerOpponentSurrenderWin() {
     if (window.gameState.isGameEnded) return;
     window.gameState.isGameEnded = true;
@@ -2562,7 +2610,6 @@
     showEndModal(`🎉 相手の降参により勝利！ (+${rewardCoins} pt獲得)${rateLogMsg}`, "タイトルへ戻る");
   }
 
-  // 部屋データの同期＆降参フラグ検知処理
   function applyRoomData(roomData) {
     if (!roomData || window.gameState.isGameEnded) return;
 
@@ -2698,7 +2745,6 @@
 
       if (fetchErr) {
         addLog(`⚠️ 部屋検索エラー: ${fetchErr.message}`, "damage");
-        console.error("部屋検索エラー:", fetchErr);
       }
 
       const validOpponentRoom = (waitingRooms && waitingRooms.length > 0)
@@ -2790,7 +2836,6 @@
 
     } catch (err) {
       addLog(`❌ エラーが発生しました: ${err.message}`, "damage");
-      console.error("searchRankedMatch 全体エラー:", err);
     }
   }
   window.searchRankedMatch = searchRankedMatch;
@@ -2862,6 +2907,55 @@
     window.gameState.mode = "tower";
     window.userProfile.towerFloor = floor;
     window.userProfile.towerInProgress = true;
+    saveUserProfile();
+
+    if (floor <= 20) {
+      window.gameState.currentDifficulty = "easy";
+    } else if (floor <= 40) {
+      window.gameState.currentDifficulty = "normal";
+    } else {
+      window.gameState.currentDifficulty = "hard";
+    }
+
+    window.gameState.isGameEnded = false;
+    document.getElementById("titleScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+
+    initGame();
+  }
+
+  /* 🎲 赤城ドラフトバトル処理 */
+  function handleDraftButtonClick() {
+    if (window.userProfile.draftInProgress) {
+      if (confirm(`第 ${window.userProfile.draftFloor} 階から再開しますか？\n(「キャンセル」を押すと新デッキで第1階から直します)`)) {
+        startDraftMode(window.userProfile.draftFloor, false);
+      } else {
+        startDraftMode(1, true);
+      }
+    } else {
+      startDraftMode(1, true);
+    }
+  }
+
+  function generateRandomDraftDeck() {
+    const pool = CARD_DATABASE.filter(c => !c.isToken);
+    const newDeck = [];
+    for (let i = 0; i < 20; i++) {
+      const randomCard = pool[Math.floor(Math.random() * pool.length)];
+      newDeck.push(randomCard.id);
+    }
+    return newDeck;
+  }
+
+  function startDraftMode(floor, generateNewDeck = false) {
+    window.gameState.mode = "draft";
+    window.userProfile.draftFloor = floor;
+    window.userProfile.draftInProgress = true;
+
+    if (generateNewDeck || !window.userProfile.draftDeck || window.userProfile.draftDeck.length !== 20) {
+      window.userProfile.draftDeck = generateRandomDraftDeck();
+    }
+
     saveUserProfile();
 
     if (floor <= 20) {
@@ -3111,7 +3205,13 @@
     oppElemElem.className = `element-badge ${eInfo.class}`;
     oppElemElem.textContent = `${eInfo.icon} ${eInfo.name}`;
 
-    const fullMyDeck = buildDeckFromIds(window.userProfile.deck);
+    // モードごとのデッキ参照切り替え
+    let deckToUse = window.userProfile.deck;
+    if (window.gameState.mode === "draft") {
+      deckToUse = window.userProfile.draftDeck;
+    }
+
+    const fullMyDeck = buildDeckFromIds(deckToUse);
     const fullOppDeck = buildDeckFromIds(cpuPreset.deck);
 
     window.gameState.my.hand = fullMyDeck.slice(0, 5);
@@ -3123,14 +3223,13 @@
     document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
     document.getElementById("logArea").innerHTML = "";
 
-    const gauntletStageText = (typeof GAUNTLET_STAGES !== 'undefined' && GAUNTLET_STAGES[window.gameState.gauntletStage])
-      ? GAUNTLET_STAGES[window.gameState.gauntletStage].stage
-      : 1;
-
     let bannerText = "";
-    if (window.gameState.mode === "tower") {
+    if (window.gameState.mode === "draft") {
+      bannerText = `🎲 赤城ドラフト 第${window.userProfile.draftFloor}/50階`;
+    } else if (window.gameState.mode === "tower") {
       bannerText = `🏰 赤城バトルタワー 第${window.userProfile.towerFloor}/50階`;
     } else if (window.gameState.mode === "gauntlet") {
+      const gauntletStageText = (typeof GAUNTLET_STAGES !== 'undefined' && GAUNTLET_STAGES[window.gameState.gauntletStage]) ? GAUNTLET_STAGES[window.gameState.gauntletStage].stage : 1;
       bannerText = `🔥 連戦モード ステージ ${gauntletStageText}/3 : VS ${cpuPreset.name}`;
     } else {
       bannerText = `カジュアルモード [${window.gameState.currentDifficulty.toUpperCase()}] VS ${cpuPreset.name}`;
@@ -3159,7 +3258,6 @@
     }
   }
 
-  // ★ ダメージ数値ポップアップ表示関数 ★
   function showDamagePopup(targetEl, amount, type = "normal") {
     if (!targetEl) return;
     
@@ -3168,7 +3266,6 @@
     popup.className = `damage-popup ${type}`;
     popup.textContent = (type === "heal" ? "+" : "-") + amount;
     
-    // 対象要素の中央付近に配置
     popup.style.left = `${rect.left + rect.width / 2}px`;
     popup.style.top = `${rect.top + rect.height / 3}px`;
     
@@ -3289,7 +3386,6 @@
       } else {
         window.gameState.my.mp -= card.costMp;
 
-        // ドロー効果（山札からカードを引く）
         if (card.drawCount) {
           let drawn = 0;
           for (let i = 0; i < card.drawCount; i++) {
@@ -3309,7 +3405,6 @@
           window.gameState.my.hp = Math.min(window.gameState.my.maxHp, window.gameState.my.hp + card.heal);
           addLog(`${card.name}！ HPが ${card.heal} 回復！`);
 
-          // ★ 回復ポップアップ表示 ★
           const myInfoEl = document.querySelector("#gameScreen .player-area:last-child .pinfo");
           if (myInfoEl) {
             showDamagePopup(myInfoEl, card.heal, "heal");
@@ -3457,7 +3552,6 @@
     target.currentHp -= finalDamage;
     attacker.canAttack = false;
 
-    // ★ 攻撃対象モンスターへのダメージポップアップ ★
     const targetSlot = document.querySelectorAll("#oppMonsters .monster-slot")[targetIdx];
     if (targetSlot) {
       showDamagePopup(targetSlot, finalDamage, calc.effective ? "effective" : "normal");
@@ -3471,7 +3565,6 @@
       addLog(`🌀【状態異常】敵【${target.name}】は1ターンの間【行動不能】になった！`, "effective");
     }
 
-    // ⚔️ 反撃処理
     if (target.currentHp > 0) {
       if (!target.isStunned) {
         let counterAtk = target.atk;
@@ -3490,7 +3583,6 @@
 
         attacker.currentHp -= counterDamage;
 
-        // ★ 自分のモンスターへの反撃ダメージポップアップ ★
         const myAttackerIdx = window.gameState.selectedAttackerIdx;
         const mySlot = document.querySelectorAll("#myMonsters .monster-slot")[myAttackerIdx];
         if (mySlot) {
@@ -3507,7 +3599,7 @@
       }
     } else {
       addLog(`敵の【${target.name}】を撃破した！`, "important");
-      window.gameState.opp.monsters[targetIdx] = null; // 確実に null クリア
+      window.gameState.opp.monsters[targetIdx] = null;
     }
 
     if (attacker.currentHp > 0 && attacker.splashDamage && window.gameState.opp.monsters.filter(m => Boolean(m) && m.currentHp > 0).length > 0) {
@@ -3520,7 +3612,6 @@
         }
         randomTarget.currentHp -= splashDmg;
 
-        // ★ 追撃対象モンスターへのダメージポップアップ ★
         const splashIdx = window.gameState.opp.monsters.indexOf(randomTarget);
         if (splashIdx !== -1) {
           const splashSlot = document.querySelectorAll("#oppMonsters .monster-slot")[splashIdx];
@@ -3547,7 +3638,6 @@
   function attackEnemyPlayer() {
     if (window.gameState.selectedAttackerIdx === null) return;
 
-    // 生きている敵モンスターを厳密にチェック
     const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0);
     if (activeOppMonsters.length > 0) {
       addLog("敵モンスターが存在するため直接攻撃できません！", "damage");
@@ -3570,7 +3660,6 @@
     window.gameState.opp.hp = Math.max(0, window.gameState.opp.hp - calc.damage);
     attacker.canAttack = false;
 
-    // ★ 相手プレイヤーへのダイレクトアタックポップアップ ★
     const oppInfoEl = document.getElementById("oppPlayerInfo");
     if (oppInfoEl) {
       showDamagePopup(oppInfoEl, calc.damage, calc.effective ? "effective" : "normal");
@@ -3791,7 +3880,6 @@
         target.currentHp -= finalDamage;
         m.canAttack = false;
 
-        // ★ CPU攻撃を受けた味方モンスターへのダメージポップアップ ★
         const targetIdxInMy = window.gameState.my.monsters.indexOf(target);
         if (targetIdxInMy !== -1) {
           const myTargetSlot = document.querySelectorAll("#myMonsters .monster-slot")[targetIdxInMy];
@@ -3806,7 +3894,6 @@
           addLog(`🌀【状態異常】あなたの【${target.name}】は1ターンの間【行動不能】になった！`, "damage");
         }
 
-        // ⚔️ 反撃処理
         if (target.currentHp > 0) {
           if (!target.isStunned) {
             let counterAtk = target.atk;
@@ -3825,7 +3912,6 @@
 
             m.currentHp -= counterDamage;
 
-            // ★ 敵モンスターへの反撃ダメージポップアップ ★
             const oppMonsterIdx = window.gameState.opp.monsters.indexOf(m);
             if (oppMonsterIdx !== -1) {
               const oppSlot = document.querySelectorAll("#oppMonsters .monster-slot")[oppMonsterIdx];
@@ -3857,7 +3943,6 @@
             }
             randomMyTarget.currentHp -= splashDmg;
 
-            // ★ CPU追撃を受けた味方モンスターへのダメージポップアップ ★
             const splashMyIdx = window.gameState.my.monsters.indexOf(randomMyTarget);
             if (splashMyIdx !== -1) {
               const splashMySlot = document.querySelectorAll("#myMonsters .monster-slot")[splashMyIdx];
@@ -3877,7 +3962,6 @@
         window.gameState.my.hp = Math.max(0, window.gameState.my.hp - calc.damage);
         m.canAttack = false;
 
-        // ★ 自分プレイヤーへのダイレクトアタックポップアップ ★
         const myInfoEl = document.querySelector("#gameScreen .player-area:last-child .pinfo");
         if (myInfoEl) {
           showDamagePopup(myInfoEl, calc.damage, calc.effective ? "effective" : "normal");
@@ -3952,7 +4036,27 @@
         const rewardCoins = 100;
         window.userProfile.coins = (window.userProfile.coins || 0) + rewardCoins;
 
-        if (window.gameState.mode === "tower") {
+        if (window.gameState.mode === "draft") {
+          const currentFloor = window.userProfile.draftFloor;
+          if (currentFloor > window.userProfile.bestDraftFloor) {
+            window.userProfile.bestDraftFloor = currentFloor;
+          }
+
+          if (currentFloor >= 50) {
+            window.userProfile.draftInProgress = false;
+            window.userProfile.draftFloor = 1;
+            saveUserProfile();
+            showEndModal(`🎉 👑 赤城ドラフト 50階完全制覇！ 👑 (+${rewardCoins} pt獲得)`, "タイトルへ戻る");
+          } else if (currentFloor % 10 === 0) {
+            window.userProfile.draftFloor = currentFloor + 1;
+            saveUserProfile();
+            showEndModal(`🎲 第${currentFloor}階クリア！ 休憩ポイントです。\n進捗は自動保存されました。 (+${rewardCoins} pt獲得)`, `次へ進む (第${currentFloor + 1}階へ)`);
+          } else {
+            window.userProfile.draftFloor = currentFloor + 1;
+            saveUserProfile();
+            showEndModal(`🎲 第${currentFloor}階 突破！ (+${rewardCoins} pt獲得)`, `次へ進む (第${currentFloor + 1}階へ)`);
+          }
+        } else if (window.gameState.mode === "tower") {
           const currentFloor = window.userProfile.towerFloor;
           if (currentFloor > window.userProfile.bestTowerFloor) {
             window.userProfile.bestTowerFloor = currentFloor;
@@ -3991,7 +4095,11 @@
           showEndModal(`🎉 あなたの勝利！ (+${rewardCoins} pt獲得)${rateLogMsg}`, "タイトルへ戻る");
         }
       } else if (isLoss) {
-        if (window.gameState.mode === "tower") {
+        if (window.gameState.mode === "draft") {
+          addLog(`🎲 赤城ドラフト 挑戦失敗... (到達: 第${window.userProfile.draftFloor}階)`, "damage");
+          window.userProfile.draftInProgress = false;
+          window.userProfile.draftFloor = 1;
+        } else if (window.gameState.mode === "tower") {
           addLog(`🏰 赤城バトルタワー 挑戦失敗... (到達: 第${window.userProfile.towerFloor}階)`, "damage");
           window.userProfile.towerInProgress = false;
           window.userProfile.towerFloor = 1;
@@ -4034,7 +4142,9 @@
 
     const maxGauntletLength = typeof GAUNTLET_STAGES !== 'undefined' ? GAUNTLET_STAGES.length : 3;
 
-    if (window.gameState.mode === "tower" && window.gameState.my.hp > 0 && window.userProfile.towerInProgress) {
+    if (window.gameState.mode === "draft" && window.gameState.my.hp > 0 && window.userProfile.draftInProgress) {
+      startDraftMode(window.userProfile.draftFloor, false);
+    } else if (window.gameState.mode === "tower" && window.gameState.my.hp > 0 && window.userProfile.towerInProgress) {
       startTowerMode(window.userProfile.towerFloor);
     } else if (window.gameState.mode === "gauntlet" && window.gameState.my.hp > 0 && window.gameState.gauntletStage < maxGauntletLength - 1) {
       window.gameState.gauntletStage++;
