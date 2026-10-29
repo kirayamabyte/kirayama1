@@ -799,6 +799,12 @@
       min-height: 115px;
     }
 
+    /* 相手ターン中に手札を薄くしてタップ不能にする */
+    .hand-area.disabled-turn {
+      opacity: 0.5;
+      pointer-events: none !important;
+    }
+
     .controls {
       display: flex;
       gap: 8px;
@@ -1871,7 +1877,7 @@
     }
 
     // 通常のプレゼント配布処理
-    const user = userInput || "ALL"; // 空欄なら全員配布
+    const user = userInput || "ALL";
     const title = titleInput;
     const value = valueInput;
 
@@ -2659,7 +2665,6 @@
     await checkActiveEvent();
     fetchNotices();
     
-    // 📅 デイリーログインボーナス＆未受領プレゼントチェック
     await checkDailyBonus();
     await fetchUserPresents();
 
@@ -2829,145 +2834,140 @@
   }
 
   // --- 🌐 ルーム作成（ホスト側） ---
-async function createOnlineRoom() {
-  if (!supabaseClient) return alert("Supabaseに接続されていません");
-  
-  // 入力欄に合言葉があればそれを使い、なければランダム生成
-  const codeInput = document.getElementById("onlineRoomCodeInput").value.trim().toUpperCase();
-  const roomCode = codeInput || Math.random().toString(36).substring(2, 8).toUpperCase();
-  
-  onlineRoomId = "ROOM_" + roomCode;
-  onlineMyRole = 'player1';
-  hasDrawnThisTurn = true;
-  window.gameState.mode = "online";
-  window.gameState.isGameStarted = false;
+  async function createOnlineRoom() {
+    if (!supabaseClient) return alert("Supabaseに接続されていません");
+    
+    const codeInput = document.getElementById("onlineRoomCodeInput").value.trim().toUpperCase();
+    const roomCode = codeInput || Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    onlineRoomId = "ROOM_" + roomCode;
+    onlineMyRole = 'player1';
+    hasDrawnThisTurn = true;
+    window.gameState.mode = "online";
+    window.gameState.isGameStarted = false;
 
-  const myName = window.userProfile?.name || "プレイヤー";
-  const deckIds = window.userProfile?.deck || [];
-  const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
+    const myName = window.userProfile?.name || "プレイヤー";
+    const deckIds = window.userProfile?.deck || [];
+    const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
 
-  window.gameState.my.hand = fullDeck.slice(0, 5);
-  window.gameState.my.deck = fullDeck.slice(5);
+    window.gameState.my.hand = fullDeck.slice(0, 5);
+    window.gameState.my.deck = fullDeck.slice(5);
 
-  document.getElementById("onlineStatusText").textContent = `合言葉【 ${roomCode} 】で待機中...`;
+    document.getElementById("onlineStatusText").textContent = `合言葉【 ${roomCode} 】で待機中...`;
 
-  // 古い同名部屋を削除して新規作成
-  await supabaseClient.from('rooms').delete().eq('id', onlineRoomId);
+    await supabaseClient.from('rooms').delete().eq('id', onlineRoomId);
 
-  const { error } = await supabaseClient.from('rooms').insert([{
-    id: onlineRoomId,
-    status: 'waiting',
-    current_turn: 'player1',
-    p1_name: myName,
-    p1_rate: window.userProfile.rate || 1000,
-    p1_hp: 60,
-    p1_deck_count: window.gameState.my.deck.length,
-    p2_hp: 60,
-    p2_deck_count: 15,
-    updated_at: new Date().toISOString()
-  }]);
+    const { error } = await supabaseClient.from('rooms').insert([{
+      id: onlineRoomId,
+      status: 'waiting',
+      current_turn: 'player1',
+      p1_name: myName,
+      p1_rate: window.userProfile.rate || 1000,
+      p1_hp: 60,
+      p1_deck_count: window.gameState.my.deck.length,
+      p2_hp: 60,
+      p2_deck_count: 15,
+      updated_at: new Date().toISOString()
+    }]);
 
-  if (error) {
-    alert("部屋の作成に失敗しました: " + error.message);
-    return;
-  }
-
-  document.getElementById("onlineLobbyScreen").classList.add("hidden");
-  document.getElementById("gameScreen").classList.remove("hidden");
-  
-  const modeBanner = document.getElementById("modeBanner");
-  if (modeBanner) modeBanner.textContent = `🌐 ルーム対戦 (合言葉: ${roomCode})`;
-
-  const logArea = document.getElementById("logArea");
-  if (logArea) logArea.innerHTML = "";
-  addLog(`⏳ 合言葉【${roomCode}】で部屋を作成しました！相手にこの6桁を教えて「部屋に入る」を押してもらってください。`, "important");
-
-  // 定期的にハートビート（生存更新）を送信
-  if (roomHeartbeatInterval) clearInterval(roomHeartbeatInterval);
-  roomHeartbeatInterval = setInterval(async () => {
-    if (onlineRoomId && !window.gameState.isGameStarted) {
-      await supabaseClient.from('rooms').update({
-        updated_at: new Date().toISOString()
-      }).eq('id', onlineRoomId);
+    if (error) {
+      alert("部屋の作成に失敗しました: " + error.message);
+      return;
     }
-  }, 5000);
 
-  subscribeRoomUpdates();
-  updateUI();
-}
-window.createOnlineRoom = createOnlineRoom;
+    document.getElementById("onlineLobbyScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+    
+    const modeBanner = document.getElementById("modeBanner");
+    if (modeBanner) modeBanner.textContent = `🌐 ルーム対戦 (合言葉: ${roomCode})`;
 
-// --- 🌐 ルーム参加（ゲスト側） ---
-async function joinOnlineRoom() {
-  if (!supabaseClient) return alert("Supabaseに接続されていません");
+    const logArea = document.getElementById("logArea");
+    if (logArea) logArea.innerHTML = "";
+    addLog(`⏳ 合言葉【${roomCode}】で部屋を作成しました！相手に教えて「部屋に入る」を押してもらってください。`, "important");
 
-  const codeInput = document.getElementById("onlineRoomCodeInput").value.trim().toUpperCase();
-  if (!codeInput) {
-    alert("作成者が発行した「6桁の合言葉（ID）」を入力してください。");
-    return;
+    if (roomHeartbeatInterval) clearInterval(roomHeartbeatInterval);
+    roomHeartbeatInterval = setInterval(async () => {
+      if (onlineRoomId && !window.gameState.isGameStarted) {
+        await supabaseClient.from('rooms').update({
+          updated_at: new Date().toISOString()
+        }).eq('id', onlineRoomId);
+      }
+    }, 5000);
+
+    subscribeRoomUpdates();
+    updateUI();
   }
+  window.createOnlineRoom = createOnlineRoom;
 
-  const roomId = "ROOM_" + codeInput;
-  const myName = window.userProfile?.name || "プレイヤー";
+  // --- 🌐 ルーム参加（ゲスト側） ---
+  async function joinOnlineRoom() {
+    if (!supabaseClient) return alert("Supabaseに接続されていません");
 
-  // 指定された合言葉の部屋が存在するか確認
-  const { data: room, error } = await supabaseClient
-    .from('rooms')
-    .select('*')
-    .eq('id', roomId)
-    .maybeSingle();
+    const codeInput = document.getElementById("onlineRoomCodeInput").value.trim().toUpperCase();
+    if (!codeInput) {
+      alert("作成者が発行した「6桁の合言葉（ID）」を入力してください。");
+      return;
+    }
 
-  if (error || !room) {
-    alert(`合言葉【${codeInput}】の部屋が見つかりません。\n相手が「部屋を作成する」を押して待機しているか確認してください。`);
-    return;
+    const roomId = "ROOM_" + codeInput;
+    const myName = window.userProfile?.name || "プレイヤー";
+
+    const { data: room, error } = await supabaseClient
+      .from('rooms')
+      .select('*')
+      .eq('id', roomId)
+      .maybeSingle();
+
+    if (error || !room) {
+      alert(`合言葉【${codeInput}】の部屋が見つかりません。\n相手が「部屋を作成する」を押して待機しているか確認してください。`);
+      return;
+    }
+
+    if (room.status === 'playing') {
+      alert(`合言葉【${codeInput}】の部屋はすでに対戦が開始されています。`);
+      return;
+    }
+
+    onlineRoomId = roomId;
+    onlineMyRole = 'player2';
+    hasDrawnThisTurn = false;
+    window.gameState.mode = "online";
+    window.gameState.isGameStarted = true;
+
+    const deckIds = window.userProfile?.deck || [];
+    const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
+
+    window.gameState.my.hand = fullDeck.slice(0, 5);
+    window.gameState.my.deck = fullDeck.slice(5);
+
+    const { error: updateErr } = await supabaseClient.from('rooms').update({
+      status: 'playing',
+      p2_name: myName,
+      p2_rate: window.userProfile.rate || 1000,
+      p2_hp: 60,
+      p2_deck_count: window.gameState.my.deck.length,
+      updated_at: new Date().toISOString()
+    }).eq('id', roomId);
+
+    if (updateErr) {
+      alert("部屋への入室に失敗しました: " + updateErr.message);
+      return;
+    }
+
+    document.getElementById("onlineLobbyScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+
+    const modeBanner = document.getElementById("modeBanner");
+    if (modeBanner) modeBanner.textContent = `🌐 ルーム対戦 (合言葉: ${codeInput})`;
+
+    const logArea = document.getElementById("logArea");
+    if (logArea) logArea.innerHTML = "";
+    addLog(`⚔️ 合言葉【${codeInput}】の部屋に入室しました！対戦開始！`, "effective");
+
+    subscribeRoomUpdates();
+    updateUI();
   }
-
-  if (room.status === 'playing') {
-    alert(`合言葉【${codeInput}】の部屋はすでに対戦が開始されています。`);
-    return;
-  }
-
-  onlineRoomId = roomId;
-  onlineMyRole = 'player2';
-  hasDrawnThisTurn = false;
-  window.gameState.mode = "online";
-  window.gameState.isGameStarted = true;
-
-  const deckIds = window.userProfile?.deck || [];
-  const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
-
-  window.gameState.my.hand = fullDeck.slice(0, 5);
-  window.gameState.my.deck = fullDeck.slice(5);
-
-  // 部屋のステータスを playing に更新して参戦
-  const { error: updateErr } = await supabaseClient.from('rooms').update({
-    status: 'playing',
-    p2_name: myName,
-    p2_rate: window.userProfile.rate || 1000,
-    p2_hp: 60,
-    p2_deck_count: window.gameState.my.deck.length,
-    updated_at: new Date().toISOString()
-  }).eq('id', roomId);
-
-  if (updateErr) {
-    alert("部屋への入室に失敗しました: " + updateErr.message);
-    return;
-  }
-
-  document.getElementById("onlineLobbyScreen").classList.add("hidden");
-  document.getElementById("gameScreen").classList.remove("hidden");
-
-  const modeBanner = document.getElementById("modeBanner");
-  if (modeBanner) modeBanner.textContent = `🌐 ルーム対戦 (合言葉: ${codeInput})`;
-
-  const logArea = document.getElementById("logArea");
-  if (logArea) logArea.innerHTML = "";
-  addLog(`⚔️ 合言葉【${codeInput}】の部屋に入室しました！対戦開始！`, "effective");
-
-  subscribeRoomUpdates();
-  updateUI();
-}
-window.joinOnlineRoom = joinOnlineRoom;
+  window.joinOnlineRoom = joinOnlineRoom;
 
   function drawGachaCard() {
     const rand = Math.random() * 100;
@@ -3779,6 +3779,7 @@ window.joinOnlineRoom = joinOnlineRoom;
 
   function initGame() {
     window.gameState.isGameEnded = false;
+    window.gameState.isGameStarted = true;
     window.gameState.my.hp = 60;
     window.gameState.opp.hp = 60;
 
@@ -3903,13 +3904,18 @@ window.joinOnlineRoom = joinOnlineRoom;
     }
   }
 
+  // --- 🛡️ ターン制限付きカード使用関数 ---
   function playCard(index) {
-    if (window.gameState.turn !== "player") return;
+    if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
+      addLog("⚠️ 相手のターン中はカードを操作できません！", "damage");
+      return;
+    }
+
     const card = window.gameState.my.hand[index];
     if (!card) return;
 
     if (card.costMp && window.gameState.my.mp < card.costMp) {
-      addLog(`MPが足りません！`, "damage");
+      addLog("MPが足りません！", "damage");
       return;
     }
 
@@ -4032,6 +4038,7 @@ window.joinOnlineRoom = joinOnlineRoom;
   }
 
   function confirmSummonToSlot(slotIdx) {
+    if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) return;
     const handIdx = window.gameState.pendingSummonIndex;
     if (handIdx === null) return;
 
@@ -4120,8 +4127,13 @@ window.joinOnlineRoom = joinOnlineRoom;
     checkWinLoss();
   }
 
+  // --- 🛡️ ターン制限付き攻撃選択 ---
   function selectMyMonsterToAttack(idx) {
-    if (window.gameState.turn !== "player") return;
+    if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
+      addLog("⚠️ 相手のターン中は攻撃できません！", "damage");
+      return;
+    }
+
     const m = window.gameState.my.monsters[idx];
     if (!m) return;
 
@@ -4151,6 +4163,7 @@ window.joinOnlineRoom = joinOnlineRoom;
   }
 
   function attackEnemyMonster(targetIdx) {
+    if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) return;
     if (window.gameState.selectedAttackerIdx === null) return;
     const attacker = window.gameState.my.monsters[window.gameState.selectedAttackerIdx];
 
@@ -4304,6 +4317,7 @@ window.joinOnlineRoom = joinOnlineRoom;
   }
 
   function attackEnemyPlayer() {
+    if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) return;
     if (window.gameState.selectedAttackerIdx === null) return;
 
     const tauntMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0 && m.taunt);
@@ -4351,6 +4365,7 @@ window.joinOnlineRoom = joinOnlineRoom;
   }
 
   function openEquipModal(handIndex) {
+    if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) return;
     window.gameState.pendingWeaponIndex = handIndex;
     const targetList = document.getElementById("equipTargetList");
     targetList.innerHTML = "";
@@ -4391,8 +4406,12 @@ window.joinOnlineRoom = joinOnlineRoom;
     else updateUI();
   }
 
+  // --- 🛡️ ターン制限付きターン終了処理 ---
   async function passTurn() {
-    if (window.gameState.turn !== "player") return;
+    if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
+      addLog("⚠️ 相手のターン中です。", "damage");
+      return;
+    }
 
     window.gameState.selectedAttackerIdx = null;
     window.gameState.pendingSummonIndex = null;
@@ -4412,6 +4431,9 @@ window.joinOnlineRoom = joinOnlineRoom;
         current_turn: nextRole,
         updated_at: new Date().toISOString()
       }).eq('id', onlineRoomId);
+
+      window.gameState.turn = "opp";
+      updateUI();
       return;
     }
 
@@ -4911,6 +4933,13 @@ window.joinOnlineRoom = joinOnlineRoom;
     if (!handContainer) return;
     handContainer.innerHTML = "";
 
+    const isMyTurn = window.gameState.turn === "player" && window.gameState.isGameStarted;
+    if (isMyTurn) {
+      handContainer.classList.remove("disabled-turn");
+    } else {
+      handContainer.classList.add("disabled-turn");
+    }
+
     const handCards = window.gameState.my.hand || [];
     handCards.forEach((card, index) => {
       const cardData = typeof card === 'object' ? card : CARD_DATABASE.find(c => c.id === card);
@@ -4922,10 +4951,15 @@ window.joinOnlineRoom = joinOnlineRoom;
   }
 
   function updateUI() {
-    const isMyTurn = window.gameState.turn === "player";
+    const isMyTurn = window.gameState.turn === "player" && window.gameState.isGameStarted;
     const modeBanner = document.getElementById("modeBanner");
     const myPinfo = document.querySelector("#gameScreen .player-area:last-child .pinfo");
     const oppPinfo = document.getElementById("oppPlayerInfo");
+
+    const btnPass = document.getElementById("btnPass");
+    if (btnPass) {
+      btnPass.disabled = !isMyTurn;
+    }
 
     window.gameState.my.mp = Math.min(40, Math.max(0, window.gameState.my.mp ?? 5));
     window.gameState.opp.mp = Math.min(40, Math.max(0, window.gameState.opp.mp ?? 5));
@@ -4995,7 +5029,7 @@ window.joinOnlineRoom = joinOnlineRoom;
     if (oppPlayerInfo) {
       const activeOppMonsters = (window.gameState.opp.monsters || []).filter(m => Boolean(m) && m.currentHp > 0);
       const hasTaunt = activeOppMonsters.some(m => m.taunt);
-      if (window.gameState.selectedAttackerIdx !== null && activeOppMonsters.length === 0 && !hasTaunt) {
+      if (isMyTurn && window.gameState.selectedAttackerIdx !== null && activeOppMonsters.length === 0 && !hasTaunt) {
         oppPlayerInfo.classList.add("selectable-target");
         oppPlayerInfo.onclick = typeof attackEnemyPlayer === 'function' ? attackEnemyPlayer : null;
       } else {
@@ -5012,7 +5046,7 @@ window.joinOnlineRoom = joinOnlineRoom;
         slot.className = "monster-slot";
         if (window.gameState.selectedAttackerIdx === i) slot.classList.add("attacker-selected");
 
-        if (window.gameState.pendingSummonIndex !== null && !window.gameState.my.monsters[i]) {
+        if (isMyTurn && window.gameState.pendingSummonIndex !== null && !window.gameState.my.monsters[i]) {
           slot.classList.add("selectable-target");
           slot.style.borderColor = "#00fff5";
           slot.style.boxShadow = "0 0 10px #00fff5";
@@ -5069,7 +5103,7 @@ window.joinOnlineRoom = joinOnlineRoom;
         slot.className = "monster-slot";
 
         const currentOppCard = window.gameState.opp.monsters[i];
-        const isSelectableTarget = window.gameState.selectedAttackerIdx !== null && currentOppCard && (!hasTaunt || currentOppCard.taunt);
+        const isSelectableTarget = isMyTurn && window.gameState.selectedAttackerIdx !== null && currentOppCard && (!hasTaunt || currentOppCard.taunt);
 
         if (isSelectableTarget) {
           slot.classList.add("selectable-target");
