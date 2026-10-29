@@ -3104,7 +3104,7 @@
     showEndModal(`🎉 相手の降参により勝利！ (+${rewardCoins} pt獲得)${rateLogMsg}`, "タイトルへ戻る");
   }
 
-  // --- 🔄 修正：ターン判定の正常化 ---
+  // --- 🔄 ターン判定・同期 ---
   function applyRoomData(roomData) {
     if (!roomData || window.gameState.isGameEnded) return;
 
@@ -3851,6 +3851,10 @@
     addLog(`コイントス！ あなたは 【${isPlayerFirst ? '先攻 ⚔️' : '後攻 🛡️'}】 です！`, "important");
     addLog(`対戦開始！ ${window.gameState.my.name} VS ${window.gameState.opp.name}`, "important");
 
+    if (isPlayerFirst) {
+      addLog(`--- あなたのターン (1ターン目) ---`, "important");
+    }
+
     updateUI();
 
     if (!isPlayerFirst) {
@@ -4408,7 +4412,7 @@
     else updateUI();
   }
 
-  // --- 🔄 修正：ターン終了処理での役割指定 ---
+  // --- 🔄 ターン終了処理 ---
   async function passTurn() {
     if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
       addLog("⚠️ 相手のターン中です。", "damage");
@@ -4760,7 +4764,7 @@
     }
 
     window.gameState.turn = "player";
-    addLog(`--- あなたのターン (${window.gameState.turnCount}ターン目) ---`);
+    addLog(`--- あなたのターン (${window.gameState.turnCount}ターン目) ---`, "important");
     updateUI();
   }
 
