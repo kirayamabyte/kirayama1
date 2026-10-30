@@ -144,7 +144,7 @@
 
     .stats-row {
       display: flex;
-      justify-style: space-around;
+      justify-content: space-around;
       width: 100%;
     }
 
@@ -1164,6 +1164,38 @@
       20% { opacity: 1; transform: translate(-50%, -15px) scale(1.3); }
       100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
     }
+
+    /* --- カード使用確認モーダル用スタイル (PC・スマホ対応) --- */
+    .card-action-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 950;
+      gap: 16px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .card-action-btn-group {
+      display: flex;
+      gap: 12px;
+      width: 90%;
+      max-width: 320px;
+    }
+
+    .card-action-btn-group .btn {
+      flex: 1;
+      font-size: 1rem;
+      padding: 12px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1465,6 +1497,11 @@
   <section id="gameScreen" class="screen hidden">
     <div id="modeBanner" class="mode-banner">ランクマッチ</div>
 
+    <!-- ⏱️ 対戦中ターン制限時間（タイマー）表示エリア -->
+    <div id="turnTimerContainer" style="text-align: center; font-size: 0.85rem; font-weight: bold; color: #00fff5; background: rgba(0,0,0,0.5); padding: 3px; border-radius: 4px; margin-bottom: 4px; border: 1px solid rgba(0, 255, 245, 0.3);">
+      ⏱️ ターン制限時間: <span id="turnTimeLeft" style="color: #ffd700; font-size: 1.1rem; font-weight: 900;">160</span> 秒
+    </div>
+
     <!-- 相手エリア -->
     <div class="player-area">
       <div id="oppPlayerInfo" class="pinfo">
@@ -1517,10 +1554,11 @@
     </div>
   </section>
 
-  <!-- ✊✌️✋ じゃんけんモーダル -->
+  <!-- ✊✌️✋ じゃんけんモーダル（タイマー付き） -->
   <div id="jankenModal" class="modal">
     <div class="modal-content">
       <h2 style="color:var(--gold-color);">✊✌️✋ 先攻・後攻決定</h2>
+      <div id="jankenTimer" style="font-size: 1.5rem; font-weight: bold; color: #ff4d4f; margin: 4px 0;">残り 10 秒</div>
       <p id="jankenStatusText" style="font-size:0.85rem; color:#ccc;">じゃんけんの手を選んでください</p>
       
       <div id="jankenButtons" style="display:flex; gap:10px; justify-content:center; width:100%; margin:16px 0;">
@@ -2071,8 +2109,18 @@
   let currentEvent = null;
   let editingEventId = null;
 
-  // ✊✌️✋ じゃんけん同期用変数
+  // ✊✌️✋ じゃんけん同期用変数＆タイマー変数
   let myJankenHand = null;
+  let jankenTimerInterval = null;
+  let jankenTimeLeft = 10;
+
+  // ⏱️ ターン制限時間用変数 (20秒)
+  let turnTimerInterval = null;
+  let turnTimeLeft = 20;
+  const TURN_TIME_LIMIT = 20;
+
+  // カード選択確認用インデックス
+  let pendingCardIndex = null;
 
   const ADMIN_PASSCODE = "Sinn0626";
 
@@ -2731,8 +2779,55 @@
     try { playBGM('title'); } catch(e){}
   });
 
+  // ⏱️ ターンタイマーの開始/制御
+  function startTurnTimer() {
+    stopTurnTimer();
+
+    turnTimeLeft = TURN_TIME_LIMIT;
+    const timerEl = document.getElementById("turnTimeLeft");
+    if (timerEl) {
+      timerEl.textContent = turnTimeLeft;
+      timerEl.style.color = "#ffd700";
+    }
+
+    turnTimerInterval = setInterval(() => {
+      turnTimeLeft--;
+
+      if (timerEl) {
+        timerEl.textContent = turnTimeLeft;
+        if (turnTimeLeft <= 5) {
+          timerEl.style.color = "#ff4d4f";
+        }
+      }
+
+      if (turnTimeLeft <= 0) {
+        stopTurnTimer();
+        if (window.gameState.turn === "player" && window.gameState.isGameStarted && !window.gameState.isGameEnded) {
+          addLog("⏰ 持ち時間切れ！ 自動的にターンを終了します。", "damage");
+          closeCardActionModal();
+          passTurn();
+        }
+      }
+    }, 1000);
+  }
+
+  // ⏱️ ターンタイマー停止
+  function stopTurnTimer() {
+    if (turnTimerInterval) {
+      clearInterval(turnTimerInterval);
+      turnTimerInterval = null;
+    }
+  }
+
   function showTitleDirect() {
     try {
+      stopTurnTimer();
+      closeCardActionModal();
+
+      if (jankenTimerInterval) {
+        clearInterval(jankenTimerInterval);
+        jankenTimerInterval = null;
+      }
       if (roomPollingInterval) {
         clearInterval(roomPollingInterval);
         roomPollingInterval = null;
@@ -3101,15 +3196,27 @@
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
-  // ✊✌️✋ じゃんけんフェーズ開始制御
+  // ✊✌️✋ じゃんけんフェーズ開始制御（タイマー機能付き）
   function startJankenPhase() {
     myJankenHand = null;
+    jankenTimeLeft = 10;
+
+    if (jankenTimerInterval) {
+      clearInterval(jankenTimerInterval);
+      jankenTimerInterval = null;
+    }
+
     const statusEl = document.getElementById("jankenStatusText");
     const resultEl = document.getElementById("jankenResultText");
     const btnsEl = document.getElementById("jankenButtons");
+    const timerEl = document.getElementById("jankenTimer");
 
     if (statusEl) statusEl.textContent = "じゃんけんの手を選んでください！";
     if (resultEl) resultEl.textContent = "";
+    if (timerEl) {
+      timerEl.textContent = `残り ${jankenTimeLeft} 秒`;
+      timerEl.style.display = "block";
+    }
     if (btnsEl) {
       btnsEl.style.pointerEvents = "auto";
       btnsEl.style.opacity = "1";
@@ -3117,14 +3224,39 @@
 
     const modal = document.getElementById("jankenModal");
     if (modal) modal.classList.add("active");
+
+    jankenTimerInterval = setInterval(() => {
+      jankenTimeLeft--;
+      if (timerEl) timerEl.textContent = `残り ${jankenTimeLeft} 秒`;
+
+      if (jankenTimeLeft <= 0) {
+        clearInterval(jankenTimerInterval);
+        jankenTimerInterval = null;
+
+        if (!myJankenHand) {
+          const hands = ['rock', 'scissors', 'paper'];
+          const randomHand = hands[Math.floor(Math.random() * hands.length)];
+          if (statusEl) statusEl.textContent = "⏰ 制限時間切れ！自動選択されました";
+          selectJankenHand(randomHand);
+        }
+      }
+    }, 1000);
   }
 
   async function selectJankenHand(hand) {
     if (!supabaseClient || !onlineRoomId || myJankenHand) return;
     myJankenHand = hand;
 
+    if (jankenTimerInterval) {
+      clearInterval(jankenTimerInterval);
+      jankenTimerInterval = null;
+    }
+
     const isP1 = onlineMyRole === 'player1';
     const mePrefix = isP1 ? 'p1' : 'p2';
+
+    const timerEl = document.getElementById("jankenTimer");
+    if (timerEl) timerEl.style.display = "none";
 
     const btnsEl = document.getElementById("jankenButtons");
     if (btnsEl) {
@@ -3143,6 +3275,14 @@
   window.selectJankenHand = selectJankenHand;
 
   async function evaluateJanken(myHand, oppHand, roomData) {
+    if (jankenTimerInterval) {
+      clearInterval(jankenTimerInterval);
+      jankenTimerInterval = null;
+    }
+
+    const timerEl = document.getElementById("jankenTimer");
+    if (timerEl) timerEl.style.display = "none";
+
     const isP1 = onlineMyRole === 'player1';
     const resultEl = document.getElementById("jankenResultText");
     const handIcons = { rock: "✊ グー", scissors: "✌️ チョキ", paper: "✋ パー" };
@@ -3197,6 +3337,7 @@
       
       addLog(`✊✌️✋ じゃんけんの結果、${isMyTurn ? 'あなた' : '相手'}が【先攻】になりました！`, "important");
       updateUI();
+      startTurnTimer(); // ⏱️ 対戦開始時のターンタイマーをスタート
     }, 2000);
   }
 
@@ -3242,6 +3383,8 @@
     if (window.gameState.isGameEnded) return;
     window.gameState.isGameEnded = true;
 
+    stopTurnTimer();
+    if (jankenTimerInterval) clearInterval(jankenTimerInterval);
     if (roomPollingInterval) clearInterval(roomPollingInterval);
     if (roomHeartbeatInterval) clearInterval(roomHeartbeatInterval);
 
@@ -3324,11 +3467,13 @@
           }
         });
         addLog(`--- あなたのターン ---`, "important");
+        startTurnTimer(); // ⏱️ ターン開始時にタイマーリセット＆スタート
         syncOnlineAction();
       }
 
       if (prevTurn !== 'opp' && newTurnRole === 'opp') {
         addLog(`--- ${roomData[`${oppPrefix}_name`] || '対戦相手'} のターン ---`);
+        startTurnTimer(); // ⏱️ 相手ターンでもタイマーリセット
       }
 
       window.gameState.turn = newTurnRole;
@@ -4029,6 +4174,8 @@
 
     addLog(`対戦開始！ ${window.gameState.my.name} VS ${window.gameState.opp.name}`, "important");
 
+    startTurnTimer(); // ⏱️ ゲーム開始時のターンタイマーをスタート
+
     if (isPlayerFirst) {
       addLog(`コイントス結果：あなたが【先攻】です！`, "important");
       addLog(`--- あなたのターン (1ターン目) ---`, "important");
@@ -4088,6 +4235,65 @@
         }
       }
     }
+  }
+
+  // 🎴 カード使用確認モーダル表示 (PC・スマホ両対応)
+  function openCardActionModal(index) {
+    if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
+      addLog("⚠️ 相手のターン中はカードを操作できません！", "damage");
+      return;
+    }
+
+    const card = window.gameState.my.hand[index];
+    if (!card) return;
+
+    pendingCardIndex = index;
+    closeCardActionModal();
+
+    const overlay = document.createElement("div");
+    overlay.id = "cardActionOverlay";
+    overlay.className = "card-action-overlay";
+
+    const cardPreview = renderCardDOM(card, "", null);
+    cardPreview.style.transform = "scale(1.2)";
+    cardPreview.style.pointerEvents = "none";
+
+    const btnGroup = document.createElement("div");
+    btnGroup.className = "card-action-btn-group";
+
+    const btnUse = document.createElement("button");
+    btnUse.className = "btn primary";
+    btnUse.textContent = "⚔️ このカードを使う";
+    btnUse.onclick = () => {
+      const targetIdx = pendingCardIndex;
+      closeCardActionModal();
+      playCard(targetIdx);
+    };
+
+    const btnCancel = document.createElement("button");
+    btnCancel.className = "btn";
+    btnCancel.textContent = "✖ キャンセル";
+    btnCancel.onclick = () => {
+      closeCardActionModal();
+    };
+
+    btnGroup.appendChild(btnUse);
+    btnGroup.appendChild(btnCancel);
+
+    overlay.appendChild(cardPreview);
+    overlay.appendChild(btnGroup);
+
+    overlay.onclick = (e) => {
+      if (e.target === overlay) closeCardActionModal();
+    };
+
+    document.body.appendChild(overlay);
+  }
+
+  function closeCardActionModal() {
+    const existing = document.getElementById("cardActionOverlay");
+    if (existing) existing.remove();
+    pendingCardIndex = null;
   }
 
   function playCard(index) {
@@ -4596,6 +4802,9 @@
       return;
     }
 
+    stopTurnTimer(); // ⏱️ ターンパス時にタイマー停止
+    closeCardActionModal();
+
     window.gameState.selectedAttackerIdx = null;
     window.gameState.pendingSummonIndex = null;
     addLog(`--- ターン終了 ---`);
@@ -4618,11 +4827,13 @@
 
       window.gameState.turn = "opp";
       updateUI();
+      startTurnTimer(); // ⏱️ 相手ターンタイマー開始
       return;
     }
 
     window.gameState.turn = "cpu";
     updateUI();
+    startTurnTimer(); // ⏱️ CPUターンタイマー開始
     setTimeout(cpuTurn, 1000);
   }
 
@@ -4942,6 +5153,7 @@
 
     window.gameState.turn = "player";
     addLog(`--- あなたのターン (${window.gameState.turnCount}ターン目) ---`, "important");
+    startTurnTimer(); // ⏱️ プレイヤーターン開始時にタイマー再スタート
     updateUI();
   }
 
@@ -4953,6 +5165,10 @@
 
     if (isWin || isLoss) {
       window.gameState.isGameEnded = true;
+      stopTurnTimer();
+      closeCardActionModal();
+
+      if (jankenTimerInterval) clearInterval(jankenTimerInterval);
       if (roomPollingInterval) clearInterval(roomPollingInterval);
       if (roomHeartbeatInterval) clearInterval(roomHeartbeatInterval);
       let rateLogMsg = "";
@@ -5079,6 +5295,10 @@
   }
 
   async function handleModalNext() {
+    stopTurnTimer();
+    closeCardActionModal();
+
+    if (jankenTimerInterval) clearInterval(jankenTimerInterval);
     if (roomPollingInterval) clearInterval(roomPollingInterval);
     if (roomHeartbeatInterval) clearInterval(roomHeartbeatInterval);
     document.getElementById("endModal").classList.remove("active");
@@ -5128,7 +5348,8 @@
     handCards.forEach((card, index) => {
       const cardData = typeof card === 'object' ? card : CARD_DATABASE.find(c => c.id === card);
       if (cardData) {
-        const cardDiv = renderCardDOM(cardData, "", () => playCard(index));
+        // カードタップ時に「使用確認モーダル」を開く
+        const cardDiv = renderCardDOM(cardData, "", () => openCardActionModal(index));
         handContainer.appendChild(cardDiv);
       }
     });
