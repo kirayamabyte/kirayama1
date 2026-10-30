@@ -144,7 +144,7 @@
 
     .stats-row {
       display: flex;
-      justify-content: space-around;
+      justify-style: space-around;
       width: 100%;
     }
 
@@ -839,7 +839,6 @@
     .card.weapon { border: 2px solid #e94560; }
     .card.magic { border: 2px solid #00adb5; }
 
-    /* 🌈 虹色ホログラム装飾 */
     .card.rainbow-card {
       border: 2px solid transparent !important;
       border-image: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3) 1 !important;
@@ -853,7 +852,6 @@
       100% { filter: hue-rotate(360deg) brightness(1.4); }
     }
 
-    /* 虹色カード獲得時のド派手ポップアップ */
     @keyframes rainbowPop {
       0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
       50% { transform: scale(1.2) rotate(5deg); }
@@ -1169,7 +1167,6 @@
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- 🎉 紙吹雪エフェクト用ライブラリ -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script src="cards1.js"></script>
   <script src="cpu_decks.js"></script>
@@ -1234,7 +1231,6 @@
       </button>
       <button id="btnOnline" type="button" class="btn primary big" style="background:#00adb5; border-color:#00fff5;">🌐 ルーム対戦 (合言葉)</button>
 
-      <!-- ⚔️ CPU対戦モードまとめ枠 -->
       <div class="cpu-mode-group">
         <div class="group-title">⚔️ CPU対戦モード</div>
         <button id="btnCasual" type="button" class="btn big">⚔️ カジュアルモード</button>
@@ -1328,7 +1324,6 @@
       <button id="tabBtnPresents" type="button" class="admin-tab-btn" onclick="switchAdminTab('presents')">🎁 配布</button>
     </div>
 
-    <!-- イベント管理フォーム -->
     <div id="adminFormEvent">
       <div class="admin-form">
         <div id="adminFormHeader" style="font-weight:bold; color:var(--gold-color); font-size:0.85rem;">新規イベント作成</div>
@@ -1366,7 +1361,6 @@
       <div id="adminEventList" class="admin-list-container"></div>
     </div>
 
-    <!-- お知らせ管理フォーム -->
     <div id="adminFormNotice" class="admin-form hidden">
       <div style="font-weight:bold; color:var(--gold-color); font-size:0.85rem;">新規お知らせ作成</div>
       <label>タイトル
@@ -1378,7 +1372,6 @@
       <button type="button" class="btn primary" onclick="saveNoticeFromAdmin()">📢 お知らせ発行</button>
     </div>
 
-    <!-- 🎁 プレゼント一括・個別配布フォーム -->
     <div id="adminFormPresent" class="admin-form hidden">
       <div style="font-weight:bold; color:var(--gold-color); font-size:0.85rem;">🎁 プレゼント配布（裏技コマンド対応）</div>
       <label>対象ユーザー (空欄で全員配布 / 裏技: キラヤマがき)
@@ -1523,6 +1516,22 @@
       </div>
     </div>
   </section>
+
+  <!-- ✊✌️✋ じゃんけんモーダル -->
+  <div id="jankenModal" class="modal">
+    <div class="modal-content">
+      <h2 style="color:var(--gold-color);">✊✌️✋ 先攻・後攻決定</h2>
+      <p id="jankenStatusText" style="font-size:0.85rem; color:#ccc;">じゃんけんの手を選んでください</p>
+      
+      <div id="jankenButtons" style="display:flex; gap:10px; justify-content:center; width:100%; margin:16px 0;">
+        <button type="button" class="btn primary" style="font-size:1.2rem; padding:12px 16px;" onclick="selectJankenHand('rock')">✊ グー</button>
+        <button type="button" class="btn primary" style="font-size:1.2rem; padding:12px 16px;" onclick="selectJankenHand('scissors')">✌️ チョキ</button>
+        <button type="button" class="btn primary" style="font-size:1.2rem; padding:12px 16px;" onclick="selectJankenHand('paper')">✋ パー</button>
+      </div>
+
+      <div id="jankenResultText" style="font-size:0.95rem; font-weight:bold; color:var(--gold-color); min-height:24px;"></div>
+    </div>
+  </div>
 
   <!-- 🎁 プレゼントボックスモーダル -->
   <div id="presentBoxModal" class="modal">
@@ -1703,7 +1712,6 @@
   }
   window.saveNoticeFromAdmin = saveNoticeFromAdmin;
 
-  // --- 📅 デイリーログインボーナス機能 ---
   async function checkDailyBonus() {
     const today = new Date().toLocaleDateString('ja-JP');
     const lastLogin = localStorage.getItem("akagi_last_login_date");
@@ -1729,7 +1737,6 @@
     }
   }
 
-  // --- 🎁 プレゼントボックス機能 ---
   let userPresents = [];
 
   async function fetchUserPresents() {
@@ -1852,7 +1859,6 @@
   }
   window.claimAllPresents = claimAllPresents;
 
-  // --- ⚙️ 管理者用：プレゼント送信（裏技「キラヤマがき」対応） ---
   async function sendPresentFromAdmin() {
     if (!supabaseClient) return alert("Supabaseに接続されていません");
 
@@ -2064,6 +2070,9 @@
   let roomChannel = null;
   let currentEvent = null;
   let editingEventId = null;
+
+  // ✊✌️✋ じゃんけん同期用変数
+  let myJankenHand = null;
 
   const ADMIN_PASSCODE = "Sinn0626";
 
@@ -2650,7 +2659,6 @@
     }
   }
 
-  // ★ 初期MPを 20 に設定 ★
   window.gameState = {
     mode: "casual",
     gauntletStage: 0,
@@ -2740,6 +2748,8 @@
 
       onlineRoomId = null;
       onlineMyRole = null;
+      myJankenHand = null;
+
       if (window.gameState) {
         window.gameState.isGameStarted = false;
         window.gameState.isGameEnded = false;
@@ -2875,6 +2885,8 @@
       p1_deck_count: window.gameState.my.deck.length,
       p2_hp: 60,
       p2_deck_count: 15,
+      p1_janken: null,
+      p2_janken: null,
       updated_at: new Date().toISOString()
     }]);
 
@@ -2931,7 +2943,7 @@
       return;
     }
 
-    if (room.status === 'playing') {
+    if (room.status === 'playing' || room.status === 'janken') {
       alert(`合言葉【${codeInput}】の部屋はすでに対戦が開始されています。`);
       return;
     }
@@ -2949,11 +2961,13 @@
     window.gameState.my.deck = fullDeck.slice(5);
 
     const { error: updateErr } = await supabaseClient.from('rooms').update({
-      status: 'playing',
+      status: 'janken',
       p2_name: myName,
       p2_rate: window.userProfile.rate || 1000,
       p2_hp: 60,
       p2_deck_count: window.gameState.my.deck.length,
+      p1_janken: null,
+      p2_janken: null,
       updated_at: new Date().toISOString()
     }).eq('id', roomId);
 
@@ -2970,14 +2984,14 @@
 
     const logArea = document.getElementById("logArea");
     if (logArea) logArea.innerHTML = "";
-    addLog(`⚔️ 合言葉【${codeInput}】の部屋に入室しました！対戦開始！`, "effective");
+    addLog(`⚔️ 合言葉【${codeInput}】の部屋に入室しました！先攻後攻のじゃんけんを開始します！`, "effective");
 
     subscribeRoomUpdates();
+    startJankenPhase();
     updateUI();
   }
   window.joinOnlineRoom = joinOnlineRoom;
 
-  // ★ 0.1% で 🌈 虹色★3に昇格するガチャ処理 ★
   function drawGachaCard() {
     const rand = Math.random() * 100;
     let targetRarity = 1;
@@ -2999,9 +3013,8 @@
 
     const cardInstance = JSON.parse(JSON.stringify(selectedCard));
 
-    // ★3が当たった際、0.1% (0.001) の確率で虹仕様化
     if (targetRarity === 3) {
-      if (Math.random() < 1) {
+      if (Math.random() < 0.001) {
         cardInstance.isRainbow = true;
         cardInstance.name = `🌈 ${cardInstance.name}`;
       }
@@ -3031,7 +3044,6 @@
   }
   window.executeGacha = executeGacha;
 
-  // ★ 🌈 虹色★3獲得時のド派手な紙吹雪演出 ★
   function showGachaResultModal(cards) {
     const container = document.getElementById("gachaResultContainer");
     container.innerHTML = "";
@@ -3089,6 +3101,105 @@
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
+  // ✊✌️✋ じゃんけんフェーズ開始制御
+  function startJankenPhase() {
+    myJankenHand = null;
+    const statusEl = document.getElementById("jankenStatusText");
+    const resultEl = document.getElementById("jankenResultText");
+    const btnsEl = document.getElementById("jankenButtons");
+
+    if (statusEl) statusEl.textContent = "じゃんけんの手を選んでください！";
+    if (resultEl) resultEl.textContent = "";
+    if (btnsEl) {
+      btnsEl.style.pointerEvents = "auto";
+      btnsEl.style.opacity = "1";
+    }
+
+    const modal = document.getElementById("jankenModal");
+    if (modal) modal.classList.add("active");
+  }
+
+  async function selectJankenHand(hand) {
+    if (!supabaseClient || !onlineRoomId || myJankenHand) return;
+    myJankenHand = hand;
+
+    const isP1 = onlineMyRole === 'player1';
+    const mePrefix = isP1 ? 'p1' : 'p2';
+
+    const btnsEl = document.getElementById("jankenButtons");
+    if (btnsEl) {
+      btnsEl.style.pointerEvents = "none";
+      btnsEl.style.opacity = "0.5";
+    }
+
+    const statusEl = document.getElementById("jankenStatusText");
+    if (statusEl) statusEl.textContent = "相手の選択を待っています...";
+
+    await supabaseClient.from('rooms').update({
+      [`${mePrefix}_janken`]: hand,
+      updated_at: new Date().toISOString()
+    }).eq('id', onlineRoomId);
+  }
+  window.selectJankenHand = selectJankenHand;
+
+  async function evaluateJanken(myHand, oppHand, roomData) {
+    const isP1 = onlineMyRole === 'player1';
+    const resultEl = document.getElementById("jankenResultText");
+    const handIcons = { rock: "✊ グー", scissors: "✌️ チョキ", paper: "✋ パー" };
+
+    if (myHand === oppHand) {
+      if (resultEl) resultEl.textContent = `お互い ${handIcons[myHand]} であいこ！ あいこで...`;
+      
+      if (isP1) {
+        setTimeout(async () => {
+          await supabaseClient.from('rooms').update({
+            p1_janken: null,
+            p2_janken: null,
+            updated_at: new Date().toISOString()
+          }).eq('id', onlineRoomId);
+        }, 1200);
+      }
+
+      setTimeout(() => {
+        startJankenPhase();
+      }, 1500);
+      return;
+    }
+
+    const isMyWin = 
+      (myHand === 'rock' && oppHand === 'scissors') ||
+      (myHand === 'scissors' && oppHand === 'paper') ||
+      (myHand === 'paper' && oppHand === 'rock');
+
+    let winnerRole = "";
+    if (isMyWin) {
+      winnerRole = isP1 ? 'player1' : 'player2';
+      if (resultEl) resultEl.textContent = `あなた: ${handIcons[myHand]} vs 相手: ${handIcons[oppHand]} ➔ あなたの勝ち！【先攻】`;
+    } else {
+      winnerRole = isP1 ? 'player2' : 'player1';
+      if (resultEl) resultEl.textContent = `あなた: ${handIcons[myHand]} vs 相手: ${handIcons[oppHand]} ➔ 相手の勝ち！【後攻】`;
+    }
+
+    if (isP1) {
+      await supabaseClient.from('rooms').update({
+        status: 'playing',
+        current_turn: winnerRole,
+        updated_at: new Date().toISOString()
+      }).eq('id', onlineRoomId);
+    }
+
+    setTimeout(() => {
+      const modal = document.getElementById("jankenModal");
+      if (modal) modal.classList.remove("active");
+
+      const isMyTurn = (winnerRole === 'player1' && isP1) || (winnerRole === 'player2' && !isP1);
+      window.gameState.turn = isMyTurn ? 'player' : 'opp';
+      
+      addLog(`✊✌️✋ じゃんけんの結果、${isMyTurn ? 'あなた' : '相手'}が【先攻】になりました！`, "important");
+      updateUI();
+    }, 2000);
+  }
+
   function subscribeRoomUpdates() {
     if (!onlineRoomId || !supabaseClient) return;
 
@@ -3105,13 +3216,14 @@
         filter: `id=eq.${onlineRoomId}`
       }, (payload) => {
         if (payload.new) {
-          if (!window.gameState.isGameStarted && payload.new.status === 'playing') {
+          if (!window.gameState.isGameStarted && (payload.new.status === 'janken' || payload.new.status === 'playing')) {
             window.gameState.isGameStarted = true;
             if (roomHeartbeatInterval) {
               clearInterval(roomHeartbeatInterval);
               roomHeartbeatInterval = null;
             }
-            addLog("🎉 対戦相手が参加しました！バトル開始！", "effective");
+            addLog("🎉 対戦相手が参加しました！先攻後攻を決めるじゃんけんを行います！", "effective");
+            startJankenPhase();
           }
           applyRoomData(payload.new);
         }
@@ -3170,6 +3282,19 @@
         window.gameState.opp.hp = 0;
         updateUI();
         triggerOpponentSurrenderWin();
+        return;
+      }
+
+      if (roomData.status === 'janken') {
+        const myHand = roomData[`${mePrefix}_janken`];
+        const oppHand = roomData[`${oppPrefix}_janken`];
+
+        if (myHand && oppHand) {
+          evaluateJanken(myHand, oppHand, roomData);
+        } else if (myHand) {
+          const statusEl = document.getElementById("jankenStatusText");
+          if (statusEl) statusEl.textContent = "相手の手を待っています...";
+        }
         return;
       }
 
@@ -3306,30 +3431,33 @@
         const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
         window.gameState.my.hand = fullDeck.slice(0, 5);
         window.gameState.my.deck = fullDeck.slice(5);
-        window.gameState.my.mp = 20; // ★ 初期MP 20
+        window.gameState.my.mp = 20;
         window.gameState.my.maxMp = 40;
-        window.gameState.opp.mp = 20; // ★ 初期MP 20
+        window.gameState.opp.mp = 20;
         window.gameState.opp.maxMp = 40;
 
         window.gameState.opp.name = validOpponentRoom.p1_name || "対戦相手";
         onlineOppRate = validOpponentRoom.p1_rate || 1000;
 
         const { error: updateErr } = await supabaseClient.from('rooms').update({
-          status: 'playing',
+          status: 'janken',
           p2_name: myName,
           p2_rate: window.userProfile.rate || 1000,
           p2_hp: 60,
           p2_deck_count: window.gameState.my.deck.length,
+          p1_janken: null,
+          p2_janken: null,
           updated_at: new Date().toISOString()
         }).eq('id', onlineRoomId);
 
         if (updateErr) {
           addLog(`⚠️ 部屋参加エラー: ${updateErr.message}`, "damage");
         } else {
-          addLog(`⚔️ 対戦相手【${window.gameState.opp.name}】とマッチングしました！`, "effective");
+          addLog(`⚔️ 対戦相手【${window.gameState.opp.name}】とマッチングしました！じゃんけんを行います！`, "effective");
         }
 
         subscribeRoomUpdates();
+        startJankenPhase();
 
       } else {
         onlineRoomId = "ROOM_" + Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -3340,9 +3468,9 @@
         const fullDeck = typeof buildDeckFromIds === 'function' ? buildDeckFromIds(deckIds) : [];
         window.gameState.my.hand = fullDeck.slice(0, 5);
         window.gameState.my.deck = fullDeck.slice(5);
-        window.gameState.my.mp = 20; // ★ 初期MP 20
+        window.gameState.my.mp = 20;
         window.gameState.my.maxMp = 40;
-        window.gameState.opp.mp = 20; // ★ 初期MP 20
+        window.gameState.opp.mp = 20;
         window.gameState.opp.maxMp = 40;
 
         const { error: insertErr } = await supabaseClient.from('rooms').insert([{
@@ -3355,6 +3483,8 @@
           p1_deck_count: window.gameState.my.deck.length,
           p2_hp: 60,
           p2_deck_count: 15,
+          p1_janken: null,
+          p2_janken: null,
           updated_at: new Date().toISOString()
         }]);
 
@@ -3827,25 +3957,25 @@
     return rawDeck;
   }
 
-  // ★ ゲーム初期化（必ずプレイヤー先攻・初期MP20） ★
   function initGame() {
     window.gameState.isGameEnded = false;
     window.gameState.isGameStarted = true;
     window.gameState.my.hp = 60;
     window.gameState.opp.hp = 60;
 
-    window.gameState.my.mp = 20;  // ★ 初期MP 20
+    window.gameState.my.mp = 20;
     window.gameState.my.maxMp = 40;
-    window.gameState.opp.mp = 20;  // ★ 初期MP 20
+    window.gameState.opp.mp = 20;
     window.gameState.opp.maxMp = 40;
+
     try { playBGM('battle'); } catch(e){}
+
     const cpuPreset = (typeof CPU_PRESETS !== 'undefined' && CPU_PRESETS[window.gameState.currentDifficulty]) 
       ? CPU_PRESETS[window.gameState.currentDifficulty] 
       : { name: "CPU", rate: 1200, elem: "fire", deck: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : [] };
 
-    // ★ 常にプレイヤー先攻に固定 ★
-    const isPlayerFirst = true;
-    window.gameState.turn = "player";
+    const isPlayerFirst = Math.random() < 0.5;
+    window.gameState.turn = isPlayerFirst ? "player" : "cpu";
     window.gameState.turnCount = 1;
     window.gameState.selectedAttackerIdx = null;
     
@@ -3894,13 +4024,20 @@
       bannerText = `カジュアルモード [${window.gameState.currentDifficulty.toUpperCase()}] VS ${cpuPreset.name}`;
     }
       
-    document.getElementById("modeBanner").textContent = `${bannerText} (先攻)`;
+    const turnOrderText = isPlayerFirst ? "先攻 ⚔️" : "後攻 🛡️";
+    document.getElementById("modeBanner").textContent = `${bannerText} (${turnOrderText})`;
 
-    addLog(`あなた（先攻 ⚔️）のターンです！`, "important");
     addLog(`対戦開始！ ${window.gameState.my.name} VS ${window.gameState.opp.name}`, "important");
-    addLog(`--- あなたのターン (1ターン目) ---`, "important");
 
-    updateUI();
+    if (isPlayerFirst) {
+      addLog(`コイントス結果：あなたが【先攻】です！`, "important");
+      addLog(`--- あなたのターン (1ターン目) ---`, "important");
+      updateUI();
+    } else {
+      addLog(`コイントス結果：相手（${window.gameState.opp.name}）が【先攻】です！`, "damage");
+      updateUI();
+      setTimeout(cpuTurn, 1000);
+    }
   }
 
   function addLog(msg, type = "") {
@@ -4453,7 +4590,6 @@
     else updateUI();
   }
 
-  // --- 🔄 ターン終了処理 ---
   async function passTurn() {
     if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
       addLog("⚠️ 相手のターン中です。", "damage");
