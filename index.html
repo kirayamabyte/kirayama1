@@ -486,6 +486,42 @@
       height: 100%;
       overflow: hidden;
     }
+    /* --- デッキ保存・切り替え・名前編集パネル用スタイル --- */
+.deck-save-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(255,255,255,0.03);
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.deck-save-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+}
+
+.deck-save-panel select, .deck-save-panel input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background: #15151e;
+  color: #fff;
+}
+
+.deck-save-panel .btn-sm {
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  min-height: 32px;
+  white-space: nowrap;
+}
 
     .deck-header {
       display: flex;
@@ -1526,6 +1562,17 @@
     <button type="button" class="btn btn-sm" onclick="createNewDeckSlot()">➕ 新規保存</button>
     <button type="button" class="btn btn-sm" style="border-color:#ff4444; color:#ff8888;" onclick="deleteCurrentDeckSlot()">🗑️</button>
   </div>
+  <div class="deck-save-panel">
+      <div class="deck-save-row">
+        <select id="savedDeckSelect" onchange="switchSavedDeck(this.value)"></select>
+        <button type="button" class="btn btn-sm" style="border-color:#ff4444; color:#ff8888;" onclick="deleteCurrentDeckSlot()">🗑️ 削除</button>
+      </div>
+      <div class="deck-save-row">
+        <input id="deckNameInput" type="text" placeholder="デッキ名を入力" maxlength="15">
+        <button type="button" class="btn btn-sm primary" onclick="saveCurrentDeckSlot()">💾 保存</button>
+        <button type="button" class="btn btn-sm" onclick="createNewDeckSlot()">➕ 新規保存</button>
+      </div>
+    </div>
     <div class="deck-body">
       <div class="section-title">あなたのデッキ (タップで外す / 長押しで拡大)</div>
       <div id="currentDeckContainer" class="card-grid"></div>
@@ -2703,7 +2750,21 @@
         if (window.userProfile.draftInProgress === undefined) window.userProfile.draftInProgress = false;
         if (window.userProfile.bestDraftFloor === undefined) window.userProfile.bestDraftFloor = 0;
         if (!window.userProfile.draftDeck) window.userProfile.draftDeck = [];
+
+        // ★ デッキ保存データの復元・初期化処理 ★
+        if (!window.userProfile.savedDecks || Object.keys(window.userProfile.savedDecks).length === 0) {
+          window.userProfile.savedDecks = {
+            "deck_1": { name: "メインデッキ", cards: [...window.userProfile.deck] }
+          };
+          window.userProfile.currentDeckId = "deck_1";
+        }
       } catch (e) { console.error("データロードエラー", e); }
+    } else {
+      // 初回起動時
+      window.userProfile.savedDecks = {
+        "deck_1": { name: "メインデッキ", cards: [...window.userProfile.deck] }
+      };
+      window.userProfile.currentDeckId = "deck_1";
     }
     updateTitleStatsUI();
   }
