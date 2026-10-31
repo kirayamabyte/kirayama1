@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>赤城ユタカードバトル - 完全機能統合版</title>
+  <title>赤城ユタカードバトル - 完全機能統合・修正版</title>
   <style>
     :root {
       --bg-color: #1a1a24;
@@ -1169,27 +1169,29 @@
     .card-action-overlay {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.82);
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       z-index: 950;
-      gap: 16px;
-      animation: fadeIn 0.2s ease;
+      gap: 20px;
+      animation: fadeIn 0.15s ease-out;
     }
 
     .card-action-btn-group {
       display: flex;
       gap: 12px;
       width: 90%;
-      max-width: 320px;
+      max-width: 340px;
+      z-index: 960;
     }
 
     .card-action-btn-group .btn {
       flex: 1;
       font-size: 1rem;
       padding: 12px;
+      border-radius: 8px;
     }
 
     @keyframes fadeIn {
@@ -3957,6 +3959,7 @@
       cardDiv.addEventListener("touchend", (e) => {
         clearTimeout(longPressTimer);
         if (!isLongPressAction) {
+          e.stopPropagation();
           clickHandler(e);
         }
       });
@@ -3978,6 +3981,7 @@
         if (e.button !== 0) return;
         clearTimeout(longPressTimer);
         if (!isLongPressAction) {
+          e.stopPropagation();
           clickHandler(e);
         }
       });
@@ -4274,7 +4278,7 @@
     }
   }
 
-  // 🎴 カード使用確認モーダル表示 (PC・スマホ両対応)
+  // 🎴 カード使用確認モーダル表示 (バブリング防止・最適化)
   function openCardActionModal(index) {
     if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
       addLog("⚠️ 相手のターン中はカードを操作できません！", "damage");
@@ -4292,25 +4296,33 @@
     overlay.className = "card-action-overlay";
 
     const cardPreview = renderCardDOM(card, "", null);
-    cardPreview.style.transform = "scale(1.2)";
+    cardPreview.style.transform = "scale(1.15)";
     cardPreview.style.pointerEvents = "none";
 
     const btnGroup = document.createElement("div");
     btnGroup.className = "card-action-btn-group";
 
     const btnUse = document.createElement("button");
+    btnUse.type = "button";
     btnUse.className = "btn primary";
     btnUse.textContent = "⚔️ このカードを使う";
-    btnUse.onclick = () => {
+    btnUse.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const targetIdx = pendingCardIndex;
       closeCardActionModal();
-      playCard(targetIdx);
+      if (targetIdx !== null && targetIdx !== undefined) {
+        playCard(targetIdx);
+      }
     };
 
     const btnCancel = document.createElement("button");
+    btnCancel.type = "button";
     btnCancel.className = "btn";
     btnCancel.textContent = "✖ キャンセル";
-    btnCancel.onclick = () => {
+    btnCancel.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       closeCardActionModal();
     };
 
@@ -4321,7 +4333,10 @@
     overlay.appendChild(btnGroup);
 
     overlay.onclick = (e) => {
-      if (e.target === overlay) closeCardActionModal();
+      if (e.target === overlay) {
+        e.stopPropagation();
+        closeCardActionModal();
+      }
     };
 
     document.body.appendChild(overlay);
@@ -4468,7 +4483,7 @@
   function confirmSummonToSlot(slotIdx) {
     if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) return;
     const handIdx = window.gameState.pendingSummonIndex;
-    if (handIdx === null) return;
+    if (handIdx === null || handIdx === undefined) return;
 
     const card = window.gameState.my.hand[handIdx];
     if (!card) return;
@@ -5492,7 +5507,10 @@
           slot.style.borderColor = "#00fff5";
           slot.style.boxShadow = "0 0 10px #00fff5";
           slot.style.cursor = "pointer";
-          slot.onclick = () => typeof confirmSummonToSlot === 'function' && confirmSummonToSlot(i);
+          slot.onclick = (e) => {
+            e.stopPropagation();
+            if (typeof confirmSummonToSlot === 'function') confirmSummonToSlot(i);
+          };
         }
 
         if (window.gameState.my.monsters[i]) {
@@ -5508,7 +5526,10 @@
             ? `<img src="${m.image}" style="width:20px; height:20px; object-fit:cover; border-radius:3px;">` 
             : (m.icon || '👾');
 
-          slot.onclick = () => typeof selectMyMonsterToAttack === 'function' && selectMyMonsterToAttack(i);
+          slot.onclick = (e) => {
+            e.stopPropagation();
+            if (typeof selectMyMonsterToAttack === 'function') selectMyMonsterToAttack(i);
+          };
           slot.innerHTML = `
             <div class="monster-card-field ${(!m.canAttack || m.isStunned || m.cannotAttack) ? 'exhausted' : ''} ${m.isStunned ? 'stunned' : ''}">
               ${stunBadge}
@@ -5548,7 +5569,10 @@
 
         if (isSelectableTarget) {
           slot.classList.add("selectable-target");
-          slot.onclick = () => typeof attackEnemyMonster === 'function' && attackEnemyMonster(i);
+          slot.onclick = (e) => {
+            e.stopPropagation();
+            if (typeof attackEnemyMonster === 'function') attackEnemyMonster(i);
+          };
         }
 
         if (currentOppCard) {
