@@ -1174,7 +1174,7 @@
       100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
     }
 
-    /* --- カード使用確認モーダル用スタイル (PC・スマホ修正版) --- */
+    /* --- カード使用確認モーダル用スタイル (PC・スマホ修正完全版) --- */
     .card-action-overlay {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
@@ -4286,7 +4286,7 @@
     }
   }
 
-  /* --- カード操作確認モーダル関数 (イベントリスナー修正・スマホ対応) --- */
+  /* --- カード操作確認モーダル関数 (修正完全版) --- */
   function openCardActionModal(index) {
     if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
       addLog("⚠️ 相手のターン中はカードを操作できません！", "damage");
@@ -4296,6 +4296,7 @@
     const card = window.gameState.my.hand[index];
     if (!card) return;
 
+    // 現在選択中のインデックスを保持
     pendingCardIndex = index;
     closeCardActionModal();
 
@@ -4310,11 +4311,15 @@
     const btnGroup = document.createElement("div");
     btnGroup.className = "card-action-btn-group";
 
+    // ⚔️ このカードを使う ボタン
     const btnUse = document.createElement("button");
     btnUse.type = "button";
     btnUse.className = "btn primary";
     btnUse.textContent = "⚔️ このカードを使う";
-    
+    btnUse.style.pointerEvents = "auto";
+    btnUse.style.cursor = "pointer";
+
+    // イベント発動を確実にトリガーする処理
     const executePlay = (e) => {
       if (e) {
         e.preventDefault();
@@ -4326,12 +4331,18 @@
         playCard(targetIdx);
       }
     };
-    btnUse.onclick = executePlay;
 
+    // タッチデバイス・PC両方のイベントを捕捉
+    btnUse.onclick = executePlay;
+    btnUse.addEventListener("touchend", executePlay);
+
+    // ✖ キャンセル ボタン
     const btnCancel = document.createElement("button");
     btnCancel.type = "button";
     btnCancel.className = "btn";
     btnCancel.textContent = "✖ キャンセル";
+    btnCancel.style.pointerEvents = "auto";
+    btnCancel.style.cursor = "pointer";
 
     const executeCancel = (e) => {
       if (e) {
@@ -4340,7 +4351,9 @@
       }
       closeCardActionModal();
     };
+
     btnCancel.onclick = executeCancel;
+    btnCancel.addEventListener("touchend", executeCancel);
 
     btnGroup.appendChild(btnUse);
     btnGroup.appendChild(btnCancel);
