@@ -1211,12 +1211,39 @@
       from { opacity: 0; }
       to { opacity: 1; }
     }
+    /* --- 追加: デッキ保存・切り替えパネル --- */
+.deck-save-panel {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: rgba(255,255,255,0.03);
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+.deck-save-panel select, .deck-save-panel input {
+  flex: 1;
+  padding: 6px;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background: #15151e;
+  color: #fff;
+}
+.deck-save-panel .btn-sm {
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  min-height: 32px;
+}
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script src="cards1.js"></script>
   <script src="cpu_decks.js"></script>
+  
 </head>
 <body>
 
@@ -1493,7 +1520,12 @@
       <h2>🎴 デッキ編集・カード図鑑</h2>
       <div id="deckCountBadge" class="deck-count invalid">20/20枚</div>
     </div>
-
+<div class="deck-save-panel">
+    <select id="savedDeckSelect" onchange="switchSavedDeck(this.value)"></select>
+    <button type="button" class="btn btn-sm primary" onclick="saveCurrentDeckSlot()">💾 上書き保存</button>
+    <button type="button" class="btn btn-sm" onclick="createNewDeckSlot()">➕ 新規保存</button>
+    <button type="button" class="btn btn-sm" style="border-color:#ff4444; color:#ff8888;" onclick="deleteCurrentDeckSlot()">🗑️</button>
+  </div>
     <div class="deck-body">
       <div class="section-title">あなたのデッキ (タップで外す / 長押しで拡大)</div>
       <div id="currentDeckContainer" class="card-grid"></div>
@@ -2259,7 +2291,10 @@
     equippedTitle: "《見習いデュエリスト》",
     equippedBadge: "🔰",
     deck: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : [],
-    inventory: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : []
+    inventory: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : [],
+    savedDecks: {},
+  currentDeckId: "deck_1"
+
   };
 
   async function syncProfileFromSupabase() {
