@@ -1497,7 +1497,7 @@
   <section id="gameScreen" class="screen hidden">
     <div id="modeBanner" class="mode-banner">ランクマッチ</div>
 
-    <!-- ⏱️ 対戦中ターン制限時間（タイマー）表示エリア -->
+    <!-- ⏱️ 対戦中ターン制限時間（160秒タイマー）表示エリア -->
     <div id="turnTimerContainer" style="text-align: center; font-size: 0.85rem; font-weight: bold; color: #00fff5; background: rgba(0,0,0,0.5); padding: 3px; border-radius: 4px; margin-bottom: 4px; border: 1px solid rgba(0, 255, 245, 0.3);">
       ⏱️ ターン制限時間: <span id="turnTimeLeft" style="color: #ffd700; font-size: 1.1rem; font-weight: 900;">160</span> 秒
     </div>
@@ -1680,6 +1680,20 @@
         CARD_DATABASE.push(nc);
       }
     });
+  }
+
+  // 🧹 放置された古部屋を自動削除するクリーンアップ関数
+  async function cleanupStaleRooms() {
+    if (!supabaseClient) return;
+    try {
+      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+      await supabaseClient
+        .from('rooms')
+        .delete()
+        .lt('updated_at', twoMinutesAgo);
+    } catch (e) {
+      console.error("部屋クリーンアップエラー:", e);
+    }
   }
 
   async function fetchNotices() {
@@ -2114,7 +2128,7 @@
   let jankenTimerInterval = null;
   let jankenTimeLeft = 10;
 
-  // ⏱️ ターン制限時間用変数 (20秒)
+  // ⏱️ ターン制限時間用変数 (160秒設定)
   let turnTimerInterval = null;
   let turnTimeLeft = 160;
   const TURN_TIME_LIMIT = 160;
@@ -2732,6 +2746,22 @@
     await checkDailyBonus();
     await fetchUserPresents();
 
+    // 🚪 画面閉じ・タブ離脱時の部屋削除/切断自動登録処理
+    window.addEventListener("beforeunload", () => {
+      if (onlineRoomId && supabaseClient) {
+        const isP1 = onlineMyRole === 'player1';
+        if (!window.gameState.isGameStarted) {
+          supabaseClient.from('rooms').delete().eq('id', onlineRoomId);
+        } else {
+          const mePrefix = isP1 ? 'p1' : 'p2';
+          supabaseClient.from('rooms').update({
+            [`${mePrefix}_surrendered`]: true,
+            updated_at: new Date().toISOString()
+          }).eq('id', onlineRoomId);
+        }
+      }
+    });
+
     const unlockAudio = () => {
       try {
         if (document.getElementById("gameScreen").classList.contains("hidden")) {
@@ -2779,7 +2809,7 @@
     try { playBGM('title'); } catch(e){}
   });
 
-  // ⏱️ ターンタイマーの開始/制御
+  // ⏱️ ターンタイマーの開始/制御（160秒設定）
   function startTurnTimer() {
     stopTurnTimer();
 
@@ -2795,7 +2825,8 @@
 
       if (timerEl) {
         timerEl.textContent = turnTimeLeft;
-        if (turnTimeLeft <= 5) {
+        // 残り10秒以下で赤字強調表示
+        if (turnTimeLeft <= 10) {
           timerEl.style.color = "#ff4d4f";
         }
       }
@@ -2950,6 +2981,8 @@
   async function createOnlineRoom() {
     if (!supabaseClient) return alert("Supabaseに接続されていません");
     
+    await cleanupStaleRooms(); // 🧹 古部屋掃除
+
     const codeInput = document.getElementById("onlineRoomCodeInput").value.trim().toUpperCase();
     const roomCode = codeInput || Math.random().toString(36).substring(2, 8).toUpperCase();
     
@@ -3017,6 +3050,8 @@
   // --- 🌐 ルーム参加（ゲスト側） ---
   async function joinOnlineRoom() {
     if (!supabaseClient) return alert("Supabaseに接続されていません");
+
+    await cleanupStaleRooms(); // 🧹 古部屋掃除
 
     const codeInput = document.getElementById("onlineRoomCodeInput").value.trim().toUpperCase();
     if (!codeInput) {
@@ -3337,7 +3372,7 @@
       
       addLog(`✊✌️✋ じゃんけんの結果、${isMyTurn ? 'あなた' : '相手'}が【先攻】になりました！`, "important");
       updateUI();
-      startTurnTimer(); // ⏱️ 対戦開始時のターンタイマーをスタート
+      startTurnTimer(); // ⏱️ 対戦開始時のターンタイマー（160秒）をスタート
     }, 2000);
   }
 
@@ -3467,13 +3502,13 @@
           }
         });
         addLog(`--- あなたのターン ---`, "important");
-        startTurnTimer(); // ⏱️ ターン開始時にタイマーリセット＆スタート
+        startTurnTimer(); // ⏱️ 自分のターン開始時にタイマーリセット＆スタート
         syncOnlineAction();
       }
 
       if (prevTurn !== 'opp' && newTurnRole === 'opp') {
         addLog(`--- ${roomData[`${oppPrefix}_name`] || '対戦相手'} のターン ---`);
-        startTurnTimer(); // ⏱️ 相手ターンでもタイマーリセット
+        startTurnTimer(); // ⏱️ 相手ターン時もタイマーリセット
       }
 
       window.gameState.turn = newTurnRole;
@@ -3522,6 +3557,8 @@
 
   async function searchRankedMatch(isEvent = false) {
     try {
+      await cleanupStaleRooms(); // 🧹 ゾンビ部屋削除
+
       if (roomHeartbeatInterval) {
         clearInterval(roomHeartbeatInterval);
         roomHeartbeatInterval = null;
@@ -4174,7 +4211,7 @@
 
     addLog(`対戦開始！ ${window.gameState.my.name} VS ${window.gameState.opp.name}`, "important");
 
-    startTurnTimer(); // ⏱️ ゲーム開始時のターンタイマーをスタート
+    startTurnTimer(); // ⏱️ 対戦開始時にタイマーをスタート
 
     if (isPlayerFirst) {
       addLog(`コイントス結果：あなたが【先攻】です！`, "important");
@@ -4827,13 +4864,13 @@
 
       window.gameState.turn = "opp";
       updateUI();
-      startTurnTimer(); // ⏱️ 相手ターンタイマー開始
+      startTurnTimer(); // ⏱️ 相手ターンタイマー（160秒）開始
       return;
     }
 
     window.gameState.turn = "cpu";
     updateUI();
-    startTurnTimer(); // ⏱️ CPUターンタイマー開始
+    startTurnTimer(); // ⏱️ CPUターンタイマー（160秒）開始
     setTimeout(cpuTurn, 1000);
   }
 
@@ -5153,7 +5190,7 @@
 
     window.gameState.turn = "player";
     addLog(`--- あなたのターン (${window.gameState.turnCount}ターン目) ---`, "important");
-    startTurnTimer(); // ⏱️ プレイヤーターン開始時にタイマー再スタート
+    startTurnTimer(); // ⏱️ プレイヤターン開始時にタイマー再スタート
     updateUI();
   }
 
@@ -5348,7 +5385,6 @@
     handCards.forEach((card, index) => {
       const cardData = typeof card === 'object' ? card : CARD_DATABASE.find(c => c.id === card);
       if (cardData) {
-        // カードタップ時に「使用確認モーダル」を開く
         const cardDiv = renderCardDOM(cardData, "", () => openCardActionModal(index));
         handContainer.appendChild(cardDiv);
       }
