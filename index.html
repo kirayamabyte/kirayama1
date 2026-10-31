@@ -1174,7 +1174,7 @@
       100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
     }
 
-    /* --- カード使用確認モーダル用スタイル (PC・スマホ修正完全版) --- */
+    /* --- カード使用確認モーダル用スタイル --- */
     .card-action-overlay {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
@@ -2916,7 +2916,7 @@
 
       updateTitleStatsUI();
       checkActiveEvent();
-      fetchUserPresents();
+      fetchNotices();
       try { playBGM('title'); } catch(e){}
 
     } catch (e) {
@@ -4286,7 +4286,7 @@
     }
   }
 
-  /* --- カード操作確認モーダル関数 (修正完全版) --- */
+  /* --- カード操作確認モーダル関数 (インデックス非消去・完全修正版) --- */
   function openCardActionModal(index) {
     if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
       addLog("⚠️ 相手のターン中はカードを操作できません！", "damage");
@@ -4350,6 +4350,7 @@
         e.stopPropagation();
       }
       closeCardActionModal();
+      pendingCardIndex = null;
     };
 
     btnCancel.onclick = executeCancel;
@@ -4373,7 +4374,7 @@
   function closeCardActionModal() {
     const existing = document.getElementById("cardActionOverlay");
     if (existing) existing.remove();
-    pendingCardIndex = null;
+    // ★重要: pendingCardIndex をここで null にしないことで、playCard 側の召喚準備インデックスを保持します
   }
 
   function playCard(index) {
@@ -4526,6 +4527,7 @@
     };
     window.gameState.my.monsters[slotIdx] = newMonster;
     window.gameState.pendingSummonIndex = null;
+    pendingCardIndex = null;
 
     addLog(`${window.gameState.my.name} は ${slotIdx + 1}番目の枠に 【${card.name}】 を召喚！`, "important");
 
@@ -4866,6 +4868,7 @@
     addLog(`${window.gameState.my.name} は 【${targetMonster.name}】 に 【${card.name}】 (+${card.atk}) を装備！`, "important");
 
     window.gameState.my.hand.splice(handIndex, 1);
+    pendingCardIndex = null;
 
     if (window.gameState.mode === "online" || window.gameState.mode === "ranked" || window.gameState.mode === "event_ranked") syncOnlineAction();
     else updateUI();
@@ -4882,6 +4885,7 @@
 
     window.gameState.selectedAttackerIdx = null;
     window.gameState.pendingSummonIndex = null;
+    pendingCardIndex = null;
     addLog(`--- ターン終了 ---`);
 
     updateTokenLifetimes(window.gameState.my.monsters, window.gameState.my.name);
