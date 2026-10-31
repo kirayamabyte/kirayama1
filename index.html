@@ -651,12 +651,21 @@
       min-height: 54px;
       position: relative;
       cursor: pointer;
+      z-index: 20;
+      pointer-events: auto !important;
     }
 
     .monster-slot.selectable-target {
       border: 2px solid #ff4444;
       box-shadow: 0 0 10px #ff4444;
       animation: pulseTarget 1s infinite alternate;
+    }
+
+    .monster-slot.summon-target {
+      border: 2px solid #00fff5 !important;
+      box-shadow: 0 0 12px #00fff5 !important;
+      animation: pulseTarget 0.8s infinite alternate;
+      background: rgba(0, 255, 245, 0.15) !important;
     }
 
     .monster-slot.attacker-selected {
@@ -1310,7 +1319,7 @@
     <div id="marketBuyArea" class="market-grid"></div>
     <div id="marketSellArea" class="market-grid hidden"></div>
 
-    <button type="button" class="btn" onclick="showTitle()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
+    <button type="button" class="btn" onclick="showTitleDirect()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
   </section>
 
   <!-- 🤝 カードトレード画面 -->
@@ -1332,7 +1341,7 @@
       </div>
     </div>
 
-    <button type="button" class="btn" onclick="showTitle()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
+    <button type="button" class="btn" onclick="showTitleDirect()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
   </section>
 
   <!-- 🏷️ 称号・バッジ設定画面 -->
@@ -1426,7 +1435,7 @@
       <button type="button" class="btn primary" onclick="sendPresentFromAdmin()" style="background:#00adb5; border-color:#00fff5;">🚀 プレゼントを送信</button>
     </div>
 
-    <button type="button" class="btn" onclick="showTitle()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
+    <button type="button" class="btn" onclick="showTitleDirect()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
   </section>
 
   <!-- 🎰 ガチャ画面 -->
@@ -1446,7 +1455,7 @@
       <button type="button" class="btn primary big" onclick="executeGacha(10)" style="width:100%; background:#ff9900; border-color:#ffcc00;">10連ガチャ (1000pt)</button>
     </div>
 
-    <button type="button" class="btn" onclick="showTitle()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
+    <button type="button" class="btn" onclick="showTitleDirect()" style="max-width:200px; margin-top:10px;">タイトルに戻る</button>
   </section>
 
   <!-- オンラインロビー画面 -->
@@ -1458,7 +1467,7 @@
         <input id="onlineRoomCodeInput" placeholder="6桁の合言葉" style="width:120px; text-align:center; padding:8px; border-radius:6px; border:1px solid #444; background:#15151e; color:#fff;">
         <button id="btnJoinOnlineRoom" type="button" class="btn">部屋に入る</button>
       </div>
-      <button type="button" class="btn" onclick="showTitle()" style="margin-top:10px;">タイトルに戻る</button>
+      <button type="button" class="btn" onclick="showTitleDirect()" style="margin-top:10px;">タイトルに戻る</button>
     </div>
     <div id="onlineStatusText" style="color:var(--gold-color); font-size:0.9rem; margin-top:10px; text-align:center;"></div>
   </section>
@@ -1470,7 +1479,7 @@
       <button type="button" class="btn" onclick="startCasualGame('easy')">🌱 EASY (見習いデュエリスト)</button>
       <button type="button" class="btn primary" onclick="startCasualGame('normal')">🛡️ NORMAL (赤城の精鋭騎士)</button>
       <button type="button" class="btn" style="border-color:#ff4444; color:#ff9999;" onclick="startCasualGame('hard')">🔥 HARD (竜神の覇王)</button>
-      <button type="button" class="btn" onclick="showTitle()" style="margin-top:10px;">タイトルに戻る</button>
+      <button type="button" class="btn" onclick="showTitleDirect()" style="margin-top:10px;">タイトルに戻る</button>
     </div>
   </section>
 
@@ -2310,7 +2319,7 @@
 
   function saveProfileCustomization() {
     saveUserProfile();
-    showTitle();
+    showTitleDirect();
   }
   window.saveProfileCustomization = saveProfileCustomization;
 
@@ -2748,7 +2757,6 @@
     await checkDailyBonus();
     await fetchUserPresents();
 
-    // 🚪 画面閉じ・タブ離脱時の部屋削除/切断自動登録処理
     window.addEventListener("beforeunload", () => {
       if (onlineRoomId && supabaseClient) {
         const isP1 = onlineMyRole === 'player1';
@@ -2827,7 +2835,6 @@
 
       if (timerEl) {
         timerEl.textContent = turnTimeLeft;
-        // 残り10秒以下で赤字強調表示
         if (turnTimeLeft <= 10) {
           timerEl.style.color = "#ff4d4f";
         }
@@ -2844,7 +2851,6 @@
     }, 1000);
   }
 
-  // ⏱️ ターンタイマー停止
   function stopTurnTimer() {
     if (turnTimerInterval) {
       clearInterval(turnTimerInterval);
@@ -2979,11 +2985,10 @@
     document.getElementById("onlineLobbyScreen").classList.remove("hidden");
   }
 
-  // --- 🌐 ルーム作成（ホスト側） ---
   async function createOnlineRoom() {
     if (!supabaseClient) return alert("Supabaseに接続されていません");
     
-    await cleanupStaleRooms(); // 🧹 古部屋掃除
+    await cleanupStaleRooms();
 
     const codeInput = document.getElementById("onlineRoomCodeInput").value.trim().toUpperCase();
     const roomCode = codeInput || Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -3049,11 +3054,10 @@
   }
   window.createOnlineRoom = createOnlineRoom;
 
-  // --- 🌐 ルーム参加（ゲスト側） ---
   async function joinOnlineRoom() {
     if (!supabaseClient) return alert("Supabaseに接続されていません");
 
-    await cleanupStaleRooms(); // 🧹 古部屋掃除
+    await cleanupStaleRooms();
 
     const codeInput = document.getElementById("onlineRoomCodeInput").value.trim().toUpperCase();
     if (!codeInput) {
@@ -3233,7 +3237,6 @@
   }
   window.closeGachaResultModal = closeGachaResultModal;
 
-  // ✊✌️✋ じゃんけんフェーズ開始制御（タイマー機能付き）
   function startJankenPhase() {
     myJankenHand = null;
     jankenTimeLeft = 10;
@@ -3374,7 +3377,7 @@
       
       addLog(`✊✌️✋ じゃんけんの結果、${isMyTurn ? 'あなた' : '相手'}が【先攻】になりました！`, "important");
       updateUI();
-      startTurnTimer(); // ⏱️ 対戦開始時のターンタイマー（160秒）をスタート
+      startTurnTimer();
     }, 2000);
   }
 
@@ -3504,13 +3507,13 @@
           }
         });
         addLog(`--- あなたのターン ---`, "important");
-        startTurnTimer(); // ⏱️ 自分のターン開始時にタイマーリセット＆スタート
+        startTurnTimer();
         syncOnlineAction();
       }
 
       if (prevTurn !== 'opp' && newTurnRole === 'opp') {
         addLog(`--- ${roomData[`${oppPrefix}_name`] || '対戦相手'} のターン ---`);
-        startTurnTimer(); // ⏱️ 相手ターン時もタイマーリセット
+        startTurnTimer();
       }
 
       window.gameState.turn = newTurnRole;
@@ -3559,7 +3562,7 @@
 
   async function searchRankedMatch(isEvent = false) {
     try {
-      await cleanupStaleRooms(); // 🧹 ゾンビ部屋削除
+      await cleanupStaleRooms();
 
       if (roomHeartbeatInterval) {
         clearInterval(roomHeartbeatInterval);
@@ -4164,8 +4167,9 @@
     window.gameState.turn = isPlayerFirst ? "player" : "cpu";
     window.gameState.turnCount = 1;
     window.gameState.selectedAttackerIdx = null;
+    window.gameState.pendingSummonIndex = null;
     
-    window.gameState.my.hp = 60; window.gameState.my.maxHp = 60; window.gameState.my.monsters = []; window.gameState.my.elem = "water";
+    window.gameState.my.hp = 60; window.gameState.my.maxHp = 60; window.gameState.my.monsters = [null, null, null, null, null]; window.gameState.my.elem = "water";
     window.gameState.my.name = window.userProfile.name;
     window.gameState.my.rate = window.userProfile.rate || 1000;
     document.getElementById("myNameDisplay").textContent = window.gameState.my.name;
@@ -4173,7 +4177,7 @@
     window.gameState.opp.name = cpuPreset.name;
     window.gameState.opp.rate = cpuPreset.rate || 1200;
     window.gameState.opp.elem = cpuPreset.elem;
-    window.gameState.opp.hp = 60; window.gameState.opp.maxHp = 60; window.gameState.opp.monsters = [];
+    window.gameState.opp.hp = 60; window.gameState.opp.maxHp = 60; window.gameState.opp.monsters = [null, null, null, null, null];
     document.getElementById("oppNameDisplay").textContent = window.gameState.opp.name;
 
     const oppElemElem = document.getElementById("oppElem");
@@ -4215,7 +4219,7 @@
 
     addLog(`対戦開始！ ${window.gameState.my.name} VS ${window.gameState.opp.name}`, "important");
 
-    startTurnTimer(); // ⏱️ 対戦開始時にタイマーをスタート
+    startTurnTimer();
 
     if (isPlayerFirst) {
       addLog(`コイントス結果：あなたが【先攻】です！`, "important");
@@ -4278,7 +4282,6 @@
     }
   }
 
-  // 🎴 カード使用確認モーダル表示 (最適化・伝播完全遮断版)
   function openCardActionModal(index) {
     if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
       addLog("⚠️ 相手のターン中はカードを操作できません！", "damage");
@@ -4375,13 +4378,8 @@
         return;
       }
 
-      if (window.gameState.pendingSummonIndex === index) {
-        window.gameState.pendingSummonIndex = null;
-        addLog("召喚の選択をキャンセルしました。");
-      } else {
-        window.gameState.pendingSummonIndex = index;
-        addLog(`【${card.name}】を出す位置を選択してください。（空いている枠をタップ）`, "important");
-      }
+      window.gameState.pendingSummonIndex = index;
+      addLog(`【${card.name}】を出す位置を選択してください。（空いている枠をタップ）`, "important");
       updateUI();
       return;
     }
@@ -4858,7 +4856,7 @@
       return;
     }
 
-    stopTurnTimer(); // ⏱️ ターンパス時にタイマー停止
+    stopTurnTimer();
     closeCardActionModal();
 
     window.gameState.selectedAttackerIdx = null;
@@ -4883,13 +4881,13 @@
 
       window.gameState.turn = "opp";
       updateUI();
-      startTurnTimer(); // ⏱️ 相手ターンタイマー（160秒）開始
+      startTurnTimer();
       return;
     }
 
     window.gameState.turn = "cpu";
     updateUI();
-    startTurnTimer(); // ⏱️ CPUターンタイマー（160秒）開始
+    startTurnTimer();
     setTimeout(cpuTurn, 1000);
   }
 
@@ -5209,7 +5207,7 @@
 
     window.gameState.turn = "player";
     addLog(`--- あなたのターン (${window.gameState.turnCount}ターン目) ---`, "important");
-    startTurnTimer(); // ⏱️ プレイヤターン開始時にタイマー再スタート
+    startTurnTimer();
     updateUI();
   }
 
@@ -5412,6 +5410,7 @@
 
   function updateUI() {
     const isMyTurn = window.gameState.turn === "player" && window.gameState.isGameStarted;
+    const isSummoning = window.gameState.pendingSummonIndex !== null && window.gameState.pendingSummonIndex !== undefined;
     const modeBanner = document.getElementById("modeBanner");
     const myPinfo = document.querySelector("#gameScreen .player-area:last-child .pinfo");
     const oppPinfo = document.getElementById("oppPlayerInfo");
@@ -5506,14 +5505,16 @@
         slot.className = "monster-slot";
         if (window.gameState.selectedAttackerIdx === i) slot.classList.add("attacker-selected");
 
-        if (isMyTurn && window.gameState.pendingSummonIndex !== null && !window.gameState.my.monsters[i]) {
-          slot.classList.add("selectable-target");
-          slot.style.borderColor = "#00fff5";
-          slot.style.boxShadow = "0 0 10px #00fff5";
-          slot.style.cursor = "pointer";
+        if (isMyTurn && isSummoning && !window.gameState.my.monsters[i]) {
+          slot.classList.add("summon-target");
           slot.onclick = (e) => {
             e.stopPropagation();
             if (typeof confirmSummonToSlot === 'function') confirmSummonToSlot(i);
+          };
+        } else if (window.gameState.my.monsters[i]) {
+          slot.onclick = (e) => {
+            e.stopPropagation();
+            if (typeof selectMyMonsterToAttack === 'function') selectMyMonsterToAttack(i);
           };
         }
 
@@ -5530,10 +5531,6 @@
             ? `<img src="${m.image}" style="width:20px; height:20px; object-fit:cover; border-radius:3px;">` 
             : (m.icon || '👾');
 
-          slot.onclick = (e) => {
-            e.stopPropagation();
-            if (typeof selectMyMonsterToAttack === 'function') selectMyMonsterToAttack(i);
-          };
           slot.innerHTML = `
             <div class="monster-card-field ${(!m.canAttack || m.isStunned || m.cannotAttack) ? 'exhausted' : ''} ${m.isStunned ? 'stunned' : ''}">
               ${stunBadge}
@@ -5549,7 +5546,7 @@
               ${wText}
             </div>
           `;
-        } else if (window.gameState.pendingSummonIndex === null) {
+        } else if (!isSummoning) {
           slot.innerHTML = `<span style="font-size:0.65rem; color:#555;">(空き)</span>`;
         } else {
           slot.innerHTML = `<span style="font-size:0.65rem; color:#00fff5; font-weight:bold;">ここに召喚</span>`;
