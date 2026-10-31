@@ -487,15 +487,16 @@
       overflow: hidden;
     }
     /* --- デッキ保存・切り替え・名前編集パネル用スタイル --- */
+/* --- デッキ保存・切り替えパネルのレイアウト整形 --- */
 .deck-save-panel {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.05);
   padding: 8px;
   border-radius: 8px;
-  border: 1px solid #333;
-  margin-bottom: 6px;
+  border: 1px solid #444;
+  margin-bottom: 8px;
   flex-shrink: 0;
 }
 
@@ -506,23 +507,40 @@
   width: 100%;
 }
 
-.deck-save-panel select, .deck-save-panel input {
+.deck-save-panel select {
   flex: 1;
-  padding: 6px 10px;
-  font-size: 0.8rem;
-  border-radius: 4px;
-  border: 1px solid #444;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  border: 1px solid #00adb5;
+  background: #15151e;
+  color: #00fff5;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.deck-save-panel input {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  border: 1px solid #555;
   background: #15151e;
   color: #fff;
 }
 
-.deck-save-panel .btn-sm {
-  padding: 6px 10px;
-  font-size: 0.75rem;
-  min-height: 32px;
-  white-space: nowrap;
+.deck-save-panel input:focus {
+  border-color: #00fff5;
+  outline: none;
 }
 
+.deck-save-panel .btn-sm {
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  min-height: 36px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
     .deck-header {
       display: flex;
       justify-content: space-between;
@@ -1562,14 +1580,14 @@
     <button type="button" class="btn btn-sm" onclick="createNewDeckSlot()">➕ 新規保存</button>
     <button type="button" class="btn btn-sm" style="border-color:#ff4444; color:#ff8888;" onclick="deleteCurrentDeckSlot()">🗑️</button>
   </div>
-  <div class="deck-save-panel">
+  <<div class="deck-save-panel">
       <div class="deck-save-row">
         <select id="savedDeckSelect" onchange="switchSavedDeck(this.value)"></select>
         <button type="button" class="btn btn-sm" style="border-color:#ff4444; color:#ff8888;" onclick="deleteCurrentDeckSlot()">🗑️ 削除</button>
       </div>
       <div class="deck-save-row">
         <input id="deckNameInput" type="text" placeholder="デッキ名を入力" maxlength="15">
-        <button type="button" class="btn btn-sm primary" onclick="saveCurrentDeckSlot()">💾 保存</button>
+        <button type="button" class="btn btn-sm primary" onclick="saveCurrentDeckSlot()">💾 上書き保存</button>
         <button type="button" class="btn btn-sm" onclick="createNewDeckSlot()">➕ 新規保存</button>
       </div>
     </div>
