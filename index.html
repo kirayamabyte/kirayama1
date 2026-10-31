@@ -1174,7 +1174,7 @@
       100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
     }
 
-    /* --- カード使用確認モーダル用スタイル (PC・スマホ対応) --- */
+    /* --- カード使用確認モーダル用スタイル (PC・スマホ修正版) --- */
     .card-action-overlay {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
@@ -1183,8 +1183,9 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      z-index: 950;
+      z-index: 9999 !important;
       gap: 20px;
+      pointer-events: auto !important;
       animation: fadeIn 0.15s ease-out;
     }
 
@@ -1193,14 +1194,17 @@
       gap: 12px;
       width: 90%;
       max-width: 340px;
-      z-index: 960;
+      z-index: 10000 !important;
+      pointer-events: auto !important;
     }
 
     .card-action-btn-group .btn {
       flex: 1;
       font-size: 1rem;
-      padding: 12px;
+      padding: 14px;
       border-radius: 8px;
+      cursor: pointer !important;
+      pointer-events: auto !important;
     }
 
     @keyframes fadeIn {
@@ -4282,6 +4286,7 @@
     }
   }
 
+  /* --- カード操作確認モーダル関数 (イベントリスナー修正・スマホ対応) --- */
   function openCardActionModal(index) {
     if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
       addLog("⚠️ 相手のターン中はカードを操作できません！", "damage");
@@ -4310,27 +4315,32 @@
     btnUse.className = "btn primary";
     btnUse.textContent = "⚔️ このカードを使う";
     
-    const handleUse = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
+    const executePlay = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       const targetIdx = pendingCardIndex;
       closeCardActionModal();
       if (targetIdx !== null && targetIdx !== undefined) {
         playCard(targetIdx);
       }
     };
-    btnUse.addEventListener("click", handleUse);
+    btnUse.onclick = executePlay;
 
     const btnCancel = document.createElement("button");
     btnCancel.type = "button";
     btnCancel.className = "btn";
     btnCancel.textContent = "✖ キャンセル";
-    const handleCancel = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
+
+    const executeCancel = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       closeCardActionModal();
     };
-    btnCancel.addEventListener("click", handleCancel);
+    btnCancel.onclick = executeCancel;
 
     btnGroup.appendChild(btnUse);
     btnGroup.appendChild(btnCancel);
@@ -4338,13 +4348,11 @@
     overlay.appendChild(cardPreview);
     overlay.appendChild(btnGroup);
 
-    overlay.addEventListener("click", (e) => {
+    overlay.onclick = (e) => {
       if (e.target === overlay) {
-        e.preventDefault();
-        e.stopPropagation();
-        closeCardActionModal();
+        executeCancel(e);
       }
-    });
+    };
 
     document.body.appendChild(overlay);
   }
