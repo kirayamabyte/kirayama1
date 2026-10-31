@@ -1169,7 +1169,7 @@
     .card-action-overlay {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(0, 0, 0, 0.82);
+      background: rgba(0, 0, 0, 0.85);
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -4278,7 +4278,7 @@
     }
   }
 
-  // 🎴 カード使用確認モーダル表示 (バブリング防止・最適化)
+  // 🎴 カード使用確認モーダル表示 (最適化・伝播完全遮断版)
   function openCardActionModal(index) {
     if (window.gameState.turn !== "player" || !window.gameState.isGameStarted) {
       addLog("⚠️ 相手のターン中はカードを操作できません！", "damage");
@@ -4306,7 +4306,8 @@
     btnUse.type = "button";
     btnUse.className = "btn primary";
     btnUse.textContent = "⚔️ このカードを使う";
-    btnUse.onclick = (e) => {
+    
+    const handleUse = (e) => {
       e.preventDefault();
       e.stopPropagation();
       const targetIdx = pendingCardIndex;
@@ -4315,16 +4316,18 @@
         playCard(targetIdx);
       }
     };
+    btnUse.addEventListener("click", handleUse);
 
     const btnCancel = document.createElement("button");
     btnCancel.type = "button";
     btnCancel.className = "btn";
     btnCancel.textContent = "✖ キャンセル";
-    btnCancel.onclick = (e) => {
+    const handleCancel = (e) => {
       e.preventDefault();
       e.stopPropagation();
       closeCardActionModal();
     };
+    btnCancel.addEventListener("click", handleCancel);
 
     btnGroup.appendChild(btnUse);
     btnGroup.appendChild(btnCancel);
@@ -4332,12 +4335,13 @@
     overlay.appendChild(cardPreview);
     overlay.appendChild(btnGroup);
 
-    overlay.onclick = (e) => {
+    overlay.addEventListener("click", (e) => {
       if (e.target === overlay) {
+        e.preventDefault();
         e.stopPropagation();
         closeCardActionModal();
       }
-    };
+    });
 
     document.body.appendChild(overlay);
   }
