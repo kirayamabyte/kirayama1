@@ -488,58 +488,87 @@
     }
     /* --- デッキ保存・切り替え・名前編集パネル用スタイル --- */
 /* --- デッキ保存・切り替えパネルのレイアウト整形 --- */
+
+/* --- デッキ操作パネルのスマート整列デザイン --- */
 .deck-save-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 8px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid #00fff5;
   border-radius: 8px;
-  border: 1px solid #444;
+  padding: 8px 10px;
   margin-bottom: 8px;
+  box-shadow: 0 0 10px rgba(0, 255, 245, 0.15);
   flex-shrink: 0;
 }
 
-.deck-save-row {
+.deck-control-bar {
   display: flex;
-  gap: 6px;
   align-items: center;
+  gap: 6px;
   width: 100%;
 }
 
-.deck-save-panel select {
-  flex: 1;
-  padding: 8px 10px;
-  font-size: 0.85rem;
-  border-radius: 6px;
-  border: 1px solid #00adb5;
-  background: #15151e;
+.deck-label {
+  font-size: 0.75rem;
   color: #00fff5;
   font-weight: bold;
-  cursor: pointer;
+  white-space: nowrap;
 }
 
-.deck-save-panel input {
-  flex: 1;
-  padding: 8px 10px;
-  font-size: 0.85rem;
+.deck-select {
+  flex: 1.2;
+  min-width: 100px;
+  padding: 6px 8px;
+  font-size: 0.8rem;
   border-radius: 6px;
-  border: 1px solid #555;
-  background: #15151e;
-  color: #fff;
-}
-
-.deck-save-panel input:focus {
-  border-color: #00fff5;
+  border: 1px solid #00adb5;
+  background: #0f172a;
+  color: #ffd700;
+  font-weight: bold;
   outline: none;
 }
 
-.deck-save-panel .btn-sm {
-  padding: 8px 12px;
-  font-size: 0.78rem;
-  min-height: 36px;
+.deck-input {
+  flex: 1;
+  min-width: 90px;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #475569;
+  background: #1e293b;
+  color: #fff;
+  outline: none;
+}
+
+.deck-input:focus {
+  border-color: #00fff5;
+  box-shadow: 0 0 5px rgba(0, 255, 245, 0.5);
+}
+
+.deck-control-bar .btn-sm {
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  min-height: 32px;
   white-space: nowrap;
-  flex: 0 0 auto;
+  flex-shrink: 0;
+}
+
+.btn-danger {
+  border-color: #ef4444 !important;
+  color: #fca5a5 !important;
+  background: rgba(239, 68, 68, 0.15) !important;
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.35) !important;
+}
+
+@media (max-width: 500px) {
+  .deck-control-bar {
+    flex-wrap: wrap;
+  }
+  .deck-select, .deck-input {
+    min-width: 45%;
+  }
 }
     .deck-header {
       display: flex;
@@ -1569,28 +1598,27 @@
   </section>
 
   <!-- デッキ編集画面 -->
+<!-- デッキ編集画面 -->
   <section id="deckScreen" class="screen hidden">
     <div class="deck-header">
       <h2>🎴 デッキ編集・カード図鑑</h2>
       <div id="deckCountBadge" class="deck-count invalid">20/20枚</div>
     </div>
-<div class="deck-save-panel">
-    <select id="savedDeckSelect" onchange="switchSavedDeck(this.value)"></select>
-    <button type="button" class="btn btn-sm primary" onclick="saveCurrentDeckSlot()">💾 上書き保存</button>
-    <button type="button" class="btn btn-sm" onclick="createNewDeckSlot()">➕ 新規保存</button>
-    <button type="button" class="btn btn-sm" style="border-color:#ff4444; color:#ff8888;" onclick="deleteCurrentDeckSlot()">🗑️</button>
-  </div>
-  <<div class="deck-save-panel">
-      <div class="deck-save-row">
-        <select id="savedDeckSelect" onchange="switchSavedDeck(this.value)"></select>
-        <button type="button" class="btn btn-sm" style="border-color:#ff4444; color:#ff8888;" onclick="deleteCurrentDeckSlot()">🗑️ 削除</button>
-      </div>
-      <div class="deck-save-row">
-        <input id="deckNameInput" type="text" placeholder="デッキ名を入力" maxlength="15">
-        <button type="button" class="btn btn-sm primary" onclick="saveCurrentDeckSlot()">💾 上書き保存</button>
-        <button type="button" class="btn btn-sm" onclick="createNewDeckSlot()">➕ 新規保存</button>
+
+    <!-- ★ 洗練された1行デザインのデッキコントロールパネル ★ -->
+    <div class="deck-save-panel">
+      <div class="deck-control-bar">
+        <label class="deck-label">デッキ選択:</label>
+        <select id="savedDeckSelect" class="deck-select" onchange="switchSavedDeck(this.value)"></select>
+        
+        <input id="deckNameInput" class="deck-input" type="text" placeholder="デッキ名を入力" maxlength="15">
+        
+        <button type="button" class="btn btn-sm primary" onclick="saveCurrentDeckSlot()">💾 保存</button>
+        <button type="button" class="btn btn-sm" onclick="createNewDeckSlot()">➕ 新規</button>
+        <button type="button" class="btn btn-sm btn-danger" onclick="deleteCurrentDeckSlot()">🗑️ 削除</button>
       </div>
     </div>
+
     <div class="deck-body">
       <div class="section-title">あなたのデッキ (タップで外す / 長押しで拡大)</div>
       <div id="currentDeckContainer" class="card-grid"></div>
@@ -1600,11 +1628,10 @@
     </div>
 
     <div class="deck-controls">
-      <button id="btnSaveDeck" type="button" class="btn primary">保存して戻る</button>
-      <button id="btnResetDeck" type="button" class="btn">初期デッキに戻す</button>
+      <button id="btnSaveDeck" type="button" class="btn primary" onclick="saveDeckAndReturn()">保存して戻る</button>
+      <button id="btnResetDeck" type="button" class="btn" onclick="resetDeckToDefault()">初期デッキに戻す</button>
     </div>
   </section>
-
   <!-- 対戦画面 -->
   <section id="gameScreen" class="screen hidden">
     <div id="modeBanner" class="mode-banner">ランクマッチ</div>
