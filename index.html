@@ -4057,6 +4057,109 @@
     document.getElementById("deckScreen").classList.remove("hidden");
     renderDeckEditor();
   }
+  // ★ デッキ選択ドロップダウンと名前入力欄の更新 ★
+  function updateDeckSelectDropdown() {
+    const select = document.getElementById("savedDeckSelect");
+    const nameInput = document.getElementById("deckNameInput");
+    if (!select) return;
+
+    select.innerHTML = "";
+    const savedDecks = window.userProfile.savedDecks || {};
+    
+    Object.keys(savedDecks).forEach(id => {
+      const option = document.createElement("option");
+      option.value = id;
+      option.textContent = savedDecks[id].name || `デッキ (${id})`;
+      if (id === window.userProfile.currentDeckId) {
+        option.selected = true;
+      }
+      select.appendChild(option);
+    });
+
+    const currentDeckObj = savedDecks[window.userProfile.currentDeckId];
+    if (currentDeckObj && nameInput) {
+      nameInput.value = currentDeckObj.name || "";
+    }
+  }
+
+  // ★ デッキ切り替え ★
+  function switchSavedDeck(deckId) {
+    if (!window.userProfile.savedDecks || !window.userProfile.savedDecks[deckId]) return;
+    window.userProfile.currentDeckId = deckId;
+    window.userProfile.deck = [...window.userProfile.savedDecks[deckId].cards];
+    saveUserProfile();
+    renderDeckEditor();
+  }
+  window.switchSavedDeck = switchSavedDeck;
+
+  // ★ 上書き保存処理（保存ボタン） ★
+  function saveCurrentDeckSlot() {
+    if (!window.userProfile.deck || window.userProfile.deck.length !== 20) {
+      alert("デッキは20枚揃っている必要があります！（現在: " + (window.userProfile.deck ? window.userProfile.deck.length : 0) + "枚）");
+      return;
+    }
+    const nameInput = document.getElementById("deckNameInput");
+    const deckName = nameInput ? (nameInput.value.trim() || "無題のデッキ") : "無題のデッキ";
+    const currentId = window.userProfile.currentDeckId || "deck_1";
+
+    if (!window.userProfile.savedDecks) window.userProfile.savedDecks = {};
+    window.userProfile.savedDecks[currentId] = {
+      name: deckName,
+      cards: [...window.userProfile.deck]
+    };
+
+    saveUserProfile();
+    updateDeckSelectDropdown();
+    alert(`🎴 デッキ【${deckName}】を保存しました！`);
+  }
+  window.saveCurrentDeckSlot = saveCurrentDeckSlot;
+
+  // ★ 新規デッキ作成・保存 ★
+  function createNewDeckSlot() {
+    if (!window.userProfile.deck || window.userProfile.deck.length !== 20) {
+      alert("デッキは20枚揃っている必要があります！");
+      return;
+    }
+    const newId = "deck_" + Date.now();
+    const nameInput = document.getElementById("deckNameInput");
+    const count = Object.keys(window.userProfile.savedDecks || {}).length + 1;
+    const deckName = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : `デッキ ${count}`;
+
+    if (!window.userProfile.savedDecks) window.userProfile.savedDecks = {};
+    window.userProfile.savedDecks[newId] = {
+      name: deckName,
+      cards: [...window.userProfile.deck]
+    };
+    window.userProfile.currentDeckId = newId;
+
+    saveUserProfile();
+    renderDeckEditor();
+    alert(`🎴 新規デッキ【${deckName}】を作成・保存しました！`);
+  }
+  window.createNewDeckSlot = createNewDeckSlot;
+
+  // ★ デッキ削除 ★
+  function deleteCurrentDeckSlot() {
+    const keys = Object.keys(window.userProfile.savedDecks || {});
+    if (keys.length <= 1) {
+      alert("最低1つのデッキは保持する必要があります！");
+      return;
+    }
+
+    const currentId = window.userProfile.currentDeckId;
+    const currentName = window.userProfile.savedDecks[currentId]?.name || "選択中のデッキ";
+
+    if (!confirm(`本当に【${currentName}】を削除しますか？`)) return;
+
+    delete window.userProfile.savedDecks[currentId];
+    const remainingKeys = Object.keys(window.userProfile.savedDecks);
+    window.userProfile.currentDeckId = remainingKeys[0];
+    window.userProfile.deck = [...window.userProfile.savedDecks[remainingKeys[0]].cards];
+
+    saveUserProfile();
+    renderDeckEditor();
+  }
+  window.deleteCurrentDeckSlot = deleteCurrentDeckSlot;
 
   function renderCardDOM(cardData, badgeText, clickHandler, isUnowned = false) {
     const elemInfo = window.ELEMENTS[cardData.elem] || { name: "無", icon: "⚪", class: "" };
