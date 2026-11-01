@@ -1320,6 +1320,109 @@
   font-size: 0.75rem;
   min-height: 32px;
 }
+/* --- PvEランキング用スタイル --- */
+.ranking-header-row {
+  display: flex;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #00fff5;
+  border-bottom: 1px solid rgba(0, 255, 245, 0.3);
+  margin-top: 6px;
+}
+
+.ranking-list-container {
+  width: 100%;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 2px;
+}
+
+.ranking-item {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+}
+
+.ranking-item.rank-1 {
+  border-color: #ffd700;
+  background: rgba(255, 215, 0, 0.1);
+}
+.ranking-item.rank-2 {
+  border-color: #c0c0c0;
+  background: rgba(192, 192, 192, 0.1);
+}
+.ranking-item.rank-3 {
+  border-color: #cd7f32;
+  background: rgba(205, 127, 50, 0.1);
+}
+
+.ranking-rank {
+  width: 40px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.ranking-name {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #fff;
+}
+
+.ranking-score {
+  width: 90px;
+  text-align: right;
+  font-weight: 900;
+  color: var(--gold-color);
+}
+/* --- 報酬一覧表示用スタイル --- */
+.reward-section-title {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #00fff5;
+  text-align: left;
+  border-left: 3px solid #00fff5;
+  padding-left: 6px;
+  margin: 4px 0;
+}
+
+.reward-card-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.reward-card-item.gold-border { border-color: #ffd700; background: rgba(255, 215, 0, 0.08); }
+.reward-card-item.silver-border { border-color: #c0c0c0; background: rgba(192, 192, 192, 0.08); }
+.reward-card-item.bronze-border { border-color: #cd7f32; background: rgba(205, 127, 50, 0.08); }
+.reward-card-item.kiri-border { border-color: #a855f7; background: rgba(168, 85, 247, 0.1); }
+
+.reward-rank-badge {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: var(--gold-color);
+}
+
+.reward-detail {
+  font-size: 0.78rem;
+  color: #e0e0e0;
+}
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1374,7 +1477,10 @@
       <div style="font-size: 0.75rem; color: #ffeb3b;" id="eventTimer">残り時間: 計算中...</div>
       <div style="font-size: 0.72rem; color: #aaa;" id="eventMyStats">イベント戦績: 0勝 0敗</div>
     </div>
-
+    <!-- イベントバナー内にボタンを追加 -->
+<button type="button" class="btn btn-sm" onclick="openPveRankingModal()" style="margin-top:4px; font-size:0.75rem; background:#00adb5; border-color:#00fff5;">
+  🏆 リアルタイムランキングを見る
+</button>
     <div class="menu">
       <button id="btnPresentBox" type="button" class="btn primary big" onclick="openPresentBoxModal()" style="background:#00adb5; border-color:#00fff5;">
         🎁 プレゼントボックス <span id="presentBadge" style="background:#e94560; color:#fff; border-radius:50%; padding:2px 6px; font-size:0.7rem; display:none;">0</span>
@@ -1508,6 +1614,12 @@
           <button id="btnSaveAdminEvent" type="button" class="btn primary" onclick="saveEventFromAdmin()" style="background:#ff8c00; border-color:#ffd700;">
             🚀 イベントを作成・公開
           </button>
+          <label>イベントタイプ
+  <select id="adminEvtType" class="field-input">
+    <option value="pvp">⚔️ 通常PvPランクマッチ</option>
+    <option value="pve_wave">👾 PvE大量討伐ウェーブ戦</option>
+  </select>
+</label>
           <button id="btnCancelAdminEdit" type="button" class="btn hidden" onclick="resetAdminForm()">
             キャンセル
           </button>
@@ -1782,6 +1894,160 @@
 </div>
 
 <script>
+  // PvEイベント状態の初期化
+  window.pveEventState = {
+    killCount: 0,
+    currentWave: 1,
+    isActive: false
+  };
+
+  // PvEウェーブ討伐イベントの開始
+  function startPveWaveEvent() {
+    if (!currentEvent || currentEvent.event_type !== 'pve_wave') {
+      alert("現在PvE討伐イベントは開催されていません。");
+      return;
+    }
+    const now = new Date();
+    const startDate = currentEvent.start_at ? new Date(currentEvent.start_at) : null;
+    const endDate = currentEvent.end_at ? new Date(currentEvent.end_at) : null;
+
+    if (startDate && now < startDate) {
+      alert(`⏳ このイベントはまだ開始されていません。\n開始日時: ${startDate.toLocaleString()}`);
+      return;
+    }
+
+    if (endDate && now > endDate) {
+      alert(`🛑 このイベントの開催期間は終了しました。\n終了日時: ${endDate.toLocaleString()}`);
+      return;
+    }
+
+    // 3. 期間内の場合のみゲームを開始
+    window.gameState.mode = "pve_wave";
+    window.pveEventState.killCount = 0;
+    window.pveEventState.currentWave = 1;
+    window.pveEventState.isActive = true;
+
+    document.getElementById("titleScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+
+    initPveWaveGame();
+  }
+  window.startPveWaveEvent = startPveWaveEvent;
+
+    window.gameState.mode = "pve_wave";
+    window.pveEventState.killCount = 0;
+    window.pveEventState.currentWave = 1;
+    window.pveEventState.isActive = true;
+
+    document.getElementById("titleScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+
+    initPveWaveGame();
+  
+  window.startPveWaveEvent = startPveWaveEvent;
+
+  // PvEゲーム画面の初期化（ウェーブごとの敵生成）
+  function initPveWaveGame() {
+    window.gameState.isGameEnded = false;
+    window.gameState.isGameStarted = true;
+    window.gameState.turn = "player";
+    window.gameState.my.hp = 60;
+    window.gameState.my.mp = 20;
+    window.gameState.opp.hp = 60 + (window.pveEventState.currentWave * 5); // 進行度に応じてHP強化
+
+    // デッキのセット
+    const fullMyDeck = buildDeckFromIds(window.userProfile.deck);
+    window.gameState.my.hand = fullMyDeck.slice(0, 5);
+    window.gameState.my.deck = fullMyDeck.slice(5);
+    window.gameState.my.monsters = [null, null, null, null, null];
+
+    // ウェーブ敵の準備
+    window.gameState.opp.name = `👾 討伐軍 Wave ${window.pveEventState.currentWave}`;
+    window.gameState.opp.monsters = generatePveWaveEnemies(window.pveEventState.currentWave);
+
+    const modeBanner = document.getElementById("modeBanner");
+    if (modeBanner) {
+      modeBanner.textContent = `👾 大量討伐イベント - 撃破数: ${window.pveEventState.killCount}体 (Wave ${window.pveEventState.currentWave})`;
+    }
+
+    addLog(`⚔️ Wave ${window.pveEventState.currentWave} 開始！ 敵群を全滅させよ！`, "important");
+    updateUI();
+    startTurnTimer();
+  }
+
+  // ウェーブに応じたランダムモンスター生成
+  function generatePveWaveEnemies(wave) {
+    const monsters = [null, null, null, null, null];
+    const enemyPool = CARD_DATABASE.filter(c => c.type === 'monster' && !c.isToken);
+    
+    // ウェーブ数に応じて出現数を調整 (1~5体)
+    const count = Math.min(5, 1 + Math.floor(wave / 2));
+    for (let i = 0; i < count; i++) {
+      const base = enemyPool[Math.floor(Math.random() * enemyPool.length)];
+      monsters[i] = {
+        ...JSON.parse(JSON.stringify(base)),
+        currentHp: base.hp + wave, // ウェーブ毎にステータス強化
+        maxHp: base.hp + wave,
+        atk: base.atk + Math.floor(wave / 3),
+        canAttack: true,
+        isStunned: false
+      };
+    }
+    return monsters;
+  }
+
+  // 敵モンスター撃破時のカウント処理
+  function onPveMonsterKilled(targetMonster) {
+    if (window.gameState.mode !== "pve_wave") return;
+    
+    window.pveEventState.killCount++;
+    addLog(`🎯 敵【${targetMonster.name}】を倒した！ (通算撃破数: ${window.pveEventState.killCount}体)`, "effective");
+
+    const modeBanner = document.getElementById("modeBanner");
+    if (modeBanner) {
+      modeBanner.textContent = `👾 大量討伐イベント - 撃破数: ${window.pveEventState.killCount}体 (Wave ${window.pveEventState.currentWave})`;
+    }
+
+    // 敵の全滅チェック
+    const remainingEnemies = window.gameState.opp.monsters.filter(m => m !== null && m.currentHp > 0);
+    if (remainingEnemies.length === 0) {
+      window.pveEventState.currentWave++;
+      addLog(`🎉 Wave クリア！ 次のウェーブへ進みます！`, "important");
+      setTimeout(() => {
+        initPveWaveGame();
+      }, 1200);
+    }
+  }
+
+  // ゲームオーバー（プレイヤー敗北時）にハイスコアを保存
+  async function savePveEventScore() {
+    if (!currentEvent || !supabaseClient) return;
+    const myName = window.userProfile.name;
+    const totalKills = window.pveEventState.killCount;
+
+    try {
+      // 既存スコアの確認
+      const { data } = await supabaseClient
+        .from('event_participants')
+        .select('*')
+        .eq('event_id', currentEvent.id)
+        .eq('user_name', myName)
+        .maybeSingle();
+
+      const bestKills = Math.max(data ? (data.score || 0) : 0, totalKills);
+
+      await supabaseClient.from('event_participants').upsert({
+        event_id: currentEvent.id,
+        user_name: myName,
+        score: bestKills,
+        updated_at: new Date().toISOString()
+      });
+
+      addLog(`📊 イベントスコア送信完了: 最高討伐数 ${bestKills} 体`, "important");
+    } catch (e) {
+      console.error("PvEスコア保存エラー:", e);
+    }
+  }
   // --- Supabase 設定 ---
   const SUPABASE_URL = "https://ytpxddoiinqmugoqpfqi.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0cHhkZG9paW5xbXVnb3FwZnFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4NTEwMzQsImV4cCI6MjEwODQyNzAzNH0.uhQuslASZ6TjMihJuaLm81RU7tlophYglEjMNqJ6ChY";
@@ -2630,6 +2896,35 @@
   window.saveEventFromAdmin = saveEventFromAdmin;
 
   async function checkActiveEvent() {
+    // イベント取得時のボタン制御（例）
+  function updateEventBannerUI(event) {
+    const bannerEl = document.getElementById("eventBannerText");
+    const btnEl = document.getElementById("btnStartEvent");
+    if (!bannerEl || !btnEl) return;
+
+    if (!event) {
+      bannerEl.textContent = "現在開催中のイベントはありません";
+      btnEl.disabled = true;
+      return;
+    }
+
+    const now = new Date();
+    const endDate = event.end_at ? new Date(event.end_at) : null;
+
+    if (endDate && now > endDate) {
+      bannerEl.innerHTML = `🏁 <strong>${event.title}</strong>【開催終了】`;
+      btnEl.disabled = true;
+      btnEl.style.opacity = "0.5";
+      btnEl.style.cursor = "not-allowed";
+      btnEl.textContent = "開催期間終了";
+    } else {
+      bannerEl.innerHTML = `🔥 <strong>${event.title}</strong> 開催中！`;
+      btnEl.disabled = false;
+      btnEl.style.opacity = "1";
+      btnEl.style.cursor = "pointer";
+      btnEl.textContent = "⚔️ イベント参戦";
+    }
+  }
     if (!supabaseClient) return;
     try {
       const now = new Date().toISOString();
@@ -5025,6 +5320,17 @@
     else updateUI();
 
     checkWinLoss();
+
+    // 敵撃破時の処理の中に以下を追加
+    if (target.currentHp <= 0) {
+      addLog(`敵の【${target.name}】を撃破した！`, "important");
+      window.gameState.opp.monsters[targetIdx] = null;
+      
+      // ★ PvEイベント討伐数の加算呼び出し ★
+      if (window.gameState.mode === "pve_wave") {
+        onPveMonsterKilled(target);
+      }
+    }
   }
 
   function attackEnemyPlayer() {
@@ -5872,6 +6178,64 @@
               </div>
               ${wText}
             </div>
+<!-- 🏆 PvE討伐ランキングモーダル -->
+<div id="pveRankingModal" class="modal">
+  <div class="modal-content" style="max-width: 460px; max-height: 85vh;">
+    <h2 style="color:var(--gold-color);">🏆 イベント討伐ランキング</h2>
+    <div style="font-size:0.8rem; color:#aaa;" id="pveRankingEventTitle">イベント名</div>
+    
+    <!-- ★ タブ切替ボタン ★ -->
+    <div class="market-tabs" style="margin-top: 8px; margin-bottom: 4px;">
+      <button id="tabPveRankList" type="button" class="market-tab-btn active" onclick="switchPveRankTab('list')">📊 討伐順位</button>
+      <button id="tabPveRankReward" type="button" class="market-tab-btn" onclick="switchPveRankTab('rewards')">🎁 順位・キリ番報酬</button>
+    </div>
+
+    <!-- 1. 討伐順位表示エリア -->
+    <div id="pveRankListArea" style="width: 100%;">
+      <div class="ranking-header-row">
+        <span style="width:45px;">順位</span>
+        <span style="flex:1; text-align:left;">プレイヤー名</span>
+        <span style="width:90px; text-align:right;">討伐数</span>
+      </div>
+      <div id="pveRankingList" class="ranking-list-container">
+        <div style="color:#aaa; font-size:0.85rem; padding:16px;">ランキング読み込み中...</div>
+      </div>
+    </div>
+
+    <!-- 2. 報酬一覧表示エリア（初期状態は隠す） -->
+    <div id="pveRankRewardArea" class="ranking-list-container hidden">
+      <div class="reward-section-title">🥇 上位ランク報酬</div>
+      <div class="reward-card-item gold-border">
+        <div class="reward-rank-badge">🥇 第 1 位</div>
+        <div class="reward-detail">🪙 50,000 pt + 🎴 🌈特別ホログラムカード</div>
+      </div>
+      <div class="reward-card-item silver-border">
+        <div class="reward-rank-badge">🥈 第 2 位</div>
+        <div class="reward-detail">🪙 30,000 pt + 🎴 ⭐3カード確定チケット</div>
+      </div>
+      <div class="reward-card-item bronze-border">
+        <div class="reward-rank-badge">🥉 第 3 位</div>
+        <div class="reward-detail">🪙 15,000 pt + 🎴 ⭐3カード確定チケット</div>
+      </div>
+      <div class="reward-card-item">
+        <div class="reward-rank-badge" style="color:#00fff5;">🎖️ 4〜10 位</div>
+        <div class="reward-detail">🪙 8,000 pt</div>
+      </div>
+
+      
+      
+      <div class="reward-card-item">
+        <div class="reward-rank-badge" style="color:#aaa;">🛡️ 参加賞 (1体以上討伐)</div>
+        <div class="reward-detail">🪙 1,000 pt</div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; width:100%; margin-top:10px;">
+      <button type="button" class="btn primary" onclick="fetchPveRankingData()">🔄 更新</button>
+      <button type="button" class="btn" onclick="closePveRankingModal()">閉じる</button>
+    </div>
+  </div>
+</div>
           `;
         } else {
           slot.innerHTML = `<span style="font-size:0.65rem; color:#555;">(空き)</span>`;
@@ -5882,6 +6246,103 @@
 
     renderHand();
   }
+  // 🏆 PvEランキング画面を開く
+  async function openPveRankingModal() {
+    if (!currentEvent) {
+      alert("現在開催中のイベントはありません。");
+      return;
+    }
+
+    const titleEl = document.getElementById("pveRankingEventTitle");
+    if (titleEl) titleEl.textContent = currentEvent.title;
+
+    document.getElementById("pveRankingModal").classList.add("active");
+    await fetchPveRankingData();
+  }
+  window.openPveRankingModal = openPveRankingModal;
+
+  // 閉じる処理
+  function closePveRankingModal() {
+    document.getElementById("pveRankingModal").classList.remove("active");
+  }
+  window.closePveRankingModal = closePveRankingModal;
+
+  // Supabaseからリアルタイムランキングデータを取得
+  async function fetchPveRankingData() {
+    if (!supabaseClient || !currentEvent) return;
+
+    const listEl = document.getElementById("pveRankingList");
+    if (!listEl) return;
+
+    listEl.innerHTML = `<div style="color:#aaa; font-size:0.85rem; padding:16px;">最新ランキングを取得中...</div>`;
+
+    try {
+      // 討伐数 (score) の降順でTOP 50を取得
+      const { data, error } = await supabaseClient
+        .from('event_participants')
+        .select('user_name, score')
+        .eq('event_id', currentEvent.id)
+        .order('score', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        listEl.innerHTML = `<div style="color:#ff4d4f; font-size:0.85rem; padding:16px;">データの取得に失敗しました</div>`;
+        console.error("ランキング取得エラー:", error);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        listEl.innerHTML = `<div style="color:#aaa; font-size:0.85rem; padding:16px;">まだ参加者がいません</div>`;
+        return;
+      }
+
+      listEl.innerHTML = "";
+      data.forEach((item, index) => {
+        const rank = index + 1;
+        let rankBadge = `${rank}`;
+        let rankClass = "";
+
+        if (rank === 1) { rankBadge = "🥇 1"; rankClass = "rank-1"; }
+        else if (rank === 2) { rankBadge = "🥈 2"; rankClass = "rank-2"; }
+        else if (rank === 3) { rankBadge = "🥉 3"; rankClass = "rank-3"; }
+
+        const isMe = item.user_name === window.userProfile.name;
+        const nameDisplay = isMe ? `<strong style="color:#00fff5;">${item.user_name} (あなた)</strong>` : item.user_name;
+
+        listEl.innerHTML += `
+          <div class="ranking-item ${rankClass}">
+            <div class="ranking-rank">${rankBadge}</div>
+            <div class="ranking-name">${nameDisplay}</div>
+            <div class="ranking-score">👾 ${item.score || 0}体</div>
+          </div>
+        `;
+      });
+
+    } catch (e) {
+      console.error("fetchPveRankingData 例外:", e);
+    }
+  }
+  window.fetchPveRankingData = fetchPveRankingData;
+  // 🏆 ランキング modal 内のタブ切り替え
+  function switchPveRankTab(tab) {
+    const btnList = document.getElementById("tabPveRankList");
+    const btnReward = document.getElementById("tabPveRankReward");
+    const areaList = document.getElementById("pveRankListArea");
+    const areaReward = document.getElementById("pveRankRewardArea");
+
+    if (tab === 'list') {
+      btnList.classList.add("active");
+      btnReward.classList.remove("active");
+      areaList.classList.remove("hidden");
+      areaReward.classList.add("hidden");
+    } else {
+      btnReward.classList.add("active");
+      btnList.classList.remove("active");
+      areaReward.classList.remove("hidden");
+      areaList.classList.add("hidden");
+    }
+  }
+  window.switchPveRankTab = switchPveRankTab;
 </script>
 </body>
 </html>
