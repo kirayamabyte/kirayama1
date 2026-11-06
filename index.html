@@ -185,10 +185,6 @@
     @keyframes floatUpFade { 0% { opacity: 0; transform: translate(-50%, 0) scale(0.5); } 20% { opacity: 1; transform: translate(-50%, -15px) scale(1.3); } 100% { opacity: 0; transform: translate(-50%, -40px) scale(1); } }
   </style>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-  <script src="cards1.js"></script>
-  <script src="cpu_decks.js"></script>
 </head>
 <body>
 
@@ -437,179 +433,174 @@
 </div>
 
 <script>
-  /* =========================================================
-     ★最重要: JavaScriptスクリプト冒頭でオブジェクトを確実に宣言★
-     これで Cannot set properties of undefined (setting 'mode') を完全防止
-  ========================================================= */
+(() => {
+  "use strict";
+
+  const STORAGE_KEY = "akagi_yuta_card_battle_v2";
+  const $ = id => document.getElementById(id);
+  const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+  const uid = () => Math.random().toString(36).slice(2, 10);
+
+  const CARDS = [
+    {id:"fire_knight", name:"炎騎士アカギ", type:"monster", element:"火", cost:3, atk:12, hp:14, rarity:"R", icon:"🔥", desc:"攻撃時、相手が木なら弱点補正。"},
+    {id:"leaf_guardian", name:"森の守護者", type:"monster", element:"木", cost:3, atk:10, hp:17, rarity:"R", icon:"🌿", desc:"高いHPで盤面を支える。"},
+    {id:"water_mage", name:"水晶魔導士", type:"monster", element:"水", cost:3, atk:11, hp:13, rarity:"R", icon:"💧", desc:"安定した遠隔攻撃を行う。"},
+    {id:"light_dragon", name:"光竜ルミナ", type:"monster", element:"光", cost:5, atk:16, hp:16, rarity:"SR", icon:"✨", desc:"闇属性に1.5倍。"},
+    {id:"dark_beast", name:"闇獣ノクス", type:"monster", element:"闇", cost:5, atk:17, hp:15, rarity:"SR", icon:"💀", desc:"光属性に1.5倍。"},
+    {id:"iron_golem", name:"鉄壁ゴーレム", type:"monster", element:"無", cost:4, atk:9, hp:21, rarity:"R", icon:"🗿", desc:"非常に高いHPを持つ。"},
+    {id:"flame_blade", name:"炎剣", type:"weapon", element:"火", cost:2, power:5, rarity:"N", icon:"🗡️", desc:"味方1体の攻撃力+5。"},
+    {id:"forest_charm", name:"森の護符", type:"weapon", element:"木", cost:2, power:4, rarity:"N", icon:"🍃", desc:"味方1体を4回復。"},
+    {id:"aqua_burst", name:"アクアバースト", type:"magic", element:"水", cost:3, power:8, rarity:"R", icon:"🌊", desc:"相手本体に8ダメージ。"},
+    {id:"holy_ray", name:"ホーリーレイ", type:"magic", element:"光", cost:4, power:12, rarity:"SR", icon:"☀️", desc:"相手本体に12ダメージ。"},
+    {id:"shadow_bolt", name:"シャドウボルト", type:"magic", element:"闇", cost:4, power:11, rarity:"SR", icon:"🌑", desc:"相手本体に11ダメージ。"},
+    {id:"heal_wave", name:"癒しの波動", type:"magic", element:"水", cost:2, power:8, rarity:"N", icon:"💚", desc:"自分のHPを8回復。"},
+    {id:"rainbow_hero", name:"虹光の英雄", type:"monster", element:"光", cost:7, atk:22, hp:22, rarity:"UR", icon:"🌈", desc:"切り札。召喚時に本体を3回復。", rainbow:true},
+    {id:"thunder_fox", name:"雷狐ライカ", type:"monster", element:"光", cost:4, atk:14, hp:11, rarity:"SR", icon:"⚡", desc:"速攻型モンスター。"},
+    {id:"stone_drake", name:"岩竜ガルム", type:"monster", element:"無", cost:6, atk:19, hp:24, rarity:"SR", icon:"🐉", desc:"重量級の守護竜。"}
+  ];
+
+  const DEFAULT_DECK_IDS = [
+    "fire_knight","fire_knight","leaf_guardian","leaf_guardian","water_mage","water_mage",
+    "iron_golem","iron_golem","light_dragon","dark_beast","flame_blade","flame_blade",
+    "forest_charm","aqua_burst","aqua_burst","heal_wave","holy_ray","shadow_bolt","thunder_fox","stone_drake"
+  ];
+
+  const TITLES = [
+    ["《見習いデュエリスト》","🔰",true],
+    ["《連勝ファイター》","🔥",false],
+    ["《タワー征服者》","🏰",false],
+    ["《虹光の覇者》","🌈",false],
+    ["《マーケット王》","🪙",false]
+  ];
+
+  function freshProfile() {
+    return {name:"あなた", rate:1000, wins:0, losses:0, coins:1000, bestGauntletStage:0, bestTowerFloor:0, bestDraftFloor:0, equippedTitle:TITLES[0][0], equippedBadge:TITLES[0][1], deck:[...DEFAULT_DECK_IDS], inventory:{}};
+  }
+
+  function loadProfile() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      if (!saved) return freshProfile();
+      const p = {...freshProfile(), ...saved};
+      if (!Array.isArray(p.deck) || p.deck.length !== 20) p.deck = [...DEFAULT_DECK_IDS];
+      p.inventory = p.inventory && typeof p.inventory === "object" ? p.inventory : {};
+      return p;
+    } catch (_) { return freshProfile(); }
+  }
+
+  function saveProfile() { localStorage.setItem(STORAGE_KEY, JSON.stringify(userProfile)); }
+
+  window.userProfile = loadProfile();
   window.gameState = {
-    mode: "casual",
-    currentDifficulty: "normal",
-    turn: "player",
-    turnCount: 1,
-    selectedAttackerIdx: null,
-    pendingSummonIndex: null,
-    pendingWeaponIndex: null,
-    isGameStarted: false,
-    isGameEnded: false,
-    my: { name: "あなた", rate: 1000, hp: 60, maxHp: 60, mp: 20, maxMp: 40, monsters: [null,null,null,null,null], deck: [], hand: [] },
-    opp: { name: "CPU", rate: 1000, hp: 60, maxHp: 60, mp: 20, maxMp: 40, monsters: [null,null,null,null,null], deck: [], hand: [] }
+    mode:"casual", currentDifficulty:"normal", turn:"player", turnCount:1,
+    selectedAttackerIdx:null, isGameStarted:false, isGameEnded:false,
+    my:{name:userProfile.name, rate:userProfile.rate, hp:60, maxHp:60, mp:20, maxMp:40, monsters:[null,null,null,null,null], deck:[], hand:[]},
+    opp:{name:"CPU", rate:1000, hp:60, maxHp:60, mp:20, maxMp:40, monsters:[null,null,null,null,null], deck:[], hand:[]}
   };
 
-  window.userProfile = {
-    name: "あなた",
-    rate: 1000,
-    wins: 0,
-    losses: 0,
-    coins: 1000,
-    bestGauntletStage: 0,
-    bestTowerFloor: 0,
-    bestDraftFloor: 0,
-    equippedTitle: "《見習いデュエリスト》",
-    equippedBadge: "🔰",
-    deck: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : [],
-    inventory: typeof getDefault20CardDeck === 'function' ? getDefault20CardDeck() : []
-  };
-
-  const SUPABASE_URL = "https://ytpxddoiinqmugoqpfqi.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0cHhkZG9paW5xbXVnb3FwZnFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4NTEwMzQsImV4cCI6MjEwODQyNzAzNH0.uhQuslASZ6TjMihJuaLm81RU7tlophYglEjMNqJ6ChY";
-  let supabaseClient = null;
-  try {
-    if (window.supabase) supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  } catch (e) { console.error("Supabase初期化エラー:", e); }
-
-  /* 画面切り替え関数 */
-  function showTitleDirect() {
-    document.querySelectorAll('.modal').forEach(m => { m.classList.remove('active'); m.style.display = 'none'; });
-    const screens = ["gameScreen", "casualSelectScreen", "onlineLobbyScreen", "deckScreen", "gachaScreen", "adminScreen", "marketScreen", "tradeScreen", "customScreen"];
-    screens.forEach(id => { document.getElementById(id)?.classList.add("hidden"); });
-    document.getElementById("titleScreen")?.classList.remove("hidden");
+  function card(id) { return CARDS.find(c => c.id === id); }
+  function cloneCard(id) { const c=card(id); return c ? {...c, instanceId:uid(), currentHp:c.hp, exhausted:false} : null; }
+  function rankName(rate) { return rate >= 1600 ? "💎 ダイヤ" : rate >= 1300 ? "🥇 ゴールド" : rate >= 1100 ? "🥈 シルバー" : "🥉 ブロンズ"; }
+  function log(msg, type="") { const a=$("logArea"); if(!a)return; const e=document.createElement("div"); e.className=`log-entry ${type}`; e.textContent=msg; a.appendChild(e); a.scrollTop=a.scrollHeight; }
+  function setScreen(id) { document.querySelectorAll(".screen").forEach(s=>s.classList.add("hidden")); $(id)?.classList.remove("hidden"); }
+  function updateProfileUI() {
+    $("nameInput").value=userProfile.name;
+    $("statTitle").textContent=userProfile.equippedTitle; $("statBadge").textContent=userProfile.equippedBadge;
+    $("statRank").textContent=rankName(userProfile.rate); $("statRate").textContent=userProfile.rate;
+    $("statWins").textContent=userProfile.wins; $("statLosses").textContent=userProfile.losses;
+    $("statGauntlet").textContent=userProfile.bestGauntletStage; $("statTower").textContent=userProfile.bestTowerFloor; $("statDraft").textContent=userProfile.bestDraftFloor; $("statCoins").textContent=userProfile.coins;
+    $("marketCoinDisplay").textContent=userProfile.coins; $("gachaCoinDisplay").textContent=userProfile.coins;
   }
-  window.showTitleDirect = showTitleDirect;
+  function saveName() { const n=$("nameInput").value.trim().slice(0,12); userProfile.name=n||"あなた"; gameState.my.name=userProfile.name; saveProfile(); updateProfileUI(); }
 
-  /* モーダル・各画面起動系 */
-  window.openRulesModal = function() { const m = document.getElementById("rulesModal"); if (m) { m.classList.add("active"); m.style.display = "flex"; } };
-  window.closeRulesModal = function() { const m = document.getElementById("rulesModal"); if (m) { m.classList.remove("active"); m.style.display = "none"; } };
-  window.openCasualSelect = function() { document.getElementById("titleScreen").classList.add("hidden"); document.getElementById("casualSelectScreen").classList.remove("hidden"); };
-  window.openOnlineLobby = function() { document.getElementById("titleScreen").classList.add("hidden"); document.getElementById("onlineLobbyScreen").classList.remove("hidden"); };
-  window.openMarketScreen = function() { document.getElementById("titleScreen").classList.add("hidden"); document.getElementById("marketScreen").classList.remove("hidden"); };
-  window.openTradeScreen = function() { document.getElementById("titleScreen").classList.add("hidden"); document.getElementById("tradeScreen").classList.remove("hidden"); };
-  window.openProfileCustomScreen = function() { document.getElementById("titleScreen").classList.add("hidden"); document.getElementById("customScreen").classList.remove("hidden"); };
-  window.openGachaScreen = function() { document.getElementById("titleScreen").classList.add("hidden"); document.getElementById("gachaScreen").classList.remove("hidden"); };
-  window.openDeckEditor = function() { document.getElementById("titleScreen").classList.add("hidden"); document.getElementById("deckScreen").classList.remove("hidden"); };
-  window.openAdminScreen = function() { alert("管理者メニュー"); };
+  function showTitleDirect(){ ["rulesModal","endModal"].forEach(id=>$(id)?.classList.remove("active")); setScreen("titleScreen"); updateProfileUI(); }
+  window.showTitleDirect=showTitleDirect;
+  window.openRulesModal=()=>$("rulesModal")?.classList.add("active");
+  window.closeRulesModal=()=>$("rulesModal")?.classList.remove("active");
+  window.openCasualSelect=()=>setScreen("casualSelectScreen");
+  window.openOnlineLobby=()=>setScreen("onlineLobbyScreen");
+  window.openMarketScreen=()=>{renderMarket();setScreen("marketScreen");};
+  window.openTradeScreen=()=>{renderTrade();setScreen("tradeScreen");};
+  window.openProfileCustomScreen=()=>{renderTitles();setScreen("customScreen");};
+  window.openGachaScreen=()=>{updateProfileUI();setScreen("gachaScreen");};
+  window.openDeckEditor=()=>{renderDeckEditor();setScreen("deckScreen");};
 
-  /* ゲームモード開始系 */
-  function startCasualGame(diff) {
-    window.gameState.mode = "casual";
-    window.gameState.currentDifficulty = diff;
-    window.gameState.isGameStarted = true;
-    document.getElementById("casualSelectScreen").classList.add("hidden");
-    document.getElementById("gameScreen").classList.remove("hidden");
-    document.getElementById("modeBanner").textContent = `⚔️ カジュアルモード [${diff.toUpperCase()}]`;
-    addLog(`対戦開始！ vs CPU (${diff.toUpperCase()})`, "important");
-  }
-  window.startCasualGame = startCasualGame;
-
-  function searchRankedMatch(isEvent = false) {
-    window.gameState.mode = isEvent ? "event_ranked" : "ranked";
-    window.gameState.isGameStarted = true;
-    document.getElementById("titleScreen").classList.add("hidden");
-    document.getElementById("gameScreen").classList.remove("hidden");
-    document.getElementById("modeBanner").textContent = isEvent ? "🔥 イベントランクマッチ" : "⚔️ 通常ランクマッチ";
-    addLog(`🔍 [${isEvent ? 'イベント' : '通常'}ランクマッチ] 対戦相手を探しています...`, "important");
-    if (supabaseClient) {
-      addLog("🌐 Supabaseサーバーに接続してマッチング中...", "effective");
-    } else {
-      setTimeout(() => addLog("⚔️ マッチング完了！対戦を開始します。", "effective"), 1000);
-    }
-  }
-  window.searchRankedMatch = searchRankedMatch;
-
-  function startGauntletMode() {
-    window.gameState.mode = "gauntlet";
-    window.gameState.isGameStarted = true;
-    document.getElementById("titleScreen").classList.add("hidden");
-    document.getElementById("gameScreen").classList.remove("hidden");
-    document.getElementById("modeBanner").textContent = "🔥 連戦モード (3ステージ)";
-    addLog("連戦モード開始！ 1戦目", "important");
-  }
-  window.startGauntletMode = startGauntletMode;
-
-  function handleTowerButtonClick() {
-    window.gameState.mode = "tower";
-    window.gameState.isGameStarted = true;
-    document.getElementById("titleScreen").classList.add("hidden");
-    document.getElementById("gameScreen").classList.remove("hidden");
-    document.getElementById("modeBanner").textContent = "🏰 赤城バトルタワー (第1階)";
-    addLog("赤城バトルタワー 挑戦開始！", "important");
-  }
-  window.handleTowerButtonClick = handleTowerButtonClick;
-
-  function handleDraftButtonClick() {
-    window.gameState.mode = "draft";
-    window.gameState.isGameStarted = true;
-    document.getElementById("titleScreen").classList.add("hidden");
-    document.getElementById("gameScreen").classList.remove("hidden");
-    document.getElementById("modeBanner").textContent = "🎲 赤城ファクトリーバトル";
-    addLog("ファクトリーバトル 挑戦開始！", "important");
-  }
-  window.handleDraftButtonClick = handleDraftButtonClick;
-
-  /* ログ追加関数 */
-  function addLog(msg, type = "") {
-    const logArea = document.getElementById("logArea");
-    if (logArea) {
-      const entry = document.createElement("div");
-      entry.className = `log-entry ${type}`;
-      entry.textContent = msg;
-      logArea.appendChild(entry);
-      logArea.scrollTop = logArea.scrollHeight;
-    }
+  function renderCard(c, opts={}) {
+    const d=document.createElement("div"); d.className=`card ${c.type}${c.rainbow?" rainbow-card":""}`; d.title=c.desc||"";
+    d.innerHTML=`<div class="card-top-row"><span class="card-rarity">${c.rarity}</span><span class="card-cost">MP ${c.cost}</span></div><div class="card-img-container"><span class="icon-fallback">${c.icon||"🃏"}</span></div><div class="card-title">${c.name}</div><div class="card-stats-badge">${c.type==="monster"?`⚔ ${c.atk} / ❤ ${c.hp}`:`効果 ${c.power}`}</div><div class="card-desc">${c.desc||""}</div><div class="card-flavor">${c.element} / ${c.type}</div>`;
+    if(opts.count) { const b=document.createElement("span"); b.className="card-count-badge"; b.textContent=opts.count; d.appendChild(b); }
+    if(opts.onClick) d.addEventListener("click", opts.onClick); return d;
   }
 
-  function passTurn() {
-    addLog("--- ターン終了 ---");
+  function startGame(mode="casual", diff="normal") {
+    saveName();
+    gameState.mode=mode; gameState.currentDifficulty=diff; gameState.isGameStarted=true; gameState.isGameEnded=false; gameState.turn="player"; gameState.turnCount=1; gameState.selectedAttackerIdx=null;
+    gameState.my={name:userProfile.name,rate:userProfile.rate,hp:60,maxHp:60,mp:20,maxMp:40,monsters:[null,null,null,null,null],deck:userProfile.deck.map(id=>cloneCard(id)),hand:[]};
+    const oppIds=["fire_knight","leaf_guardian","water_mage","iron_golem","dark_beast","thunder_fox","stone_drake","fire_knight","water_mage","leaf_guardian","aqua_burst","heal_wave","flame_blade","shadow_bolt","holy_ray","iron_golem","fire_knight","dark_beast","water_mage","stone_drake"];
+    gameState.opp={name:diff==="hard"?"竜神の覇王":diff==="easy"?"見習いCPU":"赤城の精鋭騎士",rate:1000,hp:60,maxHp:60,mp:20,maxMp:40,monsters:[null,null,null,null,null],deck:oppIds.map(id=>cloneCard(id)),hand:[]};
+    shuffle(gameState.my.deck); shuffle(gameState.opp.deck); draw("my",4); draw("opp",4);
+    setScreen("gameScreen"); $("modeBanner").textContent=mode==="ranked"?"⚔️ 通常ランクマッチ":mode==="event_ranked"?"🔥 イベントランクマッチ":mode==="gauntlet"?"🔥 連戦モード (3ステージ)":mode==="tower"?"🏰 赤城バトルタワー":mode==="draft"?"🎲 赤城ファクトリーバトル":`⚔️ カジュアル [${diff.toUpperCase()}]`;
+    $("logArea").innerHTML=""; log(`対戦開始！ ${gameState.my.name} vs ${gameState.opp.name}`,"important"); log("カードをクリックして召喚・使用できます。モンスターを選択後、相手をクリックすると攻撃します。","effective"); renderBattle();
   }
-  window.passTurn = passTurn;
+  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
+  function draw(side,n=1){const p=gameState[side]; for(let i=0;i<n && p.deck.length;i++)p.hand.push(p.deck.pop());}
+  window.startCasualGame=diff=>startGame("casual",diff);
+  window.searchRankedMatch=isEvent=>{ log(`マッチング中… ${isEvent?"イベント":"通常"}`); startGame(isEvent?"event_ranked":"ranked","normal"); };
+  window.startGauntletMode=()=>startGame("gauntlet","normal");
+  window.handleTowerButtonClick=()=>startGame("tower","hard");
+  window.handleDraftButtonClick=()=>startGame("draft","normal");
 
-  function createOnlineRoom() {
-    alert("部屋を作成しました！合言葉で相手を待機します。");
+  function renderBattle(){
+    const p=gameState.my,o=gameState.opp;
+    $("myNameDisplay").textContent=p.name; $("oppNameDisplay").textContent=o.name;
+    [p,o].forEach((x,idx)=>{const pre=idx===0?"my":"opp"; $(pre+"HpBar").style.width=`${x.hp/x.maxHp*100}%`; $(pre+"HpText").textContent=`HP ${x.hp}/${x.maxHp}`; $(pre+"MpBar").style.width=`${x.mp/x.maxMp*100}%`; $(pre+"MpText").textContent=`MP ${x.mp}/${x.maxMp}`;});
+    renderField("myMonsters",p.monsters,true); renderField("oppMonsters",o.monsters,false); renderHand();
+    $("btnPass").disabled=gameState.turn!=="player"||gameState.isGameEnded;
   }
-  window.createOnlineRoom = createOnlineRoom;
+  function renderField(id,slots,isMine){const el=$(id);el.innerHTML="";slots.forEach((m,i)=>{const s=document.createElement("div");s.className="monster-slot";if(gameState.selectedAttackerIdx===i&&isMine)s.classList.add("attacker-selected");if(m){const c=document.createElement("div");c.className=`monster-card-field ${m.exhausted?"exhausted":""}`;c.innerHTML=`<div class="monster-header">${m.icon} ${m.name}</div><div class="monster-stats">⚔${m.atk} ❤${m.currentHp}/${m.hp}</div>`;s.appendChild(c);} if(isMine)s.onclick=()=>selectAttacker(i);else s.onclick=()=>attackMonster(i);el.appendChild(s);});}
+  function renderHand(){const el=$("myHand");el.innerHTML=""; gameState.my.hand.forEach((c,i)=>el.appendChild(renderCard(c,{onClick:()=>useCard(i)})));}
+  function selectAttacker(i){if(gameState.turn!=="player"||!gameState.my.monsters[i]||gameState.my.monsters[i].exhausted)return;gameState.selectedAttackerIdx=gameState.selectedAttackerIdx===i?null:i;log(gameState.selectedAttackerIdx===null?"攻撃選択を解除しました。":`${gameState.my.monsters[i].name}を選択。相手をクリックして攻撃。`);renderBattle();}
+  function useCard(i){if(gameState.turn!=="player"||gameState.isGameEnded)return;const c=gameState.my.hand[i];if(!c||gameState.my.mp<c.cost){log("MPが足りません。","damage");return;} if(c.type==="monster"){const slot=gameState.my.monsters.findIndex(x=>!x);if(slot<0){log("自分の場がいっぱいです。","damage");return;}gameState.my.mp-=c.cost;gameState.my.monsters[slot]=cloneCard(c.id);if(c.id==="rainbow_hero")gameState.my.hp=clamp(gameState.my.hp+3,0,60);gameState.my.hand.splice(i,1);log(`${c.icon} ${c.name}を召喚！`,"important");}else if(c.type==="weapon"){const slot=gameState.my.monsters.findIndex(Boolean);if(slot<0){log("装備対象がいません。","damage");return;}gameState.my.mp-=c.cost;gameState.my.monsters[slot].atk+=c.power;gameState.my.monsters[slot].currentHp=clamp(gameState.my.monsters[slot].currentHp+ (c.id==="forest_charm"?c.power:0),0,gameState.my.monsters[slot].hp+(c.id==="forest_charm"?c.power:0));gameState.my.hand.splice(i,1);log(`${c.name}を使用。${gameState.my.monsters[slot].name}を強化！`,"effective");}else{gameState.my.mp-=c.cost;gameState.my.hand.splice(i,1);if(c.id==="heal_wave"){gameState.my.hp=clamp(gameState.my.hp+c.power,0,60);log(`💚 HPを${c.power}回復！`,"effective");}else{const dmg=c.power;gameState.opp.hp=clamp(gameState.opp.hp-dmg,0,60);log(`${c.icon} ${c.name}で${dmg}ダメージ！` ,"damage");checkEnd();}}renderBattle();}
+  function multiplier(a,b){const weak={"火":"木","木":"水","水":"火","光":"闇","闇":"光"};return weak[a]===b?1.5:1;}
+  function attackMonster(i){if(gameState.turn!=="player"||gameState.selectedAttackerIdx===null)return;const a=gameState.my.monsters[gameState.selectedAttackerIdx];const t=gameState.opp.monsters[i];if(!a||a.exhausted||!t)return;const mult=multiplier(a.element,t.element),dmg=Math.round(a.atk*mult);t.currentHp-=dmg;a.exhausted=true;log(`${a.icon} ${a.name} → ${t.name} に${dmg}ダメージ${mult>1?"（弱点！）":""}`,mult>1?"effective":"damage");if(t.currentHp<=0){gameState.opp.monsters[i]=null;log(`${t.name}が倒れた！`,"important");}gameState.selectedAttackerIdx=null;renderBattle();}
+  function attackFace(){if(gameState.turn!=="player"||gameState.selectedAttackerIdx===null)return;const a=gameState.my.monsters[gameState.selectedAttackerIdx];if(!a||a.exhausted)return;const dmg=a.atk;a.exhausted=true;gameState.opp.hp=clamp(gameState.opp.hp-dmg,0,60);gameState.selectedAttackerIdx=null;log(`${a.icon} ${a.name}が直接攻撃！ ${dmg}ダメージ`,"damage");checkEnd();renderBattle();}
+  $("oppPlayerInfo").addEventListener("click",attackFace);
 
-  function joinOnlineRoom() {
-    const code = document.getElementById("onlineRoomCodeInput").value;
-    if (!code) return alert("合言葉を入力してください");
-    alert(`合言葉【${code}】の部屋に入室します。`);
-  }
-  window.joinOnlineRoom = joinOnlineRoom;
+  function passTurn(){if(gameState.turn!=="player"||gameState.isGameEnded)return;gameState.selectedAttackerIdx=null;gameState.turn="cpu";log("--- ターン終了 ---");cpuTurn();}
+  window.passTurn=passTurn;
+  function cpuTurn(){setTimeout(()=>{if(gameState.isGameEnded)return;gameState.opp.mp=clamp(gameState.opp.mp+6,0,40);draw("opp",1);const free=gameState.opp.monsters.findIndex(x=>!x);let best=gameState.opp.hand.findIndex(c=>c.type==="monster"&&c.cost<=gameState.opp.mp);if(free>=0&&best>=0){const c=gameState.opp.hand.splice(best,1)[0];gameState.opp.mp-=c.cost;gameState.opp.monsters[free]=cloneCard(c.id);log(`CPUが${c.name}を召喚。`);}else{const spell=gameState.opp.hand.findIndex(c=>c.type==="magic"&&c.cost<=gameState.opp.mp);if(spell>=0){const c=gameState.opp.hand.splice(spell,1)[0];gameState.opp.mp-=c.cost;if(c.id==="heal_wave")gameState.opp.hp=clamp(gameState.opp.hp+c.power,0,60);else gameState.my.hp=clamp(gameState.my.hp-c.power,0,60);log(`CPUが${c.name}を使用。`,"damage");}}
+    gameState.opp.monsters.forEach(m=>{if(!m||m.exhausted)return;const mult=1;gameState.my.hp=clamp(gameState.my.hp-Math.round(m.atk*mult),0,60);m.exhausted=true;log(`CPUの${m.name}が直接攻撃。${m.atk}ダメージ`,"damage");});
+    checkEnd(); if(!gameState.isGameEnded){gameState.turn="player";gameState.turnCount++;gameState.my.mp=clamp(gameState.my.mp+6,0,40);gameState.my.monsters.forEach(m=>{if(m)m.exhausted=false;});gameState.opp.monsters.forEach(m=>{if(m)m.exhausted=false;});draw("my",1);log(`--- あなたのターン ${gameState.turnCount} ---`,"important");renderBattle();}
+  },500);}
+  function checkEnd(){if(gameState.my.hp<=0)return endGame(false);if(gameState.opp.hp<=0)return endGame(true);}
+  function endGame(win){gameState.isGameEnded=true;gameState.turn="none";if(win){userProfile.wins++;userProfile.rate+=gameState.mode.includes("ranked")?20:5;userProfile.coins+=100;$("endMessage").textContent="🎉 勝利！ +100コイン";}else{userProfile.losses++;userProfile.rate=Math.max(0,userProfile.rate-(gameState.mode.includes("ranked")?15:3));$("endMessage").textContent="💀 敗北…";}saveProfile();updateProfileUI();$("endModal").classList.add("active");}
 
-  function executeGacha(count) {
-    alert(`${count}回ガチャを実行しました！`);
-  }
-  window.executeGacha = executeGacha;
+  function renderDeckEditor(){const el=$("currentDeckContainer");el.innerHTML="";const counts={};userProfile.deck.forEach(id=>counts[id]=(counts[id]||0)+1);Object.entries(counts).forEach(([id,count])=>{const c=card(id);el.appendChild(renderCard(c,{count,onClick:()=>removeFromDeck(id)}));});const add=document.createElement("div");add.className="custom-section";add.style.gridColumn="1/-1";add.innerHTML=`<b style="color:#00fff5">カードを追加（クリックで1枚追加）</b>`;const grid=document.createElement("div");grid.className="custom-grid";CARDS.forEach(c=>{const owned=10;const d=renderCard(c,{onClick:()=>addToDeck(c.id)});d.title=`${c.name}：クリックでデッキへ追加`;grid.appendChild(d);});add.appendChild(grid);el.appendChild(add);$("deckCountBadge").textContent=`${userProfile.deck.length}/20枚`;$("deckCountBadge").className=`deck-count ${userProfile.deck.length===20?"valid":"invalid"}`;}
+  function addToDeck(id){if(userProfile.deck.length>=20)return alert("デッキは20枚までです。");userProfile.deck.push(id);saveProfile();renderDeckEditor();}
+  function removeFromDeck(id){if(userProfile.deck.length<=1)return;const i=userProfile.deck.indexOf(id);if(i>=0){userProfile.deck.splice(i,1);saveProfile();renderDeckEditor();}}
 
-  function switchMarketTab(tab) {
-    document.getElementById("tabMarketBuy").classList.toggle("active", tab === 'buy');
-    document.getElementById("tabMarketSell").classList.toggle("active", tab === 'sell');
-    document.getElementById("marketBuyArea").classList.toggle("hidden", tab !== 'buy');
-    document.getElementById("marketSellArea").classList.toggle("hidden", tab !== 'sell');
-  }
-  window.switchMarketTab = switchMarketTab;
+  function renderMarket(){updateProfileUI();const buy=$("marketBuyArea"),sell=$("marketSellArea");buy.innerHTML="";sell.innerHTML="";CARDS.forEach(c=>{const price={N:80,R:150,SR:300,UR:700}[c.rarity]||100;buy.appendChild(renderCard(c,{onClick:()=>buyCard(c.id,price)}));const s=renderCard(c,{onClick:()=>sellCard(c.id,Math.floor(price*.6))});sell.appendChild(s);});}
+  function buyCard(id,price){if(userProfile.coins<price)return alert("コインが足りません。");userProfile.coins-=price;userProfile.inventory[id]=(userProfile.inventory[id]||0)+1;saveProfile();updateProfileUI();alert(`${card(id).name}を${price}コインで購入しました。`);}
+  function sellCard(id,price){const inDeck=userProfile.deck.filter(x=>x===id).length;const owned=userProfile.inventory[id]||0;if(owned<=0)return alert("売却できる余剰カードがありません。ガチャやマーケットで入手してください。");userProfile.inventory[id]--;userProfile.coins+=price;saveProfile();updateProfileUI();alert(`${card(id).name}を${price}コインで売却しました。`);}
+  window.switchMarketTab=tab=>{["buy","sell"].forEach(t=>{const active=t===tab;$("tabMarket"+(t==="buy"?"Buy":"Sell")).classList.toggle("active",active);$("market"+(t==="buy"?"Buy":"Sell")+"Area").classList.toggle("hidden",!active);});};
 
-  /* 初期実行 */
-  document.addEventListener("DOMContentLoaded", () => {
-    showTitleDirect();
-    const list = document.getElementById("noticeList");
-    if (list) {
-      list.innerHTML = `
-        <div class="notice-item">
-          <strong>📢 システム修復完了のお知らせ</strong>
-          <div>TypeError: Cannot set properties of undefined (setting 'mode') エラーを修復しました。全ボタンが使用可能です。</div>
-        </div>
-      `;
-    }
+  function renderTrade(){const el=$("myTradeCardSlot");el.innerHTML="";const id=userProfile.inventory && Object.keys(userProfile.inventory).find(k=>userProfile.inventory[k]>0);if(id){el.appendChild(renderCard(card(id),{onClick:()=>{userProfile.inventory[id]--;saveProfile();renderTrade();$("partnerTradeCardSlot").textContent="🤝 CPUがランダムなカードを提示";}}));}else el.textContent="余剰カードなし（マーケット/ガチャで入手）";}
+  function renderTitles(){const el=$("titleListContainer");el.innerHTML="";TITLES.forEach(([t,b,unlocked])=>{const d=document.createElement("button");d.className="btn";d.disabled=!unlocked && !(t==="《連勝ファイター》"&&userProfile.wins>=3) && !(t==="《タワー征服者》"&&userProfile.bestTowerFloor>=10) && !(t==="《虹光の覇者》"&&userProfile.inventory.rainbow_hero>0) && !(t==="《マーケット王》"&&userProfile.coins>=3000);d.textContent=`${b} ${t}`;d.onclick=()=>{userProfile.equippedTitle=t;userProfile.equippedBadge=b;saveProfile();updateProfileUI();renderTitles();};el.appendChild(d);});}
+
+  function executeGacha(count){const cost=count*100;if(userProfile.coins<cost)return alert("コインが足りません。");userProfile.coins-=cost;let result=[];for(let i=0;i<count;i++){const r=Math.random();const pool=r<.03?CARDS.filter(c=>c.rarity==="UR"):r<.15?CARDS.filter(c=>c.rarity==="SR"):r<.45?CARDS.filter(c=>c.rarity==="R"):CARDS.filter(c=>c.rarity==="N");const c=pool[Math.floor(Math.random()*pool.length)];userProfile.inventory[c.id]=(userProfile.inventory[c.id]||0)+1;result.push(c.name);}saveProfile();updateProfileUI();alert(`${count}回ガチャ結果\n\n${result.join("\n")}`);}
+  window.executeGacha=executeGacha;
+
+  window.createOnlineRoom=()=>{const code=Math.floor(100000+Math.random()*900000);localStorage.setItem("akagi_room",String(code));alert(`部屋を作成しました！\n合言葉：${code}\n\n同じ端末の別タブで参加できます。`);};
+  window.joinOnlineRoom=()=>{const code=$("onlineRoomCodeInput").value.trim();if(!/^\d{6}$/.test(code))return alert("6桁の合言葉を入力してください。");if(code===localStorage.getItem("akagi_room")){alert("部屋に入室しました！ローカル対戦を開始します。");startGame("online","normal");}else alert("部屋が見つかりません（このブラウザで作成した部屋のみ利用できます）。");};
+  window.openAdminScreen=()=>{setScreen("adminScreen");const s=$("adminScreen");s.querySelectorAll(".admin-extra").forEach(e=>e.remove());const box=document.createElement("div");box.className="admin-extra admin-form";box.innerHTML=`<b>ローカル管理</b><label>プレイヤー名<input id="adminName" class="field-input" value="${userProfile.name}"></label><button class="btn primary" id="adminSave">保存</button><button class="btn" id="adminReset">データ初期化</button>`;s.insertBefore(box,s.lastElementChild);$("adminSave").onclick=()=>{userProfile.name=$("adminName").value.trim()||"あなた";saveProfile();updateProfileUI();alert("保存しました。");};$("adminReset").onclick=()=>{if(confirm("ローカルデータを初期化しますか？")){localStorage.removeItem(STORAGE_KEY);location.reload();}};};
+
+  document.addEventListener("DOMContentLoaded",()=>{
+    $("nameInput").addEventListener("change",saveName); $("nameInput").addEventListener("blur",saveName);
+    updateProfileUI(); showTitleDirect();
+    $("noticeList").innerHTML=`<div class="notice-item"><strong>📢 ローカル版として修復済み</strong><div>外部の cards1.js / cpu_decks.js に依存せず、対戦・デッキ・ガチャ・マーケット・プロフィールをブラウザ内で動作するようにしました。</div></div>`;
+    $("eventBanner").classList.add("hidden");
   });
+})();
 </script>
 </body>
 </html>
