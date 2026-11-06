@@ -185,6 +185,7 @@
     @keyframes floatUpFade { 0% { opacity: 0; transform: translate(-50%, 0) scale(0.5); } 20% { opacity: 1; transform: translate(-50%, -15px) scale(1.3); } 100% { opacity: 0; transform: translate(-50%, -40px) scale(1); } }
   </style>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -326,6 +327,7 @@
   <!-- オンラインロビー画面 -->
   <section id="onlineLobbyScreen" class="screen hidden">
     <h2>🌐 ルーム対戦 (フリー)</h2>
+    <div id="supabaseStatus" style="font-size:0.75rem;color:#aaa;text-align:center;max-width:320px;">Supabase接続確認中...</div>
     <div class="menu">
       <button id="btnCreateOnlineRoom" type="button" class="btn primary" onclick="createOnlineRoom()">部屋を作成する</button>
       <div class="join-group">
@@ -594,9 +596,147 @@
   window.joinOnlineRoom=()=>{const code=$("onlineRoomCodeInput").value.trim();if(!/^\d{6}$/.test(code))return alert("6桁の合言葉を入力してください。");if(code===localStorage.getItem("akagi_room")){alert("部屋に入室しました！ローカル対戦を開始します。");startGame("online","normal");}else alert("部屋が見つかりません（このブラウザで作成した部屋のみ利用できます）。");};
   window.openAdminScreen=()=>{setScreen("adminScreen");const s=$("adminScreen");s.querySelectorAll(".admin-extra").forEach(e=>e.remove());const box=document.createElement("div");box.className="admin-extra admin-form";box.innerHTML=`<b>ローカル管理</b><label>プレイヤー名<input id="adminName" class="field-input" value="${userProfile.name}"></label><button class="btn primary" id="adminSave">保存</button><button class="btn" id="adminReset">データ初期化</button>`;s.insertBefore(box,s.lastElementChild);$("adminSave").onclick=()=>{userProfile.name=$("adminName").value.trim()||"あなた";saveProfile();updateProfileUI();alert("保存しました。");};$("adminReset").onclick=()=>{if(confirm("ローカルデータを初期化しますか？")){localStorage.removeItem(STORAGE_KEY);location.reload();}};};
 
+
+  // ===== Supabase オンライン対戦 =====
+  // Supabase Dashboard の Project URL / Publishable(Anon) Key をここへ設定してください。
+  const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
+  const SUPABASE_ANON_KEY = "YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY";
+  let sb = null;
+  let sbUser = null;
+  let sbChannel = null;
+  let onlineRoomId = null;
+  let onlineRoomRole = null;
+  let matchmakingId = null;
+  let matchmakingChannel = null;
+
+  function supabaseConfigured(){
+    return SUPABASE_URL.startsWith("http") && !SUPABASE_URL.includes("YOUR_") && !SUPABASE_ANON_KEY.includes("YOUR_");
+  }
+  function setSupabaseStatus(msg, ok=false){
+    const el=$("supabaseStatus"); if(!el)return; el.textContent=msg; el.style.color=ok?"#52c41a":"#ffcc66";
+  }
+  async function initSupabase(){
+    if(!window.supabase){ setSupabaseStatus("Supabaseライブラリを読み込めません。"); return false; }
+    if(!supabaseConfigured()){ setSupabaseStatus("Supabase設定待ち：HTML内のURL / Keyを入力してください。"); return false; }
+    try{
+      sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+      let {data:{session}}=await sb.auth.getSession();
+      if(!session){ const r=await sb.auth.signInAnonymously(); if(r.error) throw r.error; session=r.data.session; }
+      sbUser=session.user;
+      await ensureProfileRow();
+      setSupabaseStatus(`オンライン接続済み / ID: ${sbUser.id.slice(0,8)}`,true);
+      return true;
+    }catch(e){ console.error(e); setSupabaseStatus(`Supabase接続エラー: ${e.message}`); return false; }
+  }
+  async function ensureProfileRow(){
+    if(!sb||!sbUser)return;
+    const payload={id:sbUser.id,name:userProfile.name,rate:userProfile.rate,wins:userProfile.wins,losses:userProfile.losses};
+    const r=await sb.from("profiles").upsert(payload,{onConflict:"id"});
+    if(r.error) console.warn("profiles upsert:",r.error.message);
+  }
+  async function syncProfileToSupabase(){
+    if(!sb||!sbUser)return;
+    const r=await sb.from("profiles").update({name:userProfile.name,rate:userProfile.rate,wins:userProfile.wins,losses:userProfile.losses}).eq("id",sbUser.id);
+    if(r.error) console.warn("profile update:",r.error.message);
+  }
+  function makeRoomCode(){ return String(Math.floor(100000+Math.random()*900000)); }
+  function onlinePayload(){
+    return {mode:gameState.mode,turn:gameState.turn,turnCount:gameState.turnCount,my:gameState.my,opp:gameState.opp,selectedAttackerIdx:gameState.selectedAttackerIdx,isGameEnded:gameState.isGameEnded};
+  }
+  async function publishRoomState(){
+    if(!sb||!onlineRoomId||!sbUser)return;
+    const r=await sb.from("rooms").update({game_state:onlinePayload(),turn_no:gameState.turnCount,updated_at:new Date().toISOString()}).eq("id",onlineRoomId);
+    if(r.error) log(`通信エラー: ${r.error.message}`,"damage");
+  }
+  function applyRemoteState(state){
+    if(!state)return;
+    // 相手側から見た state を自分視点に入れ替える
+    const remoteMy=state.my, remoteOpp=state.opp;
+    gameState.turn=state.turn; gameState.turnCount=state.turnCount; gameState.isGameEnded=state.isGameEnded;
+    gameState.selectedAttackerIdx=null;
+    gameState.opp=remoteMy; gameState.my=remoteOpp;
+    renderBattle();
+  }
+  async function subscribeRoom(roomId){
+    if(sbChannel) await sb.removeChannel(sbChannel);
+    sbChannel=sb.channel(`room:${roomId}`).on("postgres_changes",{event:"UPDATE",schema:"public",table:"rooms",filter:`id=eq.${roomId}`},payload=>{
+      const row=payload.new; if(row.host_id!==sbUser?.id && row.guest_id!==sbUser?.id)return;
+      if(row.status==="playing" && row.game_state) applyRemoteState(row.game_state);
+      if(row.status==="finished") log("相手が対戦を終了しました。","important");
+      if(row.status==="waiting") log("相手の入室を待っています…");
+    }).subscribe();
+  }
+  async function createSupabaseRoom(){
+    if(!await initSupabase())return;
+    const code=makeRoomCode();
+    const r=await sb.from("rooms").insert({code,host_id:sbUser.id,status:"waiting",game_state:null,turn_no:0}).select().single();
+    if(r.error){ alert(`部屋作成失敗: ${r.error.message}`); return; }
+    onlineRoomId=r.data.id; onlineRoomRole="host"; await subscribeRoom(onlineRoomId);
+    alert(`部屋を作成しました！\n合言葉：${code}\n\n相手が入室すると対戦を開始できます。`);
+    setSupabaseStatus(`部屋 ${code} を作成中 / 相手待ち`,true);
+  }
+  async function joinSupabaseRoom(){
+    const code=$("onlineRoomCodeInput").value.trim();
+    if(!/^\d{6}$/.test(code)){alert("6桁の合言葉を入力してください。");return;}
+    if(!await initSupabase())return;
+    const q=await sb.from("rooms").select("*").eq("code",code).eq("status","waiting").limit(1).maybeSingle();
+    if(q.error||!q.data){alert("部屋が見つかりません。");return;}
+    if(q.data.host_id===sbUser.id){alert("自分が作成した部屋には同じユーザーでは入室できません。");return;}
+    const u=await sb.from("rooms").update({guest_id:sbUser.id,status:"playing",game_state:null,turn_no:1,updated_at:new Date().toISOString()}).eq("id",q.data.id).eq("status","waiting").select().single();
+    if(u.error){alert(`入室失敗: ${u.error.message}`);return;}
+    onlineRoomId=q.data.id; onlineRoomRole="guest"; await subscribeRoom(onlineRoomId);
+    startOnlineBattle("guest",q.data.host_id);
+  }
+  async function startOnlineBattle(role,opponentId){
+    saveName();
+    gameState.mode="online"; gameState.currentDifficulty="normal"; gameState.isGameStarted=true; gameState.isGameEnded=false; gameState.turn=role==="host"?"player":"opponent"; gameState.turnCount=1; gameState.selectedAttackerIdx=null;
+    gameState.my={name:userProfile.name,rate:userProfile.rate,hp:60,maxHp:60,mp:20,maxMp:40,monsters:[null,null,null,null,null],deck:userProfile.deck.map(id=>cloneCard(id)),hand:[]};
+    gameState.opp={name:"オンライン対戦相手",rate:1000,hp:60,maxHp:60,mp:20,maxMp:40,monsters:[null,null,null,null,null],deck:[],hand:[]};
+    shuffle(gameState.my.deck); draw("my",4);
+    setScreen("gameScreen"); $("modeBanner").textContent="🌐 Supabase ルーム対戦"; $("logArea").innerHTML=""; log("オンライン対戦に接続しました。","important");
+    renderBattle();
+    if(role==="host") await publishRoomState();
+  }
+  async function enqueueRanked(){
+    if(!await initSupabase())return;
+    if(matchmakingId){alert("すでにマッチング中です。");return;}
+    const ins=await sb.from("matchmaking_queue").insert({player_id:sbUser.id,rate:userProfile.rate,status:"waiting"}).select().single();
+    if(ins.error){alert(`マッチング登録失敗: ${ins.error.message}`);return;}
+    matchmakingId=ins.data.id;
+    setSupabaseStatus("ランクマッチ検索中…",true);
+    // まず近いレートの待機者を探す。競合時はDB側のstatus更新を監視する。
+    const q=await sb.from("matchmaking_queue").select("*").eq("status","waiting").neq("player_id",sbUser.id).order("created_at",{ascending:true}).limit(1).maybeSingle();
+    if(q.data){
+      const min=await sb.from("matches").insert({player1_id:q.data.player_id,player2_id:sbUser.id,status:"playing"}).select().single();
+      if(!min.error){
+        await sb.from("matchmaking_queue").update({status:"matched",match_id:min.data.id}).in("id",[q.data.id,matchmakingId]);
+        startRankedOnline(min.data.id,"player2");
+        return;
+      }
+    }
+    if(matchmakingChannel) await sb.removeChannel(matchmakingChannel);
+    matchmakingChannel=sb.channel(`queue:${matchmakingId}`).on("postgres_changes",{event:"UPDATE",schema:"public",table:"matchmaking_queue",filter:`id=eq.${matchmakingId}`},async p=>{
+      if(p.new.status==="matched"&&p.new.match_id) startRankedOnline(p.new.match_id,"player1");
+    }).subscribe();
+  }
+  async function startRankedOnline(matchId,side){
+    const m=await sb.from("matches").select("*").eq("id",matchId).single();
+    if(m.error)return;
+    gameState.mode="ranked"; gameState.isGameStarted=true; gameState.isGameEnded=false; gameState.turn=side==="player1"?"player":"opponent"; gameState.turnCount=1; gameState.selectedAttackerIdx=null;
+    gameState.my={name:userProfile.name,rate:userProfile.rate,hp:60,maxHp:60,mp:20,maxMp:40,monsters:[null,null,null,null,null],deck:userProfile.deck.map(id=>cloneCard(id)),hand:[]};
+    gameState.opp={name:"ランク対戦相手",rate:1000,hp:60,maxHp:60,mp:20,maxMp:40,monsters:[null,null,null,null,null],deck:[],hand:[]};
+    shuffle(gameState.my.deck); draw("my",4); setScreen("gameScreen"); $("modeBanner").textContent="⚔️ Supabase ランクマッチ"; $("logArea").innerHTML=""; log("ランクマッチ成立！","important"); renderBattle();
+    if(!sbChannel) sbChannel=sb.channel(`match:${matchId}`).on("postgres_changes",{event:"UPDATE",schema:"public",table:"matches",filter:`id=eq.${matchId}`},p=>{if(p.new.game_state&&p.new.game_state.side!==side)applyRemoteState(p.new.game_state);}).subscribe();
+    await sb.from("matches").update({game_state:{...onlinePayload(),side},turn_no:1}).eq("id",matchId);
+  }
+  // 既存のローカル実装をSupabase版へ差し替え
+  window.createOnlineRoom=createSupabaseRoom;
+  window.joinOnlineRoom=joinSupabaseRoom;
+  window.searchRankedMatch=()=>{setScreen("onlineLobbyScreen"); enqueueRanked();};
+
   document.addEventListener("DOMContentLoaded",()=>{
     $("nameInput").addEventListener("change",saveName); $("nameInput").addEventListener("blur",saveName);
-    updateProfileUI(); showTitleDirect();
+    updateProfileUI(); showTitleDirect(); initSupabase();
     $("noticeList").innerHTML=`<div class="notice-item"><strong>📢 ローカル版として修復済み</strong><div>外部の cards1.js / cpu_decks.js に依存せず、対戦・デッキ・ガチャ・マーケット・プロフィールをブラウザ内で動作するようにしました。</div></div>`;
     $("eventBanner").classList.add("hidden");
   });
